@@ -1327,6 +1327,11 @@ function loadData() {
         confidenceIntervals = d.confidenceIntervals||{};
         activeEvents = d.activeEvents||{};
         savedOdds = d.savedOdds||{};
+        if(d.factorMult!=null && !isNaN(d.factorMult) && d.factorMult>=0) {
+          FACTOR_MULT = d.factorMult;
+          const el = document.getElementById('factorMult');
+          if(el) el.value = FACTOR_MULT;
+        }
         return true;
       }
     } catch(e){ console.warn('loadData error for key '+key, e); }
@@ -1365,7 +1370,8 @@ function saveData() {
     simHistory: (simHistory||[]).slice(-10),
     confidenceIntervals,
     activeEvents,
-    savedOdds
+    savedOdds,
+    factorMult: FACTOR_MULT
   });
 
   try {
@@ -1452,7 +1458,7 @@ async function runSim() {
   function mp(a,b){
     const ea=calcAdjELO(a)+(HOST_SET.has(a.name)?HOST_BONUS:0);
     const eb=calcAdjELO(b)+(HOST_SET.has(b.name)?HOST_BONUS:0);
-    const d=ea-eb,rp=1/(1+Math.pow(10,-d/400)),pd=Math.max(0.05,0.30-0.0012*Math.abs(d));
+    const d=ea-eb,rp=1/(1+Math.pow(10,-d/400)),pd=Math.max(0.12,0.28-0.0004*Math.abs(d));
     return {pA:Math.max(0.01,rp*(1-pd)),pDraw:pd,pB:Math.max(0.01,(1-rp)*(1-pd))};
   }
   function poissonSample(lambda){
@@ -2194,7 +2200,7 @@ const _HOST_BONUS=55;
 function getMatchProb(a,b){
   const ea=calcAdjELO(a)+(_HOST_SET.has(a.name)?_HOST_BONUS:0);
   const eb=calcAdjELO(b)+(_HOST_SET.has(b.name)?_HOST_BONUS:0);
-  const d=ea-eb,rp=1/(1+Math.pow(10,-d/400)),pd=Math.max(0.05,0.30-0.0012*Math.abs(d));
+  const d=ea-eb,rp=1/(1+Math.pow(10,-d/400)),pd=Math.max(0.12,0.28-0.0004*Math.abs(d));
   return {pA:Math.max(0.01,rp*(1-pd)),pB:Math.max(0.01,(1-rp)*(1-pd)),pD:pd};
 }
 // Build default bracket slots from sim results using official group-pair structure:
@@ -2858,7 +2864,7 @@ function renderUpset(){
   const {advanceCount,totalSims}=simResults;
   function getUpsetProb(a,b){
     const ea=calcAdjELO(a),eb=calcAdjELO(b);
-    const d=ea-eb,rp=1/(1+Math.pow(10,-d/400)),pd=Math.max(0.05,0.30-0.0012*Math.abs(d));
+    const d=ea-eb,rp=1/(1+Math.pow(10,-d/400)),pd=Math.max(0.12,0.28-0.0004*Math.abs(d));
     const pA=Math.max(0.01,rp*(1-pd)),pB=Math.max(0.01,(1-rp)*(1-pd));
     return {stronger:ea>=eb?a.name:b.name,weaker:ea<eb?a.name:b.name,upset:ea<eb?pA:pB,eloDiff:Math.abs(d)};
   }
