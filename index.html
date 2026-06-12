@@ -3530,8 +3530,6 @@ function init() {
   // Auto-start score refresh if keys are present
   if(scoreApiKeys.odds || scoreApiKeys.football) startScoreAutoRefresh();
 }
-init();
-
 // ─── EXPORT FOR ONCLICK HANDLERS ───
 window.runSim=runSim;
 window.toggleDark=toggleDark;
@@ -3633,6 +3631,8 @@ window.renderHistogram=renderHistogram;
 window.renderCI=renderCI;
 window.renderEditor=renderEditor;
 window.renderStandings=renderStandings;
+
+init();
 
 })();
 
