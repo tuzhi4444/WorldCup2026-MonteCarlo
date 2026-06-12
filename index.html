@@ -1414,7 +1414,18 @@ function switchTab(name,btn) {
   const el=document.getElementById('tab-'+name);
   if(el) el.classList.add('active');
   if(name==='championship'){renderELO();renderHistogram();}
-  if(name==='teams'){renderRadar();}
+  if(name==='teams'){
+    // 首次打开雷达图时自动选前3强队
+    const r1=document.getElementById('radarT1');
+    if(r1&&!r1.value){
+      const top3=teams.slice().sort((a,b)=>calcAdjELO(b)-calcAdjELO(a)).slice(0,3);
+      ['radarT1','radarT2','radarT3'].forEach((id,i)=>{
+        const s=document.getElementById(id);
+        if(s&&top3[i]) s.value=top3[i].name;
+      });
+    }
+    renderRadar();
+  }
   if(name==='history'){renderScoreAnalysis();}
 }
 
@@ -2698,6 +2709,42 @@ function renderRadar() {
     grid:{color:d?'#21262d':'#e8ecf0'},angleLines:{color:d?'#21262d':'#e8ecf0'}}}}
   });
   }catch(e){console.error('renderRadar failed',e);}
+}
+
+function renderPlayers() {
+  const name = document.getElementById('playerTeamSelect').value;
+  const el = document.getElementById('playersContent');
+  if(!el) return;
+  if(!name){el.innerHTML='<div class="empty-state">选择球队查看详情</div>';return;}
+  const t = teams.find(x=>x.name===name);
+  if(!t){el.innerHTML='<div class="empty-state">未找到球队数据</div>';return;}
+  const adj = calcAdjELO(t), ws = calcWeight(t);
+  const factorBar = (v,max=10) => {
+    const pct = (v/max*100).toFixed(0);
+    const color = v>=8?'var(--green)':v>=6?'var(--accent)':v>=4?'var(--orange)':'var(--red)';
+    return `<div style="display:flex;align-items:center;gap:6px;">
+      <div style="flex:1;height:5px;background:var(--bg3);border-radius:99px;overflow:hidden;">
+        <div style="width:${pct}%;height:100%;background:${color};border-radius:99px;"></div>
+      </div>
+      <span style="font-size:10px;font-weight:700;min-width:14px;text-align:right;">${v}</span>
+    </div>`;
+  };
+  const rows = FACTORS.map(f=>`
+    <div style="display:grid;grid-template-columns:80px 1fr;align-items:center;gap:8px;padding:3px 0;border-bottom:1px solid var(--border);">
+      <span style="font-size:10px;color:var(--text2);">${f.name||f.key}</span>
+      ${factorBar(t[f.key]||5)}
+    </div>`).join('');
+  const hostNote = ['美国','加拿大','墨西哥'].includes(t.name)?'<span style="font-size:9px;color:var(--orange);margin-left:6px;">🏠 主办国 +55 ELO</span>':'';
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px;background:var(--bg2);border-radius:8px;">
+      <div style="font-size:28px;">${getFlag(t.name)}</div>
+      <div>
+        <div style="font-size:14px;font-weight:800;">${TN(t.name)}${hostNote}</div>
+        <div style="font-size:10px;color:var(--text2);">小组 ${t.group} &nbsp;·&nbsp; 基础 ELO <b>${t.elo}</b> &nbsp;·&nbsp; 综合 ELO <span style="color:var(--accent);font-weight:700;">${adj}</span></div>
+        <div style="font-size:10px;color:var(--text2);">因子总分 <b>${ws.toFixed(1)}</b> / 10 &nbsp;·&nbsp; 因子倍数 ×${FACTOR_MULT.toFixed(1)}</div>
+      </div>
+    </div>
+    <div>${rows}</div>`;
 }
 
 function renderEditor() {
@@ -3984,6 +4031,7 @@ window.renderRadar=renderRadar;
 window.renderHistogram=renderHistogram;
 window.renderCI=renderCI;
 window.renderEditor=renderEditor;
+window.renderPlayers=renderPlayers;
 window.renderStandings=renderStandings;
 
 init();
