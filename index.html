@@ -416,8 +416,7 @@ body {
   <button class="tab" onclick="switchTab('teams',this)">📊 球队数据</button>
   <button class="tab" onclick="switchTab('analysis',this)">🔬 分析</button>
   <button class="tab" onclick="switchTab('schedule',this)">📅 赛程</button>
-  <button class="tab" onclick="switchTab('predict',this)">🎯 比分预测</button>
-  <button class="tab" onclick="switchTab('history',this)">📈 历史</button>
+  <button class="tab" onclick="switchTab('history',this)">🎯 比分预测</button>
 </div>
 
 <!-- ═══ MAIN ═══ -->
@@ -666,8 +665,8 @@ body {
   </div>
 </div>
 
-<!-- ─── TAB: HISTORY ─── -->
-<div class="tab-content" id="tab-predict">
+<!-- ─── TAB: PREDICT + HISTORY ─── -->
+<div class="tab-content" id="tab-history">
   <div class="panel">
     <div class="panel-header"><h3>🎯 比分预测</h3><div style="display:flex;gap:6px;">
       <button class="btn btn-sm sa-tab-btn active" onclick="saSwitch('group',this)">小组赛</button>
@@ -675,10 +674,7 @@ body {
     </div></div>
     <div id="saContent"></div>
   </div>
-</div>
-
-<div class="tab-content" id="tab-history">
-  <div class="panel">
+  <div class="panel" style="margin-top:12px;">
     <div class="panel-header"><h3 data-i18n="panel_history">📈 模拟历史对比</h3><div><button class="btn btn-sm" onclick="saveSnapshot()" data-i18n="snapshot">📸 快照</button><button class="btn btn-sm" onclick="clearHistory()" style="margin-left:4px;" data-i18n="clear">清空</button></div></div>
     <div id="historyContent"><div class="empty-state">运行模拟后保存快照，对比调参前后变化</div></div>
   </div>
@@ -1405,8 +1401,9 @@ function initDark() {
 
 // ─── TABS ───
 function switchTab(name,btn) {
-  // 别名映射（历史遗留跳转）
+  // 别名映射
   if(name==='matchEntry') name='schedule';
+  if(name==='predict') name='history';
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
   // 同步高亮按钮
@@ -1418,7 +1415,7 @@ function switchTab(name,btn) {
   if(el) el.classList.add('active');
   if(name==='championship'){renderELO();renderHistogram();}
   if(name==='teams'){renderRadar();}
-  if(name==='predict'){renderScoreAnalysis();}
+  if(name==='history'){renderScoreAnalysis();}
 }
 
 // ─── NOTIFY ───
@@ -3643,25 +3640,30 @@ function renderSAGroup(el) {
     </div>`;
   }
 
-  const now = new Date();
+  // 按日期排序，同日期内按小组字母排序
   const activeG = saGroupFilter==='ALL' ? ALL_GROUPS : [saGroupFilter];
-  let html = filterHtml + accBanner;
-
-  activeG.forEach(g => {
-    const gMatches = schedGroup.filter(m => m.group===g);
-    if (!gMatches.length) return;
-    let sectionHtml = '';
-    gMatches.forEach(m => {
-      const t1=teams.find(t=>t.name===m.home), t2=teams.find(t=>t.name===m.away);
-      if(!t1||!t2) return;
-      const rec=matchResults.find(r=>(r.t1===t1.name&&r.t2===t2.name)||(r.t1===t2.name&&r.t2===t1.name));
-      if(saFutureOnly && rec) return;
-      const recorded=rec?{score1:rec.t1===t1.name?rec.score1:rec.score2,score2:rec.t1===t1.name?rec.score2:rec.score1}:null;
-      sectionHtml += spCard(t1, t2, false, recorded, m.date||'');
+  const filtered = schedGroup
+    .filter(m => activeG.includes(m.group))
+    .sort((a, b) => {
+      const da = (a.date||'99/99'), db = (b.date||'99/99');
+      return da < db ? -1 : da > db ? 1 : a.group < b.group ? -1 : 1;
     });
-    if (!sectionHtml) return;
-    html += `<div style="font-size:10px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border);">小组 ${g}</div>`;
-    html += sectionHtml;
+
+  // 按日期分组显示
+  let html = filterHtml + accBanner;
+  let lastDate = '';
+  filtered.forEach(m => {
+    const t1=teams.find(t=>t.name===m.home), t2=teams.find(t=>t.name===m.away);
+    if(!t1||!t2) return;
+    const rec=matchResults.find(r=>(r.t1===t1.name&&r.t2===t2.name)||(r.t1===t2.name&&r.t2===t1.name));
+    if(saFutureOnly && rec) return;
+    const recorded=rec?{score1:rec.t1===t1.name?rec.score1:rec.score2,score2:rec.t1===t1.name?rec.score2:rec.score1}:null;
+    const dateLabel = m.date ? `2026/${m.date} · 小组${m.group}` : `小组${m.group}`;
+    if(m.date && m.date !== lastDate) {
+      html += `<div style="font-size:10px;font-weight:800;color:var(--text2);letter-spacing:.5px;margin:10px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border);">📅 2026/${m.date}</div>`;
+      lastDate = m.date;
+    }
+    html += spCard(t1, t2, false, recorded, `小组${m.group}`);
   });
 
   el.innerHTML = html || '<div class="empty-state">暂无符合条件的场次</div>';
