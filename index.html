@@ -681,8 +681,13 @@ body {
         </div>
       </div>
     </details>
-    <div style="display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap;">
-      <button class="btn btn-sm" onclick="filterSchedGroup('ALL')" style="background:var(--accent);color:#fff;" id="schedAllBtn">\u5168\u90e8</button>
+    <div style="display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap;align-items:center;">
+      <span style="font-size:10px;color:var(--text3);white-space:nowrap;">\ud83d\udcc5 \u65e5\u671f</span>
+      <span id="schedDateBtns"></span>
+    </div>
+    <div style="display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap;align-items:center;">
+      <span style="font-size:10px;color:var(--text3);white-space:nowrap;">\ud83c\udff3 \u5c0f\u7ec4</span>
+      <button class="btn btn-sm" onclick="filterSchedGroup('ALL')" id="schedAllBtn">\u5168\u90e8</button>
       <span id="schedGroupBtns"></span>
     </div>
     <div class="schedule-grid" id="scheduleGrid"></div>
@@ -1115,7 +1120,7 @@ const TEAMS_INIT = [
   { name:'西班牙', en:'Spain', group:'H', elo:2010, overall:9, depth:8, defense:8, attack:8, stars:8, coach:9, experience:8, chemistry:8, leader:8, fitness:8, goalkeeper:7, setpiece:8, tactFlex:9 },
   { name:'法国', en:'France', group:'I', elo:1985, overall:8, depth:9, defense:8, attack:9, stars:9, coach:7, experience:8, chemistry:7, leader:8, fitness:8, goalkeeper:8, setpiece:7, tactFlex:7 },
   { name:'英格兰', en:'England', group:'L', elo:1965, overall:8, depth:8, defense:7, attack:8, stars:9, coach:8, experience:7, chemistry:7, leader:8, fitness:8, goalkeeper:7, setpiece:8, tactFlex:8 },
-  { name:'巴西', en:'Brazil', group:'C', elo:1940, overall:8, depth:8, defense:7, attack:9, stars:9, coach:7, experience:7, chemistry:7, leader:7, fitness:8, goalkeeper:8, setpiece:7, tactFlex:8 },
+  { name:'巴西', en:'Brazil', group:'C', elo:1890, overall:8, depth:8, defense:7, attack:9, stars:9, coach:7, experience:7, chemistry:7, leader:7, fitness:8, goalkeeper:8, setpiece:7, tactFlex:8 },
   { name:'德国', en:'Germany', group:'E', elo:1925, overall:8, depth:7, defense:7, attack:8, stars:8, coach:8, experience:7, chemistry:7, leader:7, fitness:7, goalkeeper:7, setpiece:7, tactFlex:8 },
   { name:'葡萄牙', en:'Portugal', group:'K', elo:1920, overall:7, depth:7, defense:7, attack:8, stars:8, coach:7, experience:8, chemistry:7, leader:8, fitness:7, goalkeeper:7, setpiece:8, tactFlex:7 },
   { name:'哥伦比亚', en:'Colombia', group:'K', elo:1900, overall:7, depth:6, defense:6, attack:8, stars:7, coach:7, experience:6, chemistry:7, leader:6, fitness:7, goalkeeper:6, setpiece:6, tactFlex:6 },
@@ -1125,7 +1130,7 @@ const TEAMS_INIT = [
   { name:'挪威', en:'Norway', group:'I', elo:1865, overall:7, depth:6, defense:6, attack:8, stars:8, coach:6, experience:6, chemistry:6, leader:7, fitness:7, goalkeeper:6, setpiece:7, tactFlex:6 },
   { name:'土耳其', en:'Turkiye', group:'D', elo:1860, overall:6, depth:6, defense:6, attack:7, stars:7, coach:6, experience:5, chemistry:6, leader:6, fitness:6, goalkeeper:6, setpiece:6, tactFlex:7 },
   { name:'美国', en:'USA', group:'D', elo:1845, overall:6, depth:6, defense:5, attack:6, stars:6, coach:7, experience:5, chemistry:6, leader:6, fitness:7, goalkeeper:5, setpiece:5, tactFlex:6 },
-  { name:'克罗地亚', en:'Croatia', group:'L', elo:1840, overall:6, depth:6, defense:6, attack:6, stars:6, coach:6, experience:9, chemistry:7, leader:8, fitness:5, goalkeeper:6, setpiece:7, tactFlex:6 },
+  { name:'克罗地亚', en:'Croatia', group:'L', elo:1840, overall:6, depth:6, defense:6, attack:6, stars:6, coach:6, experience:8, chemistry:7, leader:8, fitness:5, goalkeeper:6, setpiece:7, tactFlex:6 },
   { name:'瑞士', en:'Switzerland', group:'B', elo:1840, overall:6, depth:6, defense:7, attack:6, stars:6, coach:6, experience:6, chemistry:6, leader:6, fitness:6, goalkeeper:7, setpiece:6, tactFlex:6 },
   { name:'乌拉圭', en:'Uruguay', group:'H', elo:1835, overall:6, depth:6, defense:7, attack:7, stars:7, coach:7, experience:7, chemistry:6, leader:7, fitness:6, goalkeeper:7, setpiece:6, tactFlex:6 },
   { name:'科特迪瓦', en:'Ivory Coast', group:'E', elo:1830, overall:6, depth:6, defense:5, attack:7, stars:7, coach:6, experience:5, chemistry:6, leader:6, fitness:7, goalkeeper:5, setpiece:5, tactFlex:6 },
@@ -1140,7 +1145,7 @@ const TEAMS_INIT = [
   { name:'埃及', en:'Egypt', group:'G', elo:1760, overall:5, depth:5, defense:5, attack:6, stars:6, coach:5, experience:5, chemistry:5, leader:6, fitness:5, goalkeeper:5, setpiece:5, tactFlex:5 },
   { name:'澳大利亚', en:'Australia', group:'D', elo:1755, overall:5, depth:4, defense:5, attack:5, stars:5, coach:5, experience:5, chemistry:5, leader:5, fitness:5, goalkeeper:5, setpiece:4, tactFlex:5 },
   { name:'伊朗', en:'Iran', group:'G', elo:1750, overall:5, depth:4, defense:7, attack:4, stars:5, coach:5, experience:6, chemistry:5, leader:5, fitness:5, goalkeeper:5, setpiece:5, tactFlex:5 },
-  { name:'韩国', en:'Korea Republic', group:'A', elo:1760, overall:5, depth:5, defense:5, attack:6, stars:7, coach:5, experience:5, chemistry:5, leader:6, fitness:6, goalkeeper:5, setpiece:5, tactFlex:5 },
+  { name:'韩国', en:'Korea Republic', group:'A', elo:1760, overall:5, depth:5, defense:5, attack:6, stars:6, coach:5, experience:5, chemistry:5, leader:6, fitness:6, goalkeeper:5, setpiece:5, tactFlex:5 },
   { name:'阿尔及利亚', en:'Algeria', group:'J', elo:1745, overall:5, depth:4, defense:5, attack:5, stars:5, coach:5, experience:4, chemistry:5, leader:5, fitness:5, goalkeeper:5, setpiece:5, tactFlex:4 },
   { name:'乌兹别克斯坦', en:'Uzbekistan', group:'K', elo:1710, overall:4, depth:4, defense:5, attack:5, stars:4, coach:5, experience:4, chemistry:5, leader:4, fitness:5, goalkeeper:4, setpiece:4, tactFlex:5 },
   { name:'捷克', en:'Czechia', group:'A', elo:1740, overall:5, depth:4, defense:5, attack:5, stars:5, coach:5, experience:5, chemistry:4, leader:5, fitness:4, goalkeeper:6, setpiece:5, tactFlex:4 },
@@ -1151,9 +1156,9 @@ const TEAMS_INIT = [
   { name:'伊拉克', en:'Iraq', group:'I', elo:1660, overall:4, depth:3, defense:4, attack:4, stars:4, coach:3, experience:3, chemistry:4, leader:3, fitness:4, goalkeeper:4, setpiece:3, tactFlex:3 },
   { name:'波黑', en:'Bosnia', group:'B', elo:1640, overall:3, depth:3, defense:4, attack:4, stars:4, coach:3, experience:3, chemistry:3, leader:4, fitness:3, goalkeeper:3, setpiece:3, tactFlex:3 },
   { name:'加纳', en:'Ghana', group:'L', elo:1640, overall:4, depth:4, defense:4, attack:5, stars:5, coach:3, experience:4, chemistry:4, leader:4, fitness:4, goalkeeper:3, setpiece:3, tactFlex:3 },
-  { name:'巴拿马', en:'Panama', group:'L', elo:1720, overall:4, depth:4, defense:5, attack:4, stars:3, coach:5, experience:5, chemistry:5, leader:4, fitness:5, goalkeeper:4, setpiece:4, tactFlex:4 },
+  { name:'巴拿马', en:'Panama', group:'L', elo:1680, overall:4, depth:4, defense:5, attack:4, stars:3, coach:5, experience:5, chemistry:5, leader:4, fitness:5, goalkeeper:4, setpiece:4, tactFlex:4 },
   { name:'佛得角', en:'Cabo Verde', group:'H', elo:1630, overall:4, depth:3, defense:4, attack:4, stars:3, coach:4, experience:3, chemistry:4, leader:3, fitness:4, goalkeeper:3, setpiece:3, tactFlex:4 },
-  { name:'沙特阿拉伯', en:'Saudi Arabia', group:'H', elo:1630, overall:3, depth:3, defense:3, attack:3, stars:3, coach:3, experience:3, chemistry:3, leader:3, fitness:5, goalkeeper:3, setpiece:3, tactFlex:3 },
+  { name:'沙特阿拉伯', en:'Saudi Arabia', group:'H', elo:1630, overall:3, depth:3, defense:3, attack:3, stars:3, coach:3, experience:3, chemistry:3, leader:3, fitness:6, goalkeeper:3, setpiece:3, tactFlex:3 },
   { name:'新西兰', en:'New Zealand', group:'G', elo:1600, overall:3, depth:2, defense:3, attack:3, stars:3, coach:3, experience:3, chemistry:3, leader:3, fitness:3, goalkeeper:3, setpiece:3, tactFlex:3 },
   { name:'南非', en:'South Africa', group:'A', elo:1590, overall:3, depth:3, defense:4, attack:3, stars:3, coach:3, experience:3, chemistry:4, leader:3, fitness:4, goalkeeper:3, setpiece:3, tactFlex:3 },
   { name:'海地', en:'Haiti', group:'C', elo:1555, overall:2, depth:2, defense:2, attack:2, stars:2, coach:2, experience:2, chemistry:2, leader:2, fitness:3, goalkeeper:2, setpiece:2, tactFlex:2 },
@@ -3549,20 +3554,54 @@ function showSquad(name) {
   </div>`;
 
   const totalPlayers = sq.players.length;
+  const adjElo = t ? calcAdjELO(t) : 0;
+  const eloLine = t ? `<span style="font-size:11px;color:var(--text3);">ELO ${t.elo} · 调整ELO ${adjElo}</span>` : '';
   detail.innerHTML = `<div class="panel">
     <div class="panel-header">
       <h3 style="display:flex;align-items:center;gap:8px"><span style="font-size:28px">${flag}</span>${name} 队伍名单</h3>
       <button class="btn btn-sm" onclick="document.getElementById('squadDetail').style.display='none'">✕ 关闭</button>
     </div>
     <div style="padding:8px 0">
-      <div style="font-size:12px;color:var(--text2);margin-bottom:10px">共 ${totalPlayers} 名球员 · 按身价排序</div>
-      ${coachHtml}
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap;">
+        <span style="font-size:12px;color:var(--text2);">共 ${totalPlayers} 名球员 · 按身价排序</span>
+        ${eloLine}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;align-items:start;">
+        <div>${coachHtml}</div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px;">
+          <div style="font-size:10px;color:var(--text3);font-weight:600;margin-bottom:4px;text-align:center;">⬡ 能力雷达图</div>
+          <canvas id="squadRadarCanvas" style="max-height:200px;"></canvas>
+        </div>
+      </div>
       ${posSection('GK')}
       ${posSection('DF')}
       ${posSection('MF')}
       ${posSection('FW')}
     </div>
   </div>`;
+
+  // Draw radar chart for the team
+  if(t && typeof Chart !== 'undefined') {
+    setTimeout(()=>{
+      const ctx = document.getElementById('squadRadarCanvas');
+      if(!ctx) return;
+      const labels = FACTORS.map(f=>f.name);
+      const data   = FACTORS.map(f=>t[f.key]||5);
+      const isDark = document.documentElement.getAttribute('data-theme')==='dark';
+      const lineCol = isDark?'rgba(88,166,255,0.9)':'rgba(37,99,235,0.9)';
+      const fillCol = isDark?'rgba(88,166,255,0.15)':'rgba(37,99,235,0.12)';
+      if(ctx._squadChart) ctx._squadChart.destroy();
+      ctx._squadChart = new Chart(ctx, {
+        type:'radar',
+        data:{labels, datasets:[{label:name, data, borderColor:lineCol, backgroundColor:fillCol, pointRadius:3, pointBackgroundColor:lineCol, borderWidth:2}]},
+        options:{
+          responsive:true, maintainAspectRatio:true,
+          scales:{r:{min:0,max:10,ticks:{stepSize:2,font:{size:8},color:'var(--text3)'},pointLabels:{font:{size:9},color:'var(--text2)'}}},
+          plugins:{legend:{display:false}}
+        }
+      });
+    }, 50);
+  }
 }
 
 // ─── HEAD-TO-HEAD COMPARISON ───
@@ -3709,22 +3748,26 @@ function renderTopScorer() {
   });
   scorers.sort((a,b)=>b.goals-a.goals);
   const top20=scorers.slice(0,20);
+  const valFmt=v=>!v||v<=0?'—':v>=10000?(v/10000).toFixed(1)+'亿€':v>=100?(v/100).toFixed(0)+'M€':v+'万€';
   const rows=top20.map((s,i)=>`<tr style="${i<3?'background:rgba(234,179,8,.08)':''}">
-    <td style="padding:5px 8px;font-size:13px;font-weight:700;color:${i===0?'#f59e0b':i===1?'#94a3b8':i===2?'#b45309':'var(--text2)'}">${i+1}</td>
-    <td style="padding:5px 8px;font-size:13px;font-weight:600">${s.n}</td>
+    <td style="padding:5px 8px;font-size:13px;font-weight:700;color:${i===0?'#f59e0b':i===1?'#94a3b8':i===2?'#b45309':'var(--text2)'}">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</td>
+    <td style="padding:5px 8px;font-size:13px;font-weight:600">${s.n}<br><span style="font-size:9px;color:var(--text3);font-weight:400">${s.pos==='FW'?'⚡前锋':'⚙️中场'}</span></td>
     <td style="padding:5px 8px;font-size:12px;white-space:nowrap">${getFlag(s.team)} ${s.team}</td>
-    <td style="padding:5px 8px;font-size:11px;color:var(--text2)">${s.club}</td>
-    <td style="padding:5px 8px;font-size:14px;font-weight:800;color:var(--accent)">${s.goals.toFixed(1)}</td>
+    <td style="padding:5px 8px;font-size:11px;color:var(--text2);max-width:120px;">${s.club||'—'}<br><span style="font-size:10px;color:var(--accent);font-weight:600;">${valFmt(s.val)}</span></td>
+    <td style="padding:5px 8px;text-align:center;">
+      <span style="font-size:16px;font-weight:800;color:var(--accent)">${s.goals.toFixed(1)}</span>
+      <div style="height:3px;background:var(--border);border-radius:2px;margin-top:2px;"><div style="height:3px;background:var(--accent);border-radius:2px;width:${(s.goals/top20[0].goals*100).toFixed(0)}%"></div></div>
+    </td>
   </tr>`).join('');
   el.innerHTML=`<div style="font-size:11px;color:var(--text2);margin-bottom:8px">
-    队伍进攻评分 × 预期出场场次 × 前锋个人贡献率 | 仅供参考
+    进攻评分 × 预期出场 × 前锋个人贡献率 | 身价数据来自球队名单
   </div>
   <table style="width:100%;border-collapse:collapse">
     <thead><tr style="border-bottom:1px solid var(--border)">
       <th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--text2)">#</th>
       <th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--text2)">球员</th>
       <th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--text2)">球队</th>
-      <th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--text2)">俱乐部</th>
+      <th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--text2)">俱乐部 / 身价</th>
       <th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--text2)">预测进球</th>
     </tr></thead>
     <tbody>${rows}</tbody>
@@ -4164,16 +4207,41 @@ function renderOdds(){
 
 // ─── TAB: SCHEDULE ───
 let schedGroupFilter='ALL';
+let schedDateFilter='ALL';
 function filterSchedGroup(g){schedGroupFilter=g;renderSchedule();}
+function filterSchedDate(d){schedDateFilter=d;renderSchedule();}
+window.filterSchedDate=filterSchedDate;
+
+const SCHED_DATE_RANGES=[
+  {key:'ALL',  label:'\u5168\u90e8',      from:'2026-06-01', to:'2026-07-31'},
+  {key:'MD1',  label:'MD1 6/11-17', from:'2026-06-11', to:'2026-06-17'},
+  {key:'MD2',  label:'MD2 6/18-23', from:'2026-06-18', to:'2026-06-23'},
+  {key:'MD3',  label:'MD3 6/24-27', from:'2026-06-24', to:'2026-06-27'},
+  {key:'R32',  label:'R32 6/29-7/2',from:'2026-06-29', to:'2026-07-02'},
+  {key:'R16',  label:'R16 7/4-7/7', from:'2026-07-04', to:'2026-07-07'},
+  {key:'QF',   label:'QF 7/9-10',   from:'2026-07-09', to:'2026-07-10'},
+  {key:'SF',   label:'SF 7/14-15',  from:'2026-07-14', to:'2026-07-15'},
+  {key:'FIN',  label:'\u51b3\u8d5b 7/19',   from:'2026-07-18', to:'2026-07-19'},
+];
 
 function renderSchedule() {
   const grid=document.getElementById('scheduleGrid');
   const btnContainer=document.getElementById('schedGroupBtns');
+  const dateBtnContainer=document.getElementById('schedDateBtns');
+  if(dateBtnContainer){
+    dateBtnContainer.innerHTML=SCHED_DATE_RANGES.map(r=>
+      `<button class="btn btn-sm" onclick="filterSchedDate('${r.key}')" style="${schedDateFilter===r.key?'background:var(--accent);color:#fff;':''}">${r.label}</button>`
+    ).join('');
+  }
   if(btnContainer){
     btnContainer.innerHTML=['ALL','A','B','C','D','E','F','G','H','I','J','K','L','KO'].map(g=>
       `<button class="btn btn-sm" onclick="filterSchedGroup('${g}')" style="${schedGroupFilter===g?'background:var(--accent);color:#fff;':''}">${g==='ALL'?T('all'):g==='KO'?T('ko'):currentLang==='zh'?g+'\u7ec4':'Grp '+g}</button>`
     ).join('');
   }
+  // sync the "\u5168\u90e8" group button highlight
+  const allBtn=document.getElementById('schedAllBtn');
+  if(allBtn) allBtn.style.cssText=schedGroupFilter==='ALL'?'background:var(--accent);color:#fff;':'';
+
   const now=new Date();
   // Count past group matches without recorded results \u2192 show banner
   const needEntry=MATCH_SCHEDULE.filter(m=>{
@@ -4191,7 +4259,12 @@ function renderSchedule() {
       :`\u26a0\ufe0f \u6709 ${needEntry.length} \u573a\u5df2\u8d5b\u6bd4\u8d5b\u672a\u5f55\u5165\u7ed3\u679c\uff0c\u5f55\u5165\u540e\u53ef\u63d0\u5347\u6a21\u62df\u51c6\u786e\u6027`;
     html+=`<div style="background:rgba(234,179,8,.12);border:1px solid rgba(234,179,8,.4);border-radius:7px;padding:7px 10px;margin-bottom:8px;font-size:11px;color:var(--gold);">${lbl}</div>`;
   }
-  const filtered=MATCH_SCHEDULE.filter(m=>schedGroupFilter==='ALL'||m.group===schedGroupFilter);
+  const dr=SCHED_DATE_RANGES.find(r=>r.key===schedDateFilter)||SCHED_DATE_RANGES[0];
+  const filtered=MATCH_SCHEDULE.filter(m=>{
+    if(schedGroupFilter!=='ALL'&&m.group!==schedGroupFilter) return false;
+    if(schedDateFilter!=='ALL'&&(m.date<dr.from||m.date>dr.to)) return false;
+    return true;
+  });
   filtered.sort((a,b)=>a.date.localeCompare(b.date)||a.id-b.id);
   filtered.forEach(m=>{
     const result=matchResults.find(r=>(r.t1===m.home&&r.t2===m.away)||(r.t1===m.away&&r.t2===m.home));
