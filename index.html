@@ -3424,7 +3424,7 @@ function predictScore(t1, t2, isKO) {
     for (let j = 0; j <= 6; j++) {
       const p = poissonProb(l1,i) * poissonProb(l2,j);
       if (i > j) pW += p; else if (i === j) pD += p; else pL += p;
-      if (p > 0.008) scores.push({ s1:i, s2:j, p });
+      scores.push({ s1:i, s2:j, p });
     }
   }
   scores.sort((a,b) => b.p - a.p);
