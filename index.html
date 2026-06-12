@@ -2120,7 +2120,7 @@ function switchTab(name,btn) {
     renderQualProb(); renderTopScorer();
   }
   if(name==='groups'){initGroupSim();}
-  if(name==='schedule'){if(!_schedAutoFetched){_schedAutoFetched=true;setTimeout(fetchLiveScores,400);}}
+  if(name==='schedule'){if(!_schedAutoFetched){_schedAutoFetched=true;setTimeout(fetchLiveScores,400);setTimeout(fetchUpcomingOddsESPN,800);}}
   if(name!=='schedule'){_stopCountdown();}
 }
 let _schedAutoFetched=false;
@@ -2411,6 +2411,7 @@ const TEAM_EN_TO_ZH = {
 
 // ─── LIVE ODDS STATE ───
 let liveOddsData = null;  // raw fetched odds
+let liveMatchOdds = {};   // key: "home|away" → {h,d,a} decimal odds, ts: timestamp
 let liveOddsUpdated = null; // timestamp of last fetch
 let oddsApiKey = localStorage.getItem('wc2026_odds_api_key') || '';
 
@@ -4216,10 +4217,17 @@ function renderSchedule() {
     } else if(needsResult){
       html+=`<div style="text-align:center;"><span style="font-size:10px;color:var(--orange,#f97316);font-weight:700;cursor:pointer;" onclick="switchTab('matchEntry',this)" title="${currentLang==='zh'?'\u70b9\u51fb\u5f55\u5165\u7ed3\u679c':'Enter result'}">\u5f85\u5f55\u5165</span></div>`;
     } else if(m.home!=='TBD'){
-      // build countdown timestamp from date+time in local display
       const mts=new Date(m.date+'T'+(m.time||'00:00')+':00').getTime();
       const cdSpan=`<span data-mts="${mts}" style="font-size:9px;display:block;margin-top:2px"></span>`;
-      html+=`<div style="text-align:center;"><span class="sc-score${isToday?' live':''}">${isToday?'\ud83d\udd34':'VS'}</span>${cdSpan}</div>`;
+      // Show live odds from ESPN if available
+      const oddsKey=m.home+'|'+m.away;
+      const mo=liveMatchOdds[oddsKey];
+      const oddsHtml=mo?`<div style="display:flex;gap:3px;margin-top:3px;font-size:9px;flex-wrap:wrap;">
+        <span style="background:rgba(88,166,255,.15);color:var(--accent);padding:1px 4px;border-radius:3px;font-weight:600;">${getFlag(m.home)} ${mo.h}</span>
+        <span style="background:rgba(139,148,158,.15);color:var(--text2);padding:1px 4px;border-radius:3px;">\u5e73 ${mo.d}</span>
+        <span style="background:rgba(88,166,255,.15);color:var(--accent);padding:1px 4px;border-radius:3px;font-weight:600;">${mo.a} ${getFlag(m.away)}</span>
+      </div>`:'';
+      html+=`<div style="text-align:center;"><span class="sc-score${isToday?' live':''}">${isToday?'\ud83d\udd34':'VS'}</span>${cdSpan}${oddsHtml}</div>`;
     } else {
       html+=`<div style="text-align:center;"><span style="color:var(--text3);font-size:9px;">${currentLang==='zh'?'\u5f85\u5b9a':'TBD'}</span></div>`;
     }
@@ -4500,6 +4508,13 @@ function mergeScoreResult(homeZh, awayZh, s1, s2, dateStr) {
   return true;
 }
 
+// Convert American moneyline to decimal odds
+function mlToDecimal(ml) {
+  const n = parseInt(ml);
+  if (isNaN(n)) return null;
+  return n > 0 ? +(1 + n/100).toFixed(2) : +(1 - 100/n).toFixed(2);
+}
+
 // ── Source 0: ESPN public API (no key needed) ──
 async function fetchScoresESPN(daysBack) {
   const days = daysBack || 3;
@@ -4521,12 +4536,24 @@ async function fetchScoresESPN(daysBack) {
         const comp = (ev.competitions||[])[0]; if(!comp) return;
         const state = ev.status?.type?.state;
         const completed = ev.status?.type?.completed;
-        if (state !== 'post' && !completed) return; // only finished matches
         const home = comp.competitors?.find(c=>c.homeAway==='home');
         const away = comp.competitors?.find(c=>c.homeAway==='away');
         if (!home||!away) return;
         const h = TEAM_EN_TO_ZH[home.team?.displayName]||TEAM_EN_TO_ZH[home.team?.name]||home.team?.displayName;
         const a = TEAM_EN_TO_ZH[away.team?.displayName]||TEAM_EN_TO_ZH[away.team?.name]||away.team?.displayName;
+        // Capture odds for pre/live matches
+        const oddsObj = (comp.odds||[])[0];
+        if (oddsObj && h && a && state !== 'post') {
+          const ml = oddsObj.moneyline||{};
+          const hDec = mlToDecimal(ml.home?.close?.odds || ml.home?.open?.odds);
+          const aDec = mlToDecimal(ml.away?.close?.odds || ml.away?.open?.odds);
+          const dDec = mlToDecimal(oddsObj.drawOdds?.moneyLine);
+          if (hDec && aDec) {
+            liveMatchOdds[h+'|'+a] = {h:hDec, d:dDec||3.4, a:aDec, ts:Date.now()};
+          }
+        }
+        // Score for finished matches
+        if (state !== 'post' && !completed) return;
         const hs = parseInt(home.score)||0, as_ = parseInt(away.score)||0;
         if (h && a && mergeScoreResult(h, a, hs, as_, comp.date)) changed++;
       });
@@ -4534,6 +4561,42 @@ async function fetchScoresESPN(daysBack) {
   }
   return { source: 'ESPN（免费·无需Key）', count: total, changed };
 }
+
+// Fetch upcoming match odds for next N days from ESPN (no key needed)
+async function fetchUpcomingOddsESPN(daysAhead) {
+  const n = daysAhead || 7;
+  let found = 0;
+  for (let i = 0; i <= n; i++) {
+    const d = new Date(); d.setDate(d.getDate() + i);
+    const dateStr = d.toISOString().slice(0,10).replace(/-/g,'');
+    try {
+      const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=${dateStr}&limit=100`);
+      if (!r.ok) continue;
+      const data = await r.json();
+      (data.events||[]).forEach(ev => {
+        const comp=(ev.competitions||[])[0]; if(!comp) return;
+        if(ev.status?.type?.state==='post') return; // skip finished
+        const home=comp.competitors?.find(c=>c.homeAway==='home');
+        const away=comp.competitors?.find(c=>c.homeAway==='away');
+        if(!home||!away) return;
+        const h=TEAM_EN_TO_ZH[home.team?.displayName]||TEAM_EN_TO_ZH[home.team?.name]||home.team?.displayName;
+        const a=TEAM_EN_TO_ZH[away.team?.displayName]||TEAM_EN_TO_ZH[away.team?.name]||away.team?.displayName;
+        const oddsObj=(comp.odds||[])[0]; if(!oddsObj) return;
+        const ml=oddsObj.moneyline||{};
+        const hDec=mlToDecimal(ml.home?.close?.odds||ml.home?.open?.odds);
+        const aDec=mlToDecimal(ml.away?.close?.odds||ml.away?.open?.odds);
+        const dDec=mlToDecimal(oddsObj.drawOdds?.moneyLine);
+        if(h&&a&&hDec&&aDec){
+          liveMatchOdds[h+'|'+a]={h:hDec,d:dDec||3.4,a:aDec,ts:Date.now()};
+          found++;
+        }
+      });
+    } catch(e){}
+  }
+  if(found>0) renderSchedule();
+  return found;
+}
+window.fetchUpcomingOddsESPN=fetchUpcomingOddsESPN;
 
 // Fetch all WC2026 results from tournament start to today
 async function fetchAllTournamentScores() {
