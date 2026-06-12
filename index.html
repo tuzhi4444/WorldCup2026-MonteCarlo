@@ -3398,10 +3398,11 @@ function renderSquads() {
   grid.innerHTML = list.map(t => {
     const sq = TEAM_SQUADS[t.name];
     const topVal = sq.players.reduce((m,p)=>Math.max(m,p.val||0),0);
+    const flag = getFlag(t.name);
     return `<div onclick="showSquad('${t.name}')" style="cursor:pointer;padding:10px 8px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);text-align:center;transition:all .2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
-      <div style="font-size:22px">${t.flag||'🏳'}</div>
+      <div style="font-size:26px">${flag}</div>
       <div style="font-size:12px;font-weight:600;margin-top:4px">${t.name}</div>
-      <div style="font-size:10px;color:var(--text2);margin-top:2px">身价top: €${(topVal/100).toFixed(0)}M</div>
+      <div style="font-size:10px;color:var(--text2);margin-top:2px">€${topVal>=10000?(topVal/10000).toFixed(1)+'亿':(topVal/100).toFixed(0)+'M'}</div>
     </div>`;
   }).join('');
   if(!q && detail.style.display==='none') detail.style.display='none';
@@ -3414,42 +3415,81 @@ function showSquad(name) {
   if(!sq||!detail) return;
   detail.style.display = 'block';
   detail.scrollIntoView({behavior:'smooth', block:'nearest'});
-  const posBadge = p => {
-    const col = p==='GK'?'#e67e22':p==='DF'?'#2980b9':p==='MF'?'#27ae60':'#c0392b';
-    return `<span style="display:inline-block;padding:1px 5px;border-radius:3px;background:${col};color:#fff;font-size:10px;font-weight:700">${p}</span>`;
+
+  const flag = getFlag(name);
+
+  const posBadge = pos => {
+    const col = pos==='GK'?'#e67e22':pos==='DF'?'#2980b9':pos==='MF'?'#27ae60':'#c0392b';
+    return `<span style="display:inline-block;padding:1px 6px;border-radius:3px;background:${col};color:#fff;font-size:10px;font-weight:700;min-width:28px;text-align:center">${pos}</span>`;
   };
-  const sorted = [...sq.players].sort((a,b)=>(b.val||0)-(a.val||0));
-  const playerCards = sorted.map((p,i) => `
-    <div style="display:grid;grid-template-columns:24px 1fr;gap:8px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg2)">
-      <div style="font-size:14px;font-weight:700;color:var(--text2);text-align:center;padding-top:2px">${i+1}</div>
-      <div>
+
+  const valStr = v => v>=10000?(v/10000).toFixed(1)+'亿':(v/100).toFixed(0)+'M';
+
+  const playerRow = (p, rank) => `
+    <div style="display:flex;align-items:flex-start;gap:8px;padding:9px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg2)">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);min-width:18px;text-align:center;padding-top:2px">${rank}</div>
+      <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           ${posBadge(p.pos)}
           <span style="font-weight:600">${p.n}</span>
-          <span style="font-size:11px;color:var(--text2)">${p.c}</span>
-          ${p.val>0?`<span style="margin-left:auto;font-size:12px;font-weight:700;color:var(--accent)">€${p.val>=10000?(p.val/10000).toFixed(1)+'亿':(p.val/100).toFixed(0)+'M'}</span>`:''}
+          ${p.val>0?`<span style="font-size:12px;font-weight:700;color:var(--accent);margin-left:auto">€${valStr(p.val)}</span>`:''}
         </div>
-        ${p.s&&p.s[0]?`<div style="margin-top:5px;font-size:11px"><span style="color:var(--green)">✓ </span>${p.s.join(' · ')}</div>`:''}
+        <div style="font-size:11px;color:var(--text2);margin-top:2px">🏟 ${p.c}</div>
+        ${p.s&&p.s[0]?`<div style="margin-top:4px;font-size:11px"><span style="color:var(--green)">✓ </span>${p.s.join(' · ')}</div>`:''}
         ${p.w&&p.w[0]?`<div style="font-size:11px"><span style="color:var(--red)">△ </span>${p.w.join(' · ')}</div>`:''}
       </div>
-    </div>`).join('');
-  const coachHtml = `<div style="padding:10px;border-radius:8px;border:1px solid var(--accent);background:var(--bg2);margin-bottom:12px">
+    </div>`;
+
+  // Split into position groups, sorted by value within each group
+  const byPos = {GK:[], DF:[], MF:[], FW:[]};
+  sq.players.forEach(p => { if(byPos[p.pos]) byPos[p.pos].push(p); });
+  Object.values(byPos).forEach(arr => arr.sort((a,b)=>(b.val||0)-(a.val||0)));
+
+  // Starting XI: 1 GK, 4 DF, 3 MF, 3 FW (or adjust if fewer players)
+  const starts = {GK:1, DF:4, MF:4, FW:3};
+  const posLabels = {GK:'⛳ 门将', DF:'🛡 后卫', MF:'⚙️ 中场', FW:'⚡ 前锋'};
+
+  let globalRank = 1;
+  const posSection = (posKey) => {
+    const players = byPos[posKey];
+    if(!players.length) return '';
+    const nStart = Math.min(starts[posKey], players.length);
+    const starters = players.slice(0, nStart);
+    const bench = players.slice(nStart);
+    const starterRows = starters.map(p => playerRow(p, globalRank++)).join('');
+    const benchRows = bench.map(p => playerRow(p, globalRank++)).join('');
+    return `
+      <div style="margin-top:12px">
+        <div style="font-size:12px;font-weight:700;letter-spacing:.5px;color:var(--text2);margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border)">${posLabels[posKey]} · 首发 ${nStart} 人${bench.length?` · 替补 ${bench.length} 人`:''}</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${starterRows}
+          ${bench.length?`<div style="font-size:11px;color:var(--text2);margin:4px 0 2px;padding-left:4px">— 替补 —</div>${benchRows}`:''}
+        </div>
+      </div>`;
+  };
+
+  const coachHtml = `<div style="padding:10px;border-radius:8px;border:2px solid #8e44ad;background:var(--bg2)">
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <span style="display:inline-block;padding:1px 5px;border-radius:3px;background:#8e44ad;color:#fff;font-size:10px;font-weight:700">教练</span>
+      <span style="display:inline-block;padding:1px 6px;border-radius:3px;background:#8e44ad;color:#fff;font-size:10px;font-weight:700">主教练</span>
       <span style="font-weight:600">${sq.coach.n}</span>
     </div>
     ${sq.coach.s&&sq.coach.s[0]?`<div style="margin-top:5px;font-size:11px"><span style="color:var(--green)">✓ </span>${sq.coach.s.join(' · ')}</div>`:''}
     ${sq.coach.w&&sq.coach.w[0]?`<div style="font-size:11px"><span style="color:var(--red)">△ </span>${sq.coach.w.join(' · ')}</div>`:''}
   </div>`;
+
+  const totalPlayers = sq.players.length;
   detail.innerHTML = `<div class="panel">
     <div class="panel-header">
-      <h3>${t?t.flag:'🏳'} ${name} 队伍名单</h3>
+      <h3 style="display:flex;align-items:center;gap:8px"><span style="font-size:28px">${flag}</span>${name} 队伍名单</h3>
       <button class="btn btn-sm" onclick="document.getElementById('squadDetail').style.display='none'">✕ 关闭</button>
     </div>
     <div style="padding:8px 0">
-      <div style="font-size:12px;color:var(--text2);margin-bottom:8px">按身价排名 · 共 ${sorted.length} 名球员 + 教练</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px">共 ${totalPlayers} 名球员 · 首发阵型 4-4-3</div>
       ${coachHtml}
-      <div style="display:flex;flex-direction:column;gap:8px">${playerCards}</div>
+      ${posSection('GK')}
+      ${posSection('DF')}
+      ${posSection('MF')}
+      ${posSection('FW')}
     </div>
   </div>`;
 }
