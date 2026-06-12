@@ -135,6 +135,25 @@ body {
   display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 10px;
 }
 .panel-header h3 { font-size: 14px; font-weight: 650; display: flex; align-items: center; gap: 6px; }
+.sa-tab-btn { font-size:10px; padding:2px 10px; border-radius:20px; }
+.sa-tab-btn.active { background:var(--accent); color:#fff; }
+.sa-stat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:14px; }
+.sa-stat-card { background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:8px; text-align:center; }
+.sa-stat-val { font-size:20px; font-weight:800; color:var(--accent); }
+.sa-stat-lbl { font-size:9px; color:var(--text2); margin-top:2px; }
+.sa-section-title { font-size:11px; font-weight:700; color:var(--text2); margin:12px 0 6px; text-transform:uppercase; letter-spacing:.5px; }
+.sa-match-row { display:flex; align-items:center; gap:6px; padding:5px 8px; border-radius:6px; font-size:11px; margin-bottom:3px; background:var(--bg2); border:1px solid var(--border); }
+.sa-match-team { flex:1; text-align:right; font-weight:600; }
+.sa-match-team.away { text-align:left; }
+.sa-match-score { font-size:14px; font-weight:800; color:var(--accent); min-width:44px; text-align:center; }
+.sa-match-badge { font-size:8px; padding:1px 5px; border-radius:10px; background:var(--accent-light,rgba(37,99,235,.12)); color:var(--accent); font-weight:700; }
+.sa-group-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:8px; }
+.sa-group-card { background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:8px; }
+.sa-group-title { font-size:9px; font-weight:800; color:var(--accent); margin-bottom:5px; text-transform:uppercase; }
+.sa-group-team-row { display:flex; justify-content:space-between; align-items:center; font-size:10px; padding:2px 0; border-bottom:1px solid var(--border); }
+.sa-group-team-row:last-child { border-bottom:none; }
+.sa-ko-round { margin-bottom:10px; }
+.sa-ko-round-title { font-size:10px; font-weight:800; color:var(--text2); margin-bottom:5px; text-transform:uppercase; letter-spacing:.5px; }
 .panel-label {
   font-size: 9px; padding: 2px 8px; border-radius: 20px; font-weight: 600;
   background: var(--bg3); color: var(--text2); text-transform: uppercase; letter-spacing: 0.03em;
@@ -651,6 +670,13 @@ body {
   <div class="panel">
     <div class="panel-header"><h3 data-i18n="panel_history">📈 模拟历史对比</h3><div><button class="btn btn-sm" onclick="saveSnapshot()" data-i18n="snapshot">📸 快照</button><button class="btn btn-sm" onclick="clearHistory()" style="margin-left:4px;" data-i18n="clear">清空</button></div></div>
     <div id="historyContent"><div class="empty-state">运行模拟后保存快照，对比调参前后变化</div></div>
+  </div>
+  <div class="panel" style="margin-top:12px;">
+    <div class="panel-header"><h3>⚽ 比分分析</h3><div style="display:flex;gap:6px;">
+      <button class="btn btn-sm sa-tab-btn active" onclick="saSwitch('group',this)">小组赛</button>
+      <button class="btn btn-sm sa-tab-btn" onclick="saSwitch('ko',this)">淘汰赛</button>
+    </div></div>
+    <div id="saContent"></div>
   </div>
 </div>
 
@@ -1606,7 +1632,7 @@ function updateFactorMult() {
 }
 function updateAll() {
   renderChampionship(); renderGroups(); renderBracket(); renderEditor();
-  renderUpset(); renderQualPath(); renderMatchEntry(); renderHistory();
+  renderUpset(); renderQualPath(); renderMatchEntry(); renderHistory(); renderScoreAnalysis();
   renderSchedule(); renderELO(); renderRadar(); renderHistogram(); renderCI();
   renderOdds(); renderEvents(); renderScenarioPanel();
   matchResults.length && renderStandings();
@@ -3062,7 +3088,7 @@ function recordMatches() {
     recorded++;
   });
   rebuildEloFromHistory();
-  saveData(); updateEntryGroup(); renderMatchEntry(); renderGroups(); renderStandings(); renderPlayers(); renderOdds(); renderELO();
+  saveData(); updateEntryGroup(); renderMatchEntry(); renderGroups(); renderStandings(); renderPlayers(); renderOdds(); renderELO(); renderScoreAnalysis();
   notify(currentLang==='en'?`Recorded ${recorded} matches, ELO updated`:currentLang==='pt'?`${recorded} jogos registrados, ELO atualizado`:`已录入 ${recorded} 场 · ELO已自动更新`, 'success');
 }
 
@@ -3376,6 +3402,176 @@ function startScoreAutoRefresh() {
   _scoreRefreshTimer = setInterval(() => { fetchLiveScores(); }, 2 * 60 * 1000);
 }
 
+// ─── SCORE ANALYSIS ───
+let saMode = 'group';
+function saSwitch(mode, btn) {
+  saMode = mode;
+  document.querySelectorAll('.sa-tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderScoreAnalysis();
+}
+
+function renderScoreAnalysis() {
+  const el = document.getElementById('saContent');
+  if (!el) return;
+  if (!matchResults.length) {
+    el.innerHTML = '<div class="empty-state">录入比分后自动生成分析</div>';
+    return;
+  }
+  saMode === 'group' ? renderSAGroup(el) : renderSAKO(el);
+}
+
+function renderSAGroup(el) {
+  // Classify: group match = both teams in same group
+  const groupMatches = matchResults.filter(m => {
+    const a = teams.find(t => t.name === m.t1), b = teams.find(t => t.name === m.t2);
+    return a && b && a.group === b.group;
+  });
+
+  if (!groupMatches.length) {
+    el.innerHTML = '<div class="empty-state">暂无小组赛比分</div>'; return;
+  }
+
+  const total = groupMatches.length;
+  const totalGoals = groupMatches.reduce((s, m) => s + m.score1 + m.score2, 0);
+  const draws = groupMatches.filter(m => m.score1 === m.score2).length;
+  const cleanSheets = groupMatches.filter(m => m.score1 === 0 || m.score2 === 0).length;
+  const avgGoals = (totalGoals / total).toFixed(2);
+
+  // Top scoring match
+  const topMatch = [...groupMatches].sort((a, b) => (b.score1 + b.score2) - (a.score1 + a.score2))[0];
+  // Biggest margin
+  const biggestMargin = [...groupMatches].sort((a, b) => Math.abs(b.score1 - b.score2) - Math.abs(a.score1 - a.score2))[0];
+
+  let html = `<div class="sa-stat-grid">
+    <div class="sa-stat-card"><div class="sa-stat-val">${total}</div><div class="sa-stat-lbl">已录入场次</div></div>
+    <div class="sa-stat-card"><div class="sa-stat-val">${totalGoals}</div><div class="sa-stat-lbl">总进球</div></div>
+    <div class="sa-stat-card"><div class="sa-stat-val">${avgGoals}</div><div class="sa-stat-lbl">场均进球</div></div>
+    <div class="sa-stat-card"><div class="sa-stat-val">${((draws/total)*100).toFixed(0)}%</div><div class="sa-stat-lbl">平局率</div></div>
+  </div>`;
+
+  // Highlights
+  html += `<div class="sa-section-title">精彩场次</div>`;
+  if (topMatch) {
+    const ta = teams.find(t => t.name === topMatch.t1), tb = teams.find(t => t.name === topMatch.t2);
+    html += `<div class="sa-match-row">${getFlag(topMatch.t1)}<span class="sa-match-team">${TN(topMatch.t1)}</span>
+      <span class="sa-match-score">${topMatch.score1} - ${topMatch.score2}</span>
+      <span class="sa-match-team away">${TN(topMatch.t2)} ${getFlag(topMatch.t2)}</span>
+      <span class="sa-match-badge">最多进球</span></div>`;
+  }
+  if (biggestMargin && Math.abs(biggestMargin.score1 - biggestMargin.score2) > 0 &&
+      biggestMargin !== topMatch) {
+    html += `<div class="sa-match-row">${getFlag(biggestMargin.t1)}<span class="sa-match-team">${TN(biggestMargin.t1)}</span>
+      <span class="sa-match-score">${biggestMargin.score1} - ${biggestMargin.score2}</span>
+      <span class="sa-match-team away">${TN(biggestMargin.t2)} ${getFlag(biggestMargin.t2)}</span>
+      <span class="sa-match-badge">最大悬殊</span></div>`;
+  }
+
+  // Per-group goals tally
+  const groups = ['A','B','C','D','E','F','G','H','I','J','K','L'];
+  const groupStats = {};
+  groups.forEach(g => {
+    const gm = groupMatches.filter(m => {
+      const a = teams.find(t => t.name === m.t1); return a?.group === g;
+    });
+    if (!gm.length) return;
+    // Team goal tallies
+    const scored = {};
+    gm.forEach(m => {
+      scored[m.t1] = (scored[m.t1] || 0) + m.score1;
+      scored[m.t2] = (scored[m.t2] || 0) + m.score2;
+    });
+    groupStats[g] = { matches: gm.length, goals: gm.reduce((s,m)=>s+m.score1+m.score2,0), scored };
+  });
+
+  const activeGroups = Object.keys(groupStats);
+  if (activeGroups.length) {
+    html += `<div class="sa-section-title">各小组进球</div><div class="sa-group-grid">`;
+    activeGroups.forEach(g => {
+      const gs = groupStats[g];
+      const sorted = Object.entries(gs.scored).sort((a,b)=>b[1]-a[1]);
+      html += `<div class="sa-group-card"><div class="sa-group-title">小组 ${g} · ${gs.matches}场 · ${gs.goals}球</div>`;
+      sorted.forEach(([name, goals]) => {
+        html += `<div class="sa-group-team-row"><span>${getFlag(name)} ${TN(name)}</span><span style="font-weight:700;color:var(--accent);">${goals}</span></div>`;
+      });
+      html += `</div>`;
+    });
+    html += `</div>`;
+  }
+
+  // All group results list
+  html += `<div class="sa-section-title">全部比赛结果</div>`;
+  const sorted = [...groupMatches].sort((a,b) => new Date(b.time) - new Date(a.time));
+  sorted.forEach(m => {
+    const winner = m.score1 > m.score2 ? 'left' : m.score2 > m.score1 ? 'right' : 'draw';
+    html += `<div class="sa-match-row">
+      ${getFlag(m.t1)}<span class="sa-match-team" style="${winner==='left'?'color:var(--accent);':''}">${TN(m.t1)}</span>
+      <span class="sa-match-score">${m.score1} - ${m.score2}</span>
+      <span class="sa-match-team away" style="${winner==='right'?'color:var(--accent);':''}">${TN(m.t2)} ${getFlag(m.t2)}</span>
+    </div>`;
+  });
+
+  el.innerHTML = html;
+}
+
+function renderSAKO(el) {
+  // KO match = teams from different groups
+  const koMatches = matchResults.filter(m => {
+    const a = teams.find(t => t.name === m.t1), b = teams.find(t => t.name === m.t2);
+    return !a || !b || a.group !== b.group;
+  });
+
+  // Also check MATCH_SCHEDULE for KO group tag
+  const schedKO = new Set(
+    MATCH_SCHEDULE.filter(s => s.group === 'KO').map(s => s.home + '|' + s.away)
+  );
+  const koAll = matchResults.filter(m =>
+    schedKO.has(m.t1 + '|' + m.t2) || schedKO.has(m.t2 + '|' + m.t1) ||
+    (() => { const a=teams.find(t=>t.name===m.t1),b=teams.find(t=>t.name===m.t2); return a&&b&&a.group!==b.group; })()
+  );
+
+  if (!koAll.length) {
+    el.innerHTML = '<div class="empty-state">暂无淘汰赛比分</div>'; return;
+  }
+
+  const total = koAll.length;
+  const totalGoals = koAll.reduce((s,m)=>s+m.score1+m.score2,0);
+  const draws = koAll.filter(m=>m.score1===m.score2).length;
+
+  let html = `<div class="sa-stat-grid">
+    <div class="sa-stat-card"><div class="sa-stat-val">${total}</div><div class="sa-stat-lbl">已录入场次</div></div>
+    <div class="sa-stat-card"><div class="sa-stat-val">${totalGoals}</div><div class="sa-stat-lbl">总进球</div></div>
+    <div class="sa-stat-card"><div class="sa-stat-val">${(totalGoals/total).toFixed(2)}</div><div class="sa-stat-lbl">场均进球</div></div>
+    <div class="sa-stat-card"><div class="sa-stat-val">${draws}</div><div class="sa-stat-lbl">加时/点球场</div></div>
+  </div>`;
+
+  // Round detection: infer round by total KO matches recorded order
+  const rounds = [
+    { label: '1/8决赛 (32强→16强)', size: 16 },
+    { label: '1/4决赛 (16强→8强)', size: 8 },
+    { label: '半决赛', size: 4 },
+    { label: '季军赛 / 决赛', size: 2 },
+  ];
+  let remaining = [...koAll].sort((a,b)=>new Date(a.time)-new Date(b.time));
+  rounds.forEach(round => {
+    const chunk = remaining.splice(0, round.size);
+    if (!chunk.length) return;
+    html += `<div class="sa-ko-round"><div class="sa-ko-round-title">${round.label}</div>`;
+    chunk.forEach(m => {
+      const winner = m.score1 > m.score2 ? 'left' : m.score2 > m.score1 ? 'right' : 'draw';
+      html += `<div class="sa-match-row">
+        ${getFlag(m.t1)}<span class="sa-match-team" style="${winner==='left'?'color:var(--accent);font-weight:800;':''}">${TN(m.t1)}</span>
+        <span class="sa-match-score">${m.score1} - ${m.score2}</span>
+        <span class="sa-match-team away" style="${winner==='right'?'color:var(--accent);font-weight:800;':''}">${TN(m.t2)} ${getFlag(m.t2)}</span>
+        ${winner==='draw'?'<span class="sa-match-badge">平/加时</span>':''}
+      </div>`;
+    });
+    html += `</div>`;
+  });
+
+  el.innerHTML = html;
+}
+
 // ─── TAB: HISTORY ───
 function saveSnapshot() {
   if(!simResults){notify('请先运行模拟','warn');return;}
@@ -3612,6 +3808,8 @@ window.saveAndRefresh=saveAndRefresh;
 window.applyScenario=applyScenario;
 
 window.renderHistory=renderHistory;
+window.renderScoreAnalysis=renderScoreAnalysis;
+window.saSwitch=saSwitch;
 window.renderOdds=renderOdds;
 window.renderEvents=renderEvents;
 window.showOddsModal=showOddsModal;
