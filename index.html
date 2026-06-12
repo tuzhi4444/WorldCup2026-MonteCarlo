@@ -1299,7 +1299,7 @@ function calcWeight(t) {
   return Math.round(total/10*10)/10;
 }
 function calcAdjELO(t) {
-  return Math.round((t.elo||1700) + (calcWeight(t)-49)*FACTOR_MULT);
+  return Math.round((t.elo||1700) + (calcWeight(t)-48.5)*FACTOR_MULT);
 }
 function initTeams() { teams = TEAMS_INIT.map(t=>({...t})); }
 
