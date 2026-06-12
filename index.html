@@ -3409,31 +3409,148 @@ function startScoreAutoRefresh() {
 
 // ─── SCORE PREDICTION ───
 let saMode = 'group';
+let saGroupFilter = 'ALL';
+let saFutureOnly = false;
+
 function saSwitch(mode, btn) {
   saMode = mode;
   document.querySelectorAll('.sa-tab-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   renderScoreAnalysis();
 }
+function saSetGroup(g) {
+  saGroupFilter = g;
+  document.querySelectorAll('.sa-gf-btn').forEach(b => b.classList.toggle('active', b.dataset.g===g));
+  renderScoreAnalysis();
+}
+function saToggleFuture() {
+  saFutureOnly = !saFutureOnly;
+  const btn = document.getElementById('saFutureBtn');
+  if (btn) { btn.classList.toggle('active', saFutureOnly); btn.textContent = saFutureOnly ? '仅未来场次 ✓' : '仅未来场次'; }
+  renderScoreAnalysis();
+}
 
-// Compute Poisson-based score prediction for two teams
+/* ── Improved prediction model ── */
+function calcRecentForm(teamName) {
+  // Last 3 recorded matches → win multiplier 1.0–1.12
+  const recent = [...matchResults].filter(m => m.t1===teamName||m.t2===teamName).slice(-3);
+  let w=0;
+  recent.forEach(m => {
+    const home=m.t1===teamName, gs=home?m.score1:m.score2, gc=home?m.score2:m.score1;
+    if(gs>gc) w++;
+  });
+  return 1 + w*0.04;
+}
+
 function predictScore(t1, t2, isKO) {
-  const avg = isKO ? 1.55 : 1.35;
-  const diff = calcAdjELO(t1) - calcAdjELO(t2);
-  const ef1 = Math.pow(10, diff / 800), ef2 = Math.pow(10, -diff / 800);
-  const l1 = Math.max(0.1, avg * (t1.attack||5)/6 / ((t2.defense||5)/6) * ef1);
-  const l2 = Math.max(0.1, avg * (t2.attack||5)/6 / ((t1.defense||5)/6) * ef2);
+  const HOST_SET = new Set(['美国','加拿大','墨西哥']);
+  const e1 = calcAdjELO(t1) + (HOST_SET.has(t1.name)?55:0);
+  const e2 = calcAdjELO(t2) + (HOST_SET.has(t2.name)?55:0);
+  const diff = e1 - e2;
+  const ef1 = Math.pow(10, diff/800), ef2 = Math.pow(10,-diff/800);
+
+  // Factors: attack, defense, goalkeeper (reduces opp xG), setpiece bonus
+  const att1=(t1.attack||5)/5, def1=(t1.defense||5)/5, gk1=(t1.goalkeeper||5)/5, sp1=(t1.setpiece||5)/5;
+  const att2=(t2.attack||5)/5, def2=(t2.defense||5)/5, gk2=(t2.goalkeeper||5)/5, sp2=(t2.setpiece||5)/5;
+
+  const form1=calcRecentForm(t1.name), form2=calcRecentForm(t2.name);
+  const avg = isKO ? 1.6 : 1.4;
+
+  // xG = avg_goals × attack_ratio / (opponent_defense × opponent_gk) × elo_factor × form × setpiece_bonus
+  let l1 = avg * att1 / (def2*0.7+0.3) / (gk2*0.6+0.4) * ef1 * form1 * (1+(sp1-1)*0.05);
+  let l2 = avg * att2 / (def1*0.7+0.3) / (gk1*0.6+0.4) * ef2 * form2 * (1+(sp2-1)*0.05);
+  l1 = Math.min(Math.max(l1, 0.1), 4.5);
+  l2 = Math.min(Math.max(l2, 0.1), 4.5);
+
   let pW=0, pD=0, pL=0;
-  const scores = [];
-  for (let i = 0; i <= 6; i++) {
-    for (let j = 0; j <= 6; j++) {
-      const p = poissonProb(l1,i) * poissonProb(l2,j);
-      if (i > j) pW += p; else if (i === j) pD += p; else pL += p;
-      scores.push({ s1:i, s2:j, p });
-    }
+  const scores=[];
+  for(let i=0;i<=7;i++) for(let j=0;j<=7;j++){
+    const p=poissonProb(l1,i)*poissonProb(l2,j);
+    if(i>j)pW+=p; else if(i===j)pD+=p; else pL+=p;
+    scores.push({s1:i,s2:j,p});
   }
-  scores.sort((a,b) => b.p - a.p);
-  return { pW, pD, pL, top: scores.slice(0,3), l1, l2 };
+  scores.sort((a,b)=>b.p-a.p);
+  return {pW,pD,pL,top:scores.slice(0,5),l1,l2};
+}
+
+/* ── Check prediction accuracy ── */
+function checkPredictionHit(pred, recorded) {
+  if (!recorded) return null;
+  const rs1=recorded.score1, rs2=recorded.score2;
+  const predResult = pred.pW>pred.pL&&pred.pW>pred.pD?'W':pred.pD>pred.pL&&pred.pD>pred.pW?'D':'L';
+  const realResult = rs1>rs2?'W':rs1===rs2?'D':'L';
+  // Exact score hit?
+  const exactHit = pred.top.some(s=>s.s1===rs1&&s.s2===rs2);
+  const resultHit = predResult===realResult;
+  return {exactHit, resultHit};
+}
+
+/* ── Match prediction card ── */
+function spCard(t1, t2, isKO, recorded, matchDate) {
+  const pred = predictScore(t1, t2, isKO);
+  const best = pred.top[0];
+  const pw=(pred.pW*100).toFixed(1), pd=(pred.pD*100).toFixed(1), pl=(pred.pL*100).toFixed(1);
+  const maxPct = Math.max(pred.pW,pred.pD,pred.pL);
+  const favColor = pred.pW===maxPct?'var(--accent)':pred.pL===maxPct?'var(--red)':'var(--text2)';
+
+  // Probability bar segments
+  const barW=Math.round(pred.pW*100), barD=Math.round(pred.pD*100), barL=100-barW-barD;
+
+  // Top 5 scorelines
+  const scoreChips = pred.top.map((s,i)=>{
+    const isRec = recorded&&s.s1===recorded.score1&&s.s2===recorded.score2;
+    return `<span style="display:inline-flex;align-items:center;gap:2px;padding:2px 6px;border-radius:8px;
+      background:${isRec?'rgba(34,197,94,.2)':i===0?'var(--accent-light,rgba(37,99,235,.1))':'var(--bg3)'};
+      border:1px solid ${isRec?'#16a34a':i===0?'var(--accent)':'var(--border)'};
+      font-size:9px;font-weight:${i===0?700:500};white-space:nowrap;margin-bottom:2px;">
+      ${s.s1}:${s.s2}<span style="color:var(--text2);margin-left:2px;">${(s.p*100).toFixed(1)}%</span>
+    </span>`;
+  }).join('');
+
+  // Recorded result
+  let recBlock = '';
+  if (recorded) {
+    const hit = checkPredictionHit(pred, recorded);
+    const rs1=recorded.score1,rs2=recorded.score2;
+    const correct = hit.exactHit?'⚡ 精准命中':hit.resultHit?'✓ 胜负准确':'✗ 预测失误';
+    const correctColor = hit.exactHit?'#a855f7':hit.resultHit?'#16a34a':'var(--red)';
+    recBlock = `<div style="display:flex;align-items:center;gap:6px;margin-top:4px;padding:4px 8px;border-radius:6px;background:${hit.exactHit?'rgba(168,85,247,.1)':hit.resultHit?'rgba(34,197,94,.1)':'rgba(239,68,68,.08)'};">
+      <span style="font-weight:800;font-size:13px;">${rs1} - ${rs2}</span>
+      <span style="font-size:9px;font-weight:700;color:${correctColor};">${correct}</span>
+    </div>`;
+  }
+
+  const dateStr = matchDate ? `<span style="font-size:9px;color:var(--text3);">${matchDate}</span>` : '';
+
+  return `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;">
+    ${dateStr}
+    <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;margin:4px 0;">
+      <div style="text-align:right;">
+        <div style="font-size:12px;font-weight:700;">${getFlag(t1.name)} ${TN(t1.name)}</div>
+        <div style="font-size:9px;color:var(--text2);">xG <span style="color:var(--accent);font-weight:700;">${pred.l1.toFixed(2)}</span></div>
+      </div>
+      <div style="text-align:center;min-width:56px;">
+        <div style="font-size:18px;font-weight:900;color:${favColor};line-height:1.1;">${best.s1}–${best.s2}</div>
+        <div style="font-size:8px;color:var(--text3);">最可能</div>
+      </div>
+      <div style="text-align:left;">
+        <div style="font-size:12px;font-weight:700;">${TN(t2.name)} ${getFlag(t2.name)}</div>
+        <div style="font-size:9px;color:var(--text2);">xG <span style="color:var(--accent);font-weight:700;">${pred.l2.toFixed(2)}</span></div>
+      </div>
+    </div>
+    <div style="height:6px;border-radius:99px;overflow:hidden;display:flex;margin:6px 0;">
+      <div style="width:${barW}%;background:var(--accent);"></div>
+      <div style="width:${barD}%;background:var(--text3);"></div>
+      <div style="width:${barL}%;background:var(--red,#ef4444);"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text2);margin-bottom:6px;">
+      <span style="color:var(--accent);font-weight:600;">${pw}% 胜</span>
+      <span>${pd}% 平</span>
+      <span style="color:var(--red,#ef4444);font-weight:600;">${pl}% 负</span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:3px;">${scoreChips}</div>
+    ${recBlock}
+  </div>`;
 }
 
 function renderScoreAnalysis() {
@@ -3442,85 +3559,120 @@ function renderScoreAnalysis() {
   saMode === 'group' ? renderSAGroup(el) : renderSAKO(el);
 }
 
-function spRow(t1, t2, isKO, recorded) {
-  const pred = predictScore(t1, t2, isKO);
-  const bestScore = pred.top[0];
-  const pctW = (pred.pW*100).toFixed(0), pctD = (pred.pD*100).toFixed(0), pctL = (pred.pL*100).toFixed(0);
-  const topScores = pred.top.map(s =>
-    `<span style="font-size:9px;padding:1px 5px;border-radius:10px;background:var(--bg3);margin-right:2px;white-space:nowrap;">${s.s1}-${s.s2} <span style="color:var(--text2)">${(s.p*100).toFixed(0)}%</span></span>`
-  ).join('');
-  const recBadge = recorded
-    ? `<span style="font-size:9px;padding:1px 5px;border-radius:10px;background:rgba(34,197,94,.15);color:#16a34a;font-weight:700;white-space:nowrap;">✓ ${recorded.score1}-${recorded.score2}</span>`
-    : '';
-  return `<div class="sa-match-row" style="flex-wrap:wrap;gap:4px;">
-    <span style="min-width:90px;text-align:right;font-weight:600;font-size:11px;">${getFlag(t1.name)} ${TN(t1.name)}</span>
-    <div style="display:flex;flex-direction:column;align-items:center;min-width:72px;">
-      <div style="font-size:13px;font-weight:800;color:var(--accent);">${bestScore.s1} - ${bestScore.s2}</div>
-      <div style="font-size:8px;color:var(--text2);white-space:nowrap;">${pctW}% / ${pctD}% / ${pctL}%</div>
-    </div>
-    <span style="min-width:90px;font-weight:600;font-size:11px;">${TN(t2.name)} ${getFlag(t2.name)}</span>
-    <div style="display:flex;align-items:center;gap:2px;flex-wrap:wrap;">${topScores}${recBadge}</div>
-  </div>`;
-}
-
 function renderSAGroup(el) {
-  const GROUPS = ['A','B','C','D','E','F','G','H','I','J','K','L'];
-  // Group-stage schedule entries (exclude KO, exclude TBD)
+  const ALL_GROUPS = ['A','B','C','D','E','F','G','H','I','J','K','L'];
   const schedGroup = MATCH_SCHEDULE.filter(m => m.group !== 'KO' && m.home !== 'TBD' && m.away !== 'TBD');
   if (!schedGroup.length) { el.innerHTML = '<div class="empty-state">赛程数据不可用</div>'; return; }
 
-  // Group by group letter
-  let html = '';
-  GROUPS.forEach(g => {
-    const gMatches = schedGroup.filter(m => m.group === g);
-    if (!gMatches.length) return;
-    html += `<div class="sa-section-title">小组 ${g}</div>`;
-    gMatches.forEach(m => {
-      const t1 = teams.find(t => t.name === m.home), t2 = teams.find(t => t.name === m.away);
-      if (!t1 || !t2) return;
-      const recorded = matchResults.find(r =>
-        (r.t1===t1.name&&r.t2===t2.name)||(r.t1===t2.name&&r.t2===t1.name));
-      html += spRow(t1, t2, false, recorded ? {
-        score1: recorded.t1===t1.name ? recorded.score1 : recorded.score2,
-        score2: recorded.t1===t1.name ? recorded.score2 : recorded.score1
-      } : null);
-    });
+  // Accuracy stats
+  let total=0, resultHits=0, exactHits=0;
+  schedGroup.forEach(m => {
+    const t1=teams.find(t=>t.name===m.home), t2=teams.find(t=>t.name===m.away);
+    if(!t1||!t2) return;
+    const rec=matchResults.find(r=>(r.t1===t1.name&&r.t2===t2.name)||(r.t1===t2.name&&r.t2===t1.name));
+    if(!rec) return;
+    total++;
+    const recorded={score1:rec.t1===t1.name?rec.score1:rec.score2,score2:rec.t1===t1.name?rec.score2:rec.score1};
+    const hit=checkPredictionHit(predictScore(t1,t2,false),recorded);
+    if(hit.resultHit) resultHits++;
+    if(hit.exactHit) exactHits++;
   });
-  el.innerHTML = html || '<div class="empty-state">暂无小组赛数据</div>';
+
+  // Group filter chips
+  let filterHtml = `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;">
+    <button class="btn btn-sm sa-gf-btn${saGroupFilter==='ALL'?' active':''}" data-g="ALL" onclick="saSetGroup('ALL')" style="font-size:9px;padding:2px 8px;">全部</button>`;
+  ALL_GROUPS.forEach(g => {
+    filterHtml += `<button class="btn btn-sm sa-gf-btn${saGroupFilter===g?' active':''}" data-g="${g}" onclick="saSetGroup('${g}')" style="font-size:9px;padding:2px 8px;">${g}组</button>`;
+  });
+  filterHtml += `<button class="btn btn-sm${saFutureOnly?' active':''}" id="saFutureBtn" onclick="saToggleFuture()" style="font-size:9px;padding:2px 8px;margin-left:4px;">${saFutureOnly?'仅未来场次 ✓':'仅未来场次'}</button></div>`;
+
+  // Accuracy banner
+  let accBanner = '';
+  if (total > 0) {
+    const rPct=(resultHits/total*100).toFixed(0), ePct=(exactHits/total*100).toFixed(0);
+    accBanner = `<div style="display:flex;gap:8px;margin-bottom:10px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:10px;">
+      <span style="color:var(--text2);">已比赛 <b>${total}</b> 场</span>
+      <span style="color:var(--accent);font-weight:700;">胜负准确率 ${rPct}%</span>
+      <span style="color:#a855f7;font-weight:700;">精准比分 ${ePct}%（${exactHits}场）</span>
+    </div>`;
+  }
+
+  const now = new Date();
+  const activeG = saGroupFilter==='ALL' ? ALL_GROUPS : [saGroupFilter];
+  let html = filterHtml + accBanner;
+
+  activeG.forEach(g => {
+    const gMatches = schedGroup.filter(m => m.group===g);
+    if (!gMatches.length) return;
+    let sectionHtml = '';
+    gMatches.forEach(m => {
+      const t1=teams.find(t=>t.name===m.home), t2=teams.find(t=>t.name===m.away);
+      if(!t1||!t2) return;
+      const rec=matchResults.find(r=>(r.t1===t1.name&&r.t2===t2.name)||(r.t1===t2.name&&r.t2===t1.name));
+      if(saFutureOnly && rec) return;
+      const recorded=rec?{score1:rec.t1===t1.name?rec.score1:rec.score2,score2:rec.t1===t1.name?rec.score2:rec.score1}:null;
+      sectionHtml += spCard(t1, t2, false, recorded, m.date||'');
+    });
+    if (!sectionHtml) return;
+    html += `<div style="font-size:10px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border);">小组 ${g}</div>`;
+    html += sectionHtml;
+  });
+
+  el.innerHTML = html || '<div class="empty-state">暂无符合条件的场次</div>';
 }
 
 function renderSAKO(el) {
-  // KO bracket: use simResults if available, else show TBD placeholders from schedule
-  const koSchedule = MATCH_SCHEDULE.filter(m => m.group === 'KO');
+  const koSchedule = MATCH_SCHEDULE.filter(m => m.group==='KO');
   if (!koSchedule.length) { el.innerHTML = '<div class="empty-state">淘汰赛赛程暂未开始</div>'; return; }
 
-  const rounds = [
-    { label: '1/8决赛', matches: koSchedule.slice(0, 16) },
-    { label: '1/4决赛', matches: koSchedule.slice(16, 24) },
-    { label: '半决赛',  matches: koSchedule.slice(24, 28) },
-    { label: '决赛 / 季军赛', matches: koSchedule.slice(28, 32) },
+  // Accuracy stats
+  let total=0, resultHits=0, exactHits=0;
+  koSchedule.filter(m=>m.home!=='TBD'&&m.away!=='TBD').forEach(m=>{
+    const t1=teams.find(t=>t.name===m.home), t2=teams.find(t=>t.name===m.away);
+    if(!t1||!t2) return;
+    const rec=matchResults.find(r=>(r.t1===t1.name&&r.t2===t2.name)||(r.t1===t2.name&&r.t2===t1.name));
+    if(!rec) return;
+    total++;
+    const recorded={score1:rec.t1===t1.name?rec.score1:rec.score2,score2:rec.t1===t1.name?rec.score2:rec.score1};
+    const hit=checkPredictionHit(predictScore(t1,t2,true),recorded);
+    if(hit.resultHit) resultHits++;
+    if(hit.exactHit) exactHits++;
+  });
+
+  let accBanner='';
+  if(total>0){
+    const rPct=(resultHits/total*100).toFixed(0), ePct=(exactHits/total*100).toFixed(0);
+    accBanner=`<div style="display:flex;gap:8px;margin-bottom:10px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:10px;">
+      <span style="color:var(--text2);">已比赛 <b>${total}</b> 场</span>
+      <span style="color:var(--accent);font-weight:700;">胜负准确率 ${rPct}%</span>
+      <span style="color:#a855f7;font-weight:700;">精准比分 ${ePct}%（${exactHits}场）</span>
+    </div>`;
+  }
+
+  const rounds=[
+    {label:'1/8决赛 (R32→16)', matches:koSchedule.slice(0,16)},
+    {label:'1/4决赛 (16→8)',   matches:koSchedule.slice(16,24)},
+    {label:'半决赛',            matches:koSchedule.slice(24,28)},
+    {label:'季军赛 & 决赛',     matches:koSchedule.slice(28,32)},
   ];
 
-  let html = '';
-  rounds.forEach(({ label, matches }) => {
-    const valid = matches.filter(m => m.home !== 'TBD' && m.away !== 'TBD');
-    const tbd   = matches.filter(m => m.home === 'TBD' || m.away === 'TBD');
-    if (!matches.length) return;
-    html += `<div class="sa-ko-round"><div class="sa-ko-round-title">${label}</div>`;
-    valid.forEach(m => {
-      const t1 = teams.find(t => t.name === m.home), t2 = teams.find(t => t.name === m.away);
-      if (!t1 || !t2) return;
-      const recorded = matchResults.find(r =>
-        (r.t1===t1.name&&r.t2===t2.name)||(r.t1===t2.name&&r.t2===t1.name));
-      html += spRow(t1, t2, true, recorded ? {
-        score1: recorded.t1===t1.name ? recorded.score1 : recorded.score2,
-        score2: recorded.t1===t1.name ? recorded.score2 : recorded.score1
-      } : null);
+  let html = accBanner;
+  rounds.forEach(({label,matches})=>{
+    const valid=matches.filter(m=>m.home!=='TBD'&&m.away!=='TBD');
+    const tbdCount=matches.filter(m=>m.home==='TBD'||m.away==='TBD').length;
+    let sectionHtml='';
+    valid.forEach(m=>{
+      const t1=teams.find(t=>t.name===m.home), t2=teams.find(t=>t.name===m.away);
+      if(!t1||!t2) return;
+      const rec=matchResults.find(r=>(r.t1===t1.name&&r.t2===t2.name)||(r.t1===t2.name&&r.t2===t1.name));
+      if(saFutureOnly&&rec) return;
+      const recorded=rec?{score1:rec.t1===t1.name?rec.score1:rec.score2,score2:rec.t1===t1.name?rec.score2:rec.score1}:null;
+      sectionHtml+=spCard(t1,t2,true,recorded,m.date||'');
     });
-    if (tbd.length) {
-      html += `<div style="font-size:10px;color:var(--text2);padding:4px 8px;">+ ${tbd.length} 场对阵待定（需录入小组赛结果）</div>`;
-    }
-    html += `</div>`;
+    if(!sectionHtml&&!tbdCount) return;
+    html+=`<div style="font-size:10px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border);">${label}</div>`;
+    html+=sectionHtml;
+    if(tbdCount) html+=`<div style="font-size:10px;color:var(--text3);padding:6px 0;">+ ${tbdCount} 场对阵待定</div>`;
   });
   el.innerHTML = html || '<div class="empty-state">淘汰赛对阵待确定</div>';
 }
@@ -3764,6 +3916,8 @@ window.applyScenario=applyScenario;
 window.renderHistory=renderHistory;
 window.renderScoreAnalysis=renderScoreAnalysis;
 window.saSwitch=saSwitch;
+window.saSetGroup=saSetGroup;
+window.saToggleFuture=saToggleFuture;
 window.renderOdds=renderOdds;
 window.renderEvents=renderEvents;
 window.showOddsModal=showOddsModal;
