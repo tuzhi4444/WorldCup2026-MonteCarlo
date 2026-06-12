@@ -648,31 +648,35 @@ body {
 <div class="tab-content" id="tab-schedule">
   <div class="panel">
     <div class="panel-header"><h3 id="schedPanelTitle">📅 赛程 &amp; 实时比分 <span class="panel-label" style="background:var(--green-light);color:var(--green);">🌐 在线</span></h3></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;">
-      <div style="display:flex;flex-direction:column;gap:4px;">
-        <label id="oddsKeyLabel" style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;">The Odds API Key（赔率+比分，免费500次/月）</label>
-        <div style="display:flex;gap:4px;">
-          <input type="password" id="scoresOddsKey" placeholder="粘贴 The Odds API Key..."
-            style="flex:1;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text);font-size:11px;font-family:monospace;"
-            oninput="saveScoreApiKey('odds',this.value)">
-          <a href="https://the-odds-api.com/" target="_blank" class="btn btn-sm" id="oddsRegisterBtn" style="white-space:nowrap;">🆓 注册</a>
-        </div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:4px;">
-        <label id="footballKeyLabel" style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;">football-data.org Token（更完整的比分，免费）</label>
-        <div style="display:flex;gap:4px;">
-          <input type="password" id="scoresFootballKey" placeholder="粘贴 football-data.org Token..."
-            style="flex:1;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text);font-size:11px;font-family:monospace;"
-            oninput="saveScoreApiKey('football',this.value)">
-          <a href="https://www.football-data.org/client/register" target="_blank" class="btn btn-sm" id="footballRegisterBtn" style="white-space:nowrap;">🆓 注册</a>
-        </div>
-      </div>
-    </div>
-    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center;">
+    <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">
       <button class="btn btn-primary" onclick="fetchLiveScores()" id="fetchScoresBtn">🔄 立即获取实时比分</button>
+      <button class="btn btn-sm" onclick="fetchAllTournamentScores()" id="fetchAllBtn" style="white-space:nowrap;">📥 获取全部赛果</button>
       <span style="font-size:10px;color:var(--text3);" id="autoRefreshBadge"></span>
       <span id="fetchStatus" style="font-size:11px;margin:0;"></span>
     </div>
+    <details style="margin-bottom:10px;">
+      <summary style="font-size:10px;color:var(--text3);cursor:pointer;user-select:none;">🔑 高级：填入API Key可获取赔率数据（可选）</summary>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;">
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <label id="oddsKeyLabel" style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;">The Odds API Key（赔率+比分，免费500次/月）</label>
+          <div style="display:flex;gap:4px;">
+            <input type="password" id="scoresOddsKey" placeholder="粘贴 The Odds API Key..."
+              style="flex:1;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text);font-size:11px;font-family:monospace;"
+              oninput="saveScoreApiKey('odds',this.value)">
+            <a href="https://the-odds-api.com/" target="_blank" class="btn btn-sm" id="oddsRegisterBtn" style="white-space:nowrap;">🆓 注册</a>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <label id="footballKeyLabel" style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;">football-data.org Token（更完整的比分，免费）</label>
+          <div style="display:flex;gap:4px;">
+            <input type="password" id="scoresFootballKey" placeholder="粘贴 football-data.org Token..."
+              style="flex:1;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text);font-size:11px;font-family:monospace;"
+              oninput="saveScoreApiKey('football',this.value)">
+            <a href="https://www.football-data.org/client/register" target="_blank" class="btn btn-sm" id="footballRegisterBtn" style="white-space:nowrap;">🆓 注册</a>
+          </div>
+        </div>
+      </div>
+    </details>
     <div style="display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap;">
       <button class="btn btn-sm" onclick="filterSchedGroup('ALL')" style="background:var(--accent);color:#fff;" id="schedAllBtn">\u5168\u90e8</button>
       <span id="schedGroupBtns"></span>
@@ -2111,8 +2115,10 @@ function switchTab(name,btn) {
     renderQualProb(); renderTopScorer();
   }
   if(name==='groups'){initGroupSim();}
+  if(name==='schedule'){if(!_schedAutoFetched){_schedAutoFetched=true;setTimeout(fetchLiveScores,400);}}
   if(name!=='schedule'){_stopCountdown();}
 }
+let _schedAutoFetched=false;
 
 // ─── NOTIFY ───
 function notify(msg, type='info') {
@@ -4480,6 +4486,74 @@ function mergeScoreResult(homeZh, awayZh, s1, s2, dateStr) {
   return true;
 }
 
+// ── Source 0: ESPN public API (no key needed) ──
+async function fetchScoresESPN(daysBack) {
+  const days = daysBack || 3;
+  const dates = [];
+  for (let i = -1; i <= days; i++) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    dates.push(d.toISOString().slice(0,10).replace(/-/g,''));
+  }
+  let changed = 0, total = 0;
+  for (const dateStr of dates) {
+    try {
+      const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=${dateStr}&limit=100`;
+      const r = await fetch(url);
+      if (!r.ok) continue;
+      const data = await r.json();
+      const events = data.events || [];
+      total += events.length;
+      events.forEach(ev => {
+        const comp = (ev.competitions||[])[0]; if(!comp) return;
+        const state = ev.status?.type?.state;
+        const completed = ev.status?.type?.completed;
+        if (state !== 'post' && !completed) return; // only finished matches
+        const home = comp.competitors?.find(c=>c.homeAway==='home');
+        const away = comp.competitors?.find(c=>c.homeAway==='away');
+        if (!home||!away) return;
+        const h = TEAM_EN_TO_ZH[home.team?.displayName]||TEAM_EN_TO_ZH[home.team?.name]||home.team?.displayName;
+        const a = TEAM_EN_TO_ZH[away.team?.displayName]||TEAM_EN_TO_ZH[away.team?.name]||away.team?.displayName;
+        const hs = parseInt(home.score)||0, as_ = parseInt(away.score)||0;
+        if (h && a && mergeScoreResult(h, a, hs, as_, comp.date)) changed++;
+      });
+    } catch(e) { /* skip this day */ }
+  }
+  return { source: 'ESPN（免费·无需Key）', count: total, changed };
+}
+
+// Fetch all WC2026 results from tournament start to today
+async function fetchAllTournamentScores() {
+  const btn = document.getElementById('fetchAllBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 获取中...'; }
+  setScoreStatus('📥 正在获取全部赛果（ESPN）...', 'info');
+  const start = new Date('2026-06-11');
+  const today = new Date();
+  let changed = 0, total = 0;
+  for (let d = new Date(start); d <= today; d.setDate(d.getDate()+1)) {
+    const dateStr = d.toISOString().slice(0,10).replace(/-/g,'');
+    try {
+      const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=${dateStr}&limit=100`;
+      const r = await fetch(url); if(!r.ok) continue;
+      const data = await r.json();
+      (data.events||[]).forEach(ev => {
+        const comp=(ev.competitions||[])[0]; if(!comp) return;
+        if(!ev.status?.type?.completed) return;
+        const home=comp.competitors?.find(c=>c.homeAway==='home');
+        const away=comp.competitors?.find(c=>c.homeAway==='away');
+        if(!home||!away) return;
+        const h=TEAM_EN_TO_ZH[home.team?.displayName]||TEAM_EN_TO_ZH[home.team?.name]||home.team?.displayName;
+        const a=TEAM_EN_TO_ZH[away.team?.displayName]||TEAM_EN_TO_ZH[away.team?.name]||away.team?.displayName;
+        if(h&&a&&mergeScoreResult(h,a,parseInt(home.score)||0,parseInt(away.score)||0,comp.date)) changed++;
+        total++;
+      });
+    } catch(e){}
+  }
+  if(btn){btn.disabled=false;btn.textContent='📥 获取全部赛果';}
+  if(changed>0){saveData();updateAll();setScoreStatus(`✅ ESPN 全量同步完成·共 ${total} 场·更新 ${changed} 场`,'ok');notify(`已同步全部赛果，${changed} 场有新数据，建议重新运行模拟`,'success');}
+  else{setScoreStatus(`✅ ESPN 全量同步完成·共 ${total} 场·无新数据`,'ok');}
+}
+window.fetchAllTournamentScores = fetchAllTournamentScores;
+
 // ── Source 1: The Odds API scores endpoint ──
 async function fetchScoresOddsAPI(key) {
   // Dynamically discover WC sport keys
@@ -4557,39 +4631,38 @@ async function fetchScoresFootballData(token) {
 async function fetchLiveScores() {
   const btn = document.getElementById('fetchScoresBtn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ 获取中...'; }
-  setScoreStatus('🌐 正在连接...', 'info');
+  setScoreStatus('🌐 正在连接 ESPN...', 'info');
 
-  // Sync keys from input fields
+  // Sync optional API keys from input fields
   const k1 = document.getElementById('scoresOddsKey');
   const k2 = document.getElementById('scoresFootballKey');
   if (k1 && k1.value) saveScoreApiKey('odds', k1.value);
   if (k2 && k2.value) saveScoreApiKey('football', k2.value);
-  // Also try the shared odds key
   if (!scoreApiKeys.odds && oddsApiKey) scoreApiKeys.odds = oddsApiKey;
 
   let result = null, lastErr = '';
 
-  // Try Odds API first
-  if (scoreApiKeys.odds) {
-    try {
-      result = await fetchScoresOddsAPI(scoreApiKeys.odds);
-    } catch(e) { lastErr = 'The Odds API: ' + e.message; }
+  // Source 0: ESPN (no key needed) — always try first
+  try {
+    result = await fetchScoresESPN(3);
+  } catch(e) { lastErr = 'ESPN: ' + e.message; }
+
+  // Source 1: The Odds API (optional, key required)
+  if (!result && scoreApiKeys.odds) {
+    try { result = await fetchScoresOddsAPI(scoreApiKeys.odds); }
+    catch(e) { lastErr += (lastErr?' | ':'') + 'OddsAPI: ' + e.message; }
   }
 
-  // Try football-data.org
+  // Source 2: football-data.org (optional, key required)
   if (!result && scoreApiKeys.football) {
-    try {
-      result = await fetchScoresFootballData(scoreApiKeys.football);
-    } catch(e) { lastErr += (lastErr ? ' | ' : '') + 'football-data: ' + e.message; }
+    try { result = await fetchScoresFootballData(scoreApiKeys.football); }
+    catch(e) { lastErr += (lastErr?' | ':'') + 'football-data: ' + e.message; }
   }
 
   if (btn) { btn.disabled = false; btn.textContent = '🔄 立即获取实时比分'; }
 
   if (!result) {
-    setScoreStatus(`❌ 获取失败 — ${lastErr || '请填入API Key后重试'}`, 'err');
-    if (!scoreApiKeys.odds && !scoreApiKeys.football) {
-      setScoreStatus('⚠️ 请填入至少一个API Key（上方注册免费获取）', 'warn');
-    }
+    setScoreStatus(`❌ 获取失败 — ${lastErr || '网络错误，请稍后重试'}`, 'err');
     return;
   }
 
