@@ -504,6 +504,14 @@ body {
     <div class="groups-grid" id="groupsGrid"></div>
     <p class="help-text" id="groupsHelpText">绿色 ≥70% | 蓝色 30-70% | 灰色 &lt;30% | 点击球队查看详情 | 底部展开积分榜</p>
   </div>
+  <div class="panel" style="margin-top:12px;">
+    <div class="panel-header">
+      <h3>📊 小组积分模拟</h3>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;" id="groupSimGroupBtns"></div>
+    </div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:8px;">选择小组，填入每场比分，实时计算积分榜和出线席位</div>
+    <div id="groupSimContent"><div class="empty-state">请先选择小组</div></div>
+  </div>
 </div>
 
 <!-- ─── TAB: BRACKET ─── -->
@@ -547,6 +555,30 @@ body {
 
 <!-- ─── TAB: ANALYSIS ─── -->
 <div class="tab-content" id="tab-analysis">
+
+  <!-- ── 头对头对比 ── -->
+  <div class="panel">
+    <div class="panel-header"><h3>⚔️ 头对头对比</h3><span class="panel-label">ELO · 因子 · 胜率 · 比分</span></div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+      <select id="h2hT1" onchange="renderH2H()" style="flex:1;min-width:100px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:12px;"><option value="">选择球队</option></select>
+      <span style="font-weight:800;font-size:18px;color:var(--text2)">⚔</span>
+      <select id="h2hT2" onchange="renderH2H()" style="flex:1;min-width:100px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:12px;"><option value="">选择球队</option></select>
+    </div>
+    <div id="h2hContent"><div class="empty-state">选择两支球队开始对比</div></div>
+  </div>
+
+  <!-- ── 小组出线概率 ── -->
+  <div class="panel">
+    <div class="panel-header"><h3>📈 小组出线概率</h3><span class="panel-label">基于蒙特卡洛</span></div>
+    <div id="qualProbContent"><div class="empty-state">运行模拟后显示</div></div>
+  </div>
+
+  <!-- ── 进球王预测 ── -->
+  <div class="panel">
+    <div class="panel-header"><h3>🥅 进球王预测 Top 20</h3><span class="panel-label">启发式估算</span></div>
+    <div id="topScorerContent"><div class="empty-state">加载中…</div></div>
+  </div>
+
   <!-- ── 情景模拟 ── -->
   <div class="panel" id="scenarioPanelEl">
     <div class="panel-header">
@@ -2069,6 +2101,16 @@ function switchTab(name,btn) {
   }
   if(name==='history'){renderScoreAnalysis();}
   if(name==='squads'){renderSquads();}
+  if(name==='analysis'){
+    // populate H2H selects
+    ['h2hT1','h2hT2'].forEach(id=>{
+      const s=document.getElementById(id); if(!s||s.options.length>1) return;
+      teams.forEach(t=>{const o=document.createElement('option');o.value=t.name;o.textContent=getFlag(t.name)+' '+t.name;s.appendChild(o);});
+    });
+    renderQualProb(); renderTopScorer();
+  }
+  if(name==='groups'){initGroupSim();}
+  if(name!=='schedule'){_stopCountdown();}
 }
 
 // ─── NOTIFY ───
@@ -3485,6 +3527,316 @@ function showSquad(name) {
   </div>`;
 }
 
+// ─── HEAD-TO-HEAD COMPARISON ───
+function renderH2H() {
+  const n1=(document.getElementById('h2hT1')||{}).value||'';
+  const n2=(document.getElementById('h2hT2')||{}).value||'';
+  const el=document.getElementById('h2hContent'); if(!el) return;
+  if(!n1||!n2||n1===n2){el.innerHTML='<div class="empty-state">选择两支不同的球队开始对比</div>';return;}
+  const t1=teams.find(x=>x.name===n1),t2=teams.find(x=>x.name===n2);
+  if(!t1||!t2) return;
+  const e1=calcAdjELO(t1),e2=calcAdjELO(t2);
+  const p=getMatchProb(t1,t2);
+  // predicted score via Poisson
+  const diff=e1-e2,ag=1.35;
+  const ea1=Math.min(Math.max(1+diff/2000,0.7),1.3),ea2=Math.min(Math.max(1-diff/2000,0.7),1.3);
+  const r1=Math.sqrt((t1.attack||5)/5/((t2.defense||5)/5*0.8+0.2))/Math.sqrt((t2.goalkeeper||5)/5*0.5+0.5);
+  const r2=Math.sqrt((t2.attack||5)/5/((t1.defense||5)/5*0.8+0.2))/Math.sqrt((t1.goalkeeper||5)/5*0.5+0.5);
+  const l1=Math.min(Math.max(ag*r1*ea1,0.2),2.8),l2=Math.min(Math.max(ag*r2*ea2,0.2),2.8);
+  const fact=k=>[1,1,2,6,24,120][Math.min(k,5)];
+  const pois=(l,k)=>Math.pow(l,k)*Math.exp(-l)/fact(k);
+  let bp=0,bs='';
+  for(let i=0;i<=5;i++) for(let j=0;j<=5;j++){const pp=pois(l1,i)*pois(l2,j);if(pp>bp){bp=pp;bs=i+'-'+j;}}
+  // factor rows
+  const factorRows=FACTORS.map(f=>{
+    const v1=t1[f.key]||5,v2=t2[f.key]||5;
+    const c1=v1>v2?'var(--green)':v1<v2?'var(--red)':'var(--text2)';
+    const c2=v2>v1?'var(--green)':v2<v1?'var(--red)':'var(--text2)';
+    return `<tr>
+      <td style="text-align:right;padding:3px 8px;font-size:12px;font-weight:${v1>v2?700:400};color:${c1}">${v1}</td>
+      <td style="padding:3px 4px;width:120px">
+        <div style="display:flex;gap:2px;align-items:center;">
+          <div style="flex:1;height:7px;border-radius:3px;overflow:hidden;background:var(--bg)"><div style="width:${v1*10}%;height:100%;background:${c1};border-radius:3px;float:right"></div></div>
+          <div style="flex:1;height:7px;border-radius:3px;overflow:hidden;background:var(--bg)"><div style="width:${v2*10}%;height:100%;background:${c2};border-radius:3px"></div></div>
+        </div>
+      </td>
+      <td style="text-align:left;padding:3px 8px;font-size:12px;font-weight:${v2>v1?700:400};color:${c2}">${v2}</td>
+      <td style="text-align:center;padding:3px 8px;font-size:10px;color:var(--text2)">${f.name}</td>
+    </tr>`;
+  }).join('');
+  const pAp=(p.pA*100).toFixed(1),pDp=(p.pD*100).toFixed(1),pBp=(p.pB*100).toFixed(1);
+  el.innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin-bottom:12px">
+      <div style="text-align:center;padding:12px;background:var(--bg2);border-radius:8px;border:1px solid var(--border)">
+        <div style="font-size:30px">${getFlag(n1)}</div>
+        <div style="font-weight:700;font-size:13px;margin:4px 0">${n1}</div>
+        <div style="font-size:22px;font-weight:800;color:var(--accent)">${e1}</div>
+        <div style="font-size:10px;color:var(--text2)">调整ELO</div>
+      </div>
+      <div style="text-align:center;padding:8px">
+        <div style="font-size:11px;color:var(--green);font-weight:700">${pAp}%</div>
+        <div style="font-size:9px;color:var(--text2)">胜</div>
+        <div style="margin:4px 0;font-size:20px;color:var(--text3)">─</div>
+        <div style="font-size:11px;color:var(--text2);font-weight:700">${pDp}%</div>
+        <div style="font-size:9px;color:var(--text2)">平</div>
+        <div style="margin:4px 0;font-size:20px;color:var(--text3)">─</div>
+        <div style="font-size:11px;color:var(--red);font-weight:700">${pBp}%</div>
+        <div style="font-size:9px;color:var(--text2)">负</div>
+        <div style="margin-top:8px;font-size:11px;color:var(--text2)">最可能</div>
+        <div style="font-size:18px;font-weight:800;color:var(--accent)">${bs}</div>
+      </div>
+      <div style="text-align:center;padding:12px;background:var(--bg2);border-radius:8px;border:1px solid var(--border)">
+        <div style="font-size:30px">${getFlag(n2)}</div>
+        <div style="font-weight:700;font-size:13px;margin:4px 0">${n2}</div>
+        <div style="font-size:22px;font-weight:800;color:var(--accent)">${e2}</div>
+        <div style="font-size:10px;color:var(--text2)">调整ELO</div>
+      </div>
+    </div>
+    <div style="margin-bottom:8px">
+      <div style="display:flex;height:12px;border-radius:6px;overflow:hidden;gap:2px">
+        <div style="flex:${p.pA};background:var(--green);border-radius:6px 0 0 6px"></div>
+        <div style="flex:${p.pD};background:var(--text2)"></div>
+        <div style="flex:${p.pB};background:var(--red);border-radius:0 6px 6px 0"></div>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr>
+          <th style="text-align:right;padding:4px 8px;font-size:11px;color:var(--text2)">${n1}</th>
+          <th style="width:120px"></th>
+          <th style="text-align:left;padding:4px 8px;font-size:11px;color:var(--text2)">${n2}</th>
+          <th style="text-align:center;padding:4px 8px;font-size:11px;color:var(--text2)">因子</th>
+        </tr></thead>
+        <tbody>${factorRows}</tbody>
+      </table>
+    </div>`;
+}
+
+// ─── QUAL PROBABILITY (from simResults) ───
+function renderQualProb() {
+  const el=document.getElementById('qualProbContent'); if(!el) return;
+  if(!simResults){el.innerHTML='<div class="empty-state">请先运行模拟</div>';return;}
+  const {advanceCount,champCount,totalSims}=simResults;
+  const groups={};
+  teams.forEach(t=>{if(!groups[t.group])groups[t.group]=[];groups[t.group].push(t);});
+  const groupHtml=Object.keys(groups).sort().map(g=>{
+    const gt=groups[g].slice().sort((a,b)=>(advanceCount[b.name]||0)-(advanceCount[a.name]||0));
+    const rows=gt.map(t=>{
+      const adv=((advanceCount[t.name]||0)/totalSims*100);
+      const champ=((champCount[t.name]||0)/totalSims*100);
+      const elim=(100-adv).toFixed(1);
+      const col=adv>=70?'var(--green)':adv>=30?'var(--accent)':'var(--text2)';
+      return `<tr>
+        <td style="padding:4px 6px;font-size:12px;white-space:nowrap">${getFlag(t.name)} ${t.name}</td>
+        <td style="padding:4px 6px;width:90px">
+          <div style="height:8px;border-radius:4px;background:var(--bg);overflow:hidden">
+            <div style="width:${Math.min(adv,100)}%;height:100%;background:${col};border-radius:4px"></div>
+          </div>
+        </td>
+        <td style="padding:4px 6px;font-size:12px;font-weight:700;color:${col};white-space:nowrap">${adv.toFixed(1)}%</td>
+        <td style="padding:4px 6px;font-size:11px;color:var(--text2);white-space:nowrap">淘汰 ${elim}%</td>
+        <td style="padding:4px 6px;font-size:11px;color:var(--accent);white-space:nowrap">🏆 ${champ.toFixed(1)}%</td>
+      </tr>`;
+    }).join('');
+    return `<div style="background:var(--bg2);border-radius:8px;border:1px solid var(--border);padding:8px 4px;overflow:hidden">
+      <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px;padding:0 6px">${g} 组</div>
+      <table style="width:100%;border-collapse:collapse">${rows}</table>
+    </div>`;
+  }).join('');
+  el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px">${groupHtml}</div>`;
+}
+
+// ─── TOP SCORER PREDICTION ───
+function renderTopScorer() {
+  const el=document.getElementById('topScorerContent'); if(!el) return;
+  const scorers=[];
+  teams.forEach(t=>{
+    const sq=TEAM_SQUADS[t.name]; if(!sq) return;
+    const adj=calcAdjELO(t);
+    const avgAdj=1750;
+    const eloMult=Math.min(Math.max(1+(adj-avgAdj)/1200,0.55),1.9);
+    const xgPerGame=1.35*((t.attack||5)/5)*eloMult;
+    let expGames=3;
+    if(simResults){
+      const advPct=(simResults.advanceCount[t.name]||0)/simResults.totalSims;
+      expGames=3+advPct*4; // group(3) + up to 4 KO rounds
+    }
+    // top FW, then top MF as fallback
+    const fwds=sq.players.filter(p=>p.pos==='FW').sort((a,b)=>(b.val||0)-(a.val||0));
+    const mids=sq.players.filter(p=>p.pos==='MF').sort((a,b)=>(b.val||0)-(a.val||0));
+    const star=fwds[0]||mids[0]; if(!star) return;
+    // forward gets ~28% of team goals; midfielder ~12%
+    const share=star.pos==='FW'?0.28:0.13;
+    scorers.push({n:star.n,pos:star.pos,team:t.name,club:star.c,val:star.val,goals:xgPerGame*expGames*share});
+  });
+  scorers.sort((a,b)=>b.goals-a.goals);
+  const top20=scorers.slice(0,20);
+  const rows=top20.map((s,i)=>`<tr style="${i<3?'background:rgba(234,179,8,.08)':''}">
+    <td style="padding:5px 8px;font-size:13px;font-weight:700;color:${i===0?'#f59e0b':i===1?'#94a3b8':i===2?'#b45309':'var(--text2)'}">${i+1}</td>
+    <td style="padding:5px 8px;font-size:13px;font-weight:600">${s.n}</td>
+    <td style="padding:5px 8px;font-size:12px;white-space:nowrap">${getFlag(s.team)} ${s.team}</td>
+    <td style="padding:5px 8px;font-size:11px;color:var(--text2)">${s.club}</td>
+    <td style="padding:5px 8px;font-size:14px;font-weight:800;color:var(--accent)">${s.goals.toFixed(1)}</td>
+  </tr>`).join('');
+  el.innerHTML=`<div style="font-size:11px;color:var(--text2);margin-bottom:8px">
+    队伍进攻评分 × 预期出场场次 × 前锋个人贡献率 | 仅供参考
+  </div>
+  <table style="width:100%;border-collapse:collapse">
+    <thead><tr style="border-bottom:1px solid var(--border)">
+      <th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--text2)">#</th>
+      <th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--text2)">球员</th>
+      <th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--text2)">球队</th>
+      <th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--text2)">俱乐部</th>
+      <th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--text2)">预测进球</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+// ─── GROUP STANDINGS SIMULATOR ───
+let _groupSimScores={}, _groupSimCurrent='';
+function initGroupSim() {
+  const btnEl=document.getElementById('groupSimGroupBtns'); if(!btnEl) return;
+  const groups=['A','B','C','D','E','F','G','H','I','J','K','L'];
+  btnEl.innerHTML=groups.map(g=>`<button class="btn btn-sm" id="gsBtn${g}" onclick="selectGroupSim('${g}')">${g}组</button>`).join('');
+}
+function selectGroupSim(g) {
+  _groupSimCurrent=g;
+  document.querySelectorAll('[id^=gsBtn]').forEach(b=>b.style.background='');
+  const active=document.getElementById('gsBtn'+g);
+  if(active){active.style.background='var(--accent)';active.style.color='#fff';}
+  renderGroupSim();
+}
+function _groupMatchups(g) {
+  const gt=teams.filter(t=>t.group===g);
+  const m=[];
+  for(let i=0;i<gt.length;i++) for(let j=i+1;j<gt.length;j++) m.push([gt[i],gt[j]]);
+  return m;
+}
+function renderGroupSim() {
+  const el=document.getElementById('groupSimContent'); if(!el) return;
+  const g=_groupSimCurrent; if(!g){el.innerHTML='<div class="empty-state">请先选择小组</div>';return;}
+  const matchups=_groupMatchups(g);
+  if(!_groupSimScores[g]) _groupSimScores[g]={};
+  const matchRows=matchups.map((m,idx)=>{
+    const s=_groupSimScores[g][idx]||{h:'',a:''};
+    const [t1,t2]=m;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+      <span style="flex:1;text-align:right;font-size:12px;font-weight:600">${getFlag(t1.name)} ${t1.name}</span>
+      <input type="number" min="0" max="20" value="${s.h}" placeholder="-"
+        style="width:38px;text-align:center;padding:4px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:14px;font-weight:700"
+        oninput="_gsInput('${g}',${idx},'h',this.value)">
+      <span style="font-size:11px;color:var(--text2);font-weight:700">:</span>
+      <input type="number" min="0" max="20" value="${s.a}" placeholder="-"
+        style="width:38px;text-align:center;padding:4px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:14px;font-weight:700"
+        oninput="_gsInput('${g}',${idx},'a',this.value)">
+      <span style="flex:1;font-size:12px;font-weight:600">${getFlag(t2.name)} ${t2.name}</span>
+    </div>`;
+  }).join('');
+  const standings=_calcGroupStandings(g);
+  const standRows=standings.map((s,i)=>{
+    const isAdv=i<2;
+    const bg=isAdv?'rgba(34,197,94,.12)':'';
+    return `<tr style="background:${bg}">
+      <td style="padding:5px 8px;font-weight:700;font-size:13px;color:${isAdv?'var(--green)':'var(--text2)'}">${i+1}</td>
+      <td style="padding:5px 8px;font-size:12px;white-space:nowrap">${getFlag(s.name)} ${s.name}${isAdv?' ✅':''}</td>
+      <td style="padding:5px 8px;text-align:center;font-weight:700;font-size:13px">${s.pts}</td>
+      <td style="padding:5px 8px;text-align:center;font-size:12px">${s.w}/${s.d}/${s.l}</td>
+      <td style="padding:5px 8px;text-align:center;font-size:12px">${s.gf}:${s.ga}</td>
+      <td style="padding:5px 8px;text-align:center;font-size:12px;color:${s.gd>0?'var(--green)':s.gd<0?'var(--red)':'var(--text2)'}">${s.gd>0?'+':''}${s.gd}</td>
+    </tr>`;
+  }).join('');
+  el.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start">
+    <div>
+      <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">比分输入</div>
+      ${matchRows}
+      <button class="btn btn-sm" style="margin-top:8px" onclick="_gsReset('${g}')">🔄 清空本组</button>
+    </div>
+    <div>
+      <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">积分榜</div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="border-bottom:1px solid var(--border)">
+          <th style="padding:4px 8px;font-size:10px;color:var(--text2)">#</th>
+          <th style="padding:4px 8px;font-size:10px;color:var(--text2);text-align:left">球队</th>
+          <th style="padding:4px 8px;font-size:10px;color:var(--text2)">积分</th>
+          <th style="padding:4px 8px;font-size:10px;color:var(--text2)">W/D/L</th>
+          <th style="padding:4px 8px;font-size:10px;color:var(--text2)">进:失</th>
+          <th style="padding:4px 8px;font-size:10px;color:var(--text2)">净胜</th>
+        </tr></thead>
+        <tbody>${standRows}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+function _gsInput(g,idx,side,val) {
+  if(!_groupSimScores[g]) _groupSimScores[g]={};
+  if(!_groupSimScores[g][idx]) _groupSimScores[g][idx]={h:'',a:''};
+  _groupSimScores[g][idx][side]=val===''?'':parseInt(val);
+  // re-render just the standings part without resetting inputs
+  const standings=_calcGroupStandings(g);
+  const tableEl=document.querySelector('#groupSimContent table tbody');
+  if(!tableEl) return;
+  tableEl.innerHTML=standings.map((s,i)=>{
+    const isAdv=i<2;
+    const bg=isAdv?'rgba(34,197,94,.12)':'';
+    return `<tr style="background:${bg}">
+      <td style="padding:5px 8px;font-weight:700;font-size:13px;color:${isAdv?'var(--green)':'var(--text2)'}">${i+1}</td>
+      <td style="padding:5px 8px;font-size:12px;white-space:nowrap">${getFlag(s.name)} ${s.name}${isAdv?' ✅':''}</td>
+      <td style="padding:5px 8px;text-align:center;font-weight:700;font-size:13px">${s.pts}</td>
+      <td style="padding:5px 8px;text-align:center;font-size:12px">${s.w}/${s.d}/${s.l}</td>
+      <td style="padding:5px 8px;text-align:center;font-size:12px">${s.gf}:${s.ga}</td>
+      <td style="padding:5px 8px;text-align:center;font-size:12px;color:${s.gd>0?'var(--green)':s.gd<0?'var(--red)':'var(--text2)'}">${s.gd>0?'+':''}${s.gd}</td>
+    </tr>`;
+  }).join('');
+}
+function _gsReset(g) {
+  _groupSimScores[g]={};
+  renderGroupSim();
+}
+function _calcGroupStandings(g) {
+  const gt=teams.filter(t=>t.group===g);
+  const st={};
+  gt.forEach(t=>{st[t.name]={name:t.name,p:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,pts:0};});
+  const matchups=_groupMatchups(g);
+  const scores=_groupSimScores[g]||{};
+  matchups.forEach(([t1,t2],idx)=>{
+    const s=scores[idx]; if(!s||s.h===''||s.a==='') return;
+    const h=parseInt(s.h),a=parseInt(s.a); if(isNaN(h)||isNaN(a)) return;
+    st[t1.name].gf+=h;st[t1.name].ga+=a;st[t1.name].gd+=h-a;
+    st[t2.name].gf+=a;st[t2.name].ga+=h;st[t2.name].gd+=a-h;
+    if(h>a){st[t1.name].w++;st[t1.name].pts+=3;st[t2.name].l++;}
+    else if(h===a){st[t1.name].d++;st[t1.name].pts++;st[t2.name].d++;st[t2.name].pts++;}
+    else{st[t2.name].w++;st[t2.name].pts+=3;st[t1.name].l++;}
+  });
+  return gt.map(t=>st[t.name]).sort((a,b)=>b.pts-a.pts||b.gd-a.gd||b.gf-a.gf);
+}
+window._gsInput=_gsInput; window._gsReset=_gsReset;
+window.selectGroupSim=selectGroupSim;
+
+// ─── SCHEDULE COUNTDOWN ───
+let _cdTimer=null;
+function _startCountdown() {
+  if(_cdTimer) clearInterval(_cdTimer);
+  _updateCountdowns();
+  _cdTimer=setInterval(_updateCountdowns,1000);
+}
+function _stopCountdown() { if(_cdTimer){clearInterval(_cdTimer);_cdTimer=null;} }
+function _updateCountdowns() {
+  const now=Date.now();
+  document.querySelectorAll('[data-mts]').forEach(el=>{
+    const ts=parseInt(el.dataset.mts);
+    const diff=ts-now;
+    if(diff<=-5400000){el.textContent='';return;}
+    if(diff<=0){el.textContent='🔴 进行中';el.style.color='var(--red)';return;}
+    const d=Math.floor(diff/86400000),h=Math.floor(diff%86400000/3600000);
+    const m=Math.floor(diff%3600000/60000),s=Math.floor(diff%60000/1000);
+    if(d>0) el.textContent=`⏱ ${d}天${h}时${m}分`;
+    else if(h>0) el.textContent=`⏱ ${h}时${m}分`;
+    else el.textContent=`⏱ ${m}分${s}秒`;
+    el.style.color=diff<3600000?'var(--red)':'var(--accent)';
+  });
+}
+
 function renderEditor() {
   const name=document.getElementById('editorTeam').value;
   const el=document.getElementById('editorContent');
@@ -3827,13 +4179,17 @@ function renderSchedule() {
     } else if(needsResult){
       html+=`<div style="text-align:center;"><span style="font-size:10px;color:var(--orange,#f97316);font-weight:700;cursor:pointer;" onclick="switchTab('matchEntry',this)" title="${currentLang==='zh'?'\u70b9\u51fb\u5f55\u5165\u7ed3\u679c':'Enter result'}">\u5f85\u5f55\u5165</span></div>`;
     } else if(m.home!=='TBD'){
-      html+=`<div style="text-align:center;"><span class="sc-score${isToday?' live':''}">${isToday?'\ud83d\udd34':'VS'}</span></div>`;
+      // build countdown timestamp from date+time in local display
+      const mts=new Date(m.date+'T'+(m.time||'00:00')+':00').getTime();
+      const cdSpan=`<span data-mts="${mts}" style="font-size:9px;display:block;margin-top:2px"></span>`;
+      html+=`<div style="text-align:center;"><span class="sc-score${isToday?' live':''}">${isToday?'\ud83d\udd34':'VS'}</span>${cdSpan}</div>`;
     } else {
       html+=`<div style="text-align:center;"><span style="color:var(--text3);font-size:9px;">${currentLang==='zh'?'\u5f85\u5b9a':'TBD'}</span></div>`;
     }
     html+='</div>';
   });
   grid.innerHTML=html||`<div class="empty-state">${currentLang==='en'?'No matches found':currentLang==='pt'?'Nenhum jogo encontrado':'\u65e0\u5339\u914d\u8d5b\u7a0b'}</div>`;
+  _startCountdown();
 }
 
 // Dual timezone: local venue -> Portugal (UTC+1) + China (UTC+8)
@@ -4772,6 +5128,11 @@ window.renderEditor=renderEditor;
 window.renderPlayers=renderPlayers;
 window.renderSquads=renderSquads;
 window.showSquad=showSquad;
+window.renderH2H=renderH2H;
+window.renderQualProb=renderQualProb;
+window.renderTopScorer=renderTopScorer;
+window.renderGroupSim=renderGroupSim;
+window.initGroupSim=initGroupSim;
 window.renderStandings=renderStandings;
 
 init();
