@@ -447,18 +447,22 @@ body {
         <span id="oddsBlendPct" style="font-size:11px;font-weight:700;min-width:28px;">60%</span>
       </div>
     </div>
-    <!-- API Key Row -->
-    <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;flex-wrap:wrap;padding:10px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border);">
-      <span style="font-size:11px;font-weight:600;white-space:nowrap;">🔑 API Key</span>
-      <input type="password" id="oddsApiKey" placeholder="粘贴 The Odds API 免费Key..."
-        style="flex:1;min-width:160px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text);font-size:11px;font-family:monospace;"
-        oninput="saveApiKey(this.value)">
-      <button class="btn btn-primary" onclick="fetchLiveOdds()" id="fetchOddsBtn" style="white-space:nowrap;">
-        🔄 立即获取实时赔率
-      </button>
-      <button class="btn btn-sm" onclick="showOddsModal()" style="white-space:nowrap;">✏️ 手动编辑</button>
-      <a href="https://the-odds-api.com/" target="_blank" style="font-size:10px;color:var(--accent);text-decoration:none;white-space:nowrap;" title="免费注册，500次/月">🆓 免费注册Key</a>
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
+      <span style="font-size:11px;color:var(--text2);">💡 模拟完成后自动生成模型赔率，无需 API Key</span>
+      <button class="btn btn-sm" onclick="showOddsModal()" style="white-space:nowrap;margin-left:auto;">✏️ 手动编辑</button>
     </div>
+    <details style="margin-bottom:10px;">
+      <summary style="font-size:10px;color:var(--text3);cursor:pointer;user-select:none;">🔑 高级：填入 The Odds API Key 获取真实市场赔率（可选）</summary>
+      <div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap;padding:10px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border);">
+        <input type="password" id="oddsApiKey" placeholder="粘贴 The Odds API 免费Key..."
+          style="flex:1;min-width:160px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text);font-size:11px;font-family:monospace;"
+          oninput="saveApiKey(this.value)">
+        <button class="btn btn-primary" onclick="fetchLiveOdds()" id="fetchOddsBtn" style="white-space:nowrap;">
+          🔄 获取真实赔率
+        </button>
+        <a href="https://the-odds-api.com/" target="_blank" style="font-size:10px;color:var(--accent);text-decoration:none;white-space:nowrap;">🆓 注册Key</a>
+      </div>
+    </details>
     <div id="liveOddsStatus" style="font-size:11px;margin-bottom:8px;"></div>
     <div id="oddsStatusBar" style="font-size:11px;color:var(--text2);"></div>
     <div id="liveOddsPreview" style="margin-top:8px;"></div>
@@ -1970,6 +1974,7 @@ let FACTOR_MULT = 4.0;
 let activeEvents = {};
 let marketOdds = {};
 let savedOdds = {};
+let _oddsFromModel = false; // true = odds were auto-generated from sim, not from user/API
 
 // ─── HELPERS ───
 function calcWeight(t) {
@@ -2325,6 +2330,15 @@ async function runSim() {
       simResults={champCount:cc,advanceCount:ac,qualPathData:qpd,totalSims:n,upsetLog:upsetLog};
       confidenceIntervals=ci;
       bracketCustomSlots=null; bracketEditMode=false; bracketEditSelected=null;
+      // Auto-populate model odds from simulation (no API key needed)
+      if(!Object.keys(savedOdds).length||_oddsFromModel){
+        _oddsFromModel=true;
+        const margin=1.08;
+        teams.forEach(t=>{
+          const p=(cc[t.name]||0)/n;
+          if(p>0.002) savedOdds[t.name]=Math.round(margin/p*10)/10;
+        });
+      }
       saveData(); updateAll();
       document.getElementById('simStatus').className='status-badge status-done';
       document.getElementById('simStatus').textContent=T('done');
