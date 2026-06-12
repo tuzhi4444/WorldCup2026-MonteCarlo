@@ -2403,7 +2403,7 @@ const TEAM_EN_TO_ZH = {
   'Egypt':'埃及','Uzbekistan':'乌兹别克斯坦','Jordan':'约旦',
   'DR Congo':'民主刚果','Congo DR':'民主刚果','Democratic Republic of the Congo':'民主刚果',
   'Tunisia':'突尼斯','Iraq':'伊拉克',
-  'Bosnia':'波黑','Bosnia and Herzegovina':'波黑','Bosnia & Herzegovina':'波黑',
+  'Bosnia':'波黑','Bosnia and Herzegovina':'波黑','Bosnia & Herzegovina':'波黑','Bosnia-Herzegovina':'波黑','Bosnia-Herz.':'波黑',
   'Cape Verde':'佛得角','Cabo Verde':'佛得角',
   'Saudi Arabia':'沙特阿拉伯','New Zealand':'新西兰','South Africa':'南非',
   'Haiti':'海地','Ghana':'加纳','Qatar':'卡塔尔','Curacao':'库拉索','Curaçao':'库拉索',
@@ -3863,6 +3863,7 @@ function _updateCountdowns() {
   const now=Date.now();
   document.querySelectorAll('[data-mts]').forEach(el=>{
     const ts=parseInt(el.dataset.mts);
+    if(!ts||isNaN(ts)){el.textContent='';return;}
     const diff=ts-now;
     if(diff<=-5400000){el.textContent='';return;}
     if(diff<=0){el.textContent='🔴 进行中';el.style.color='var(--red)';return;}
