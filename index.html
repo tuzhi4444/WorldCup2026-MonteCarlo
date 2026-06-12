@@ -672,7 +672,7 @@ body {
     <div id="historyContent"><div class="empty-state">运行模拟后保存快照，对比调参前后变化</div></div>
   </div>
   <div class="panel" style="margin-top:12px;">
-    <div class="panel-header"><h3>⚽ 比分分析</h3><div style="display:flex;gap:6px;">
+    <div class="panel-header"><h3>🎯 比分预测</h3><div style="display:flex;gap:6px;">
       <button class="btn btn-sm sa-tab-btn active" onclick="saSwitch('group',this)">小组赛</button>
       <button class="btn btn-sm sa-tab-btn" onclick="saSwitch('ko',this)">淘汰赛</button>
     </div></div>
@@ -3402,7 +3402,7 @@ function startScoreAutoRefresh() {
   _scoreRefreshTimer = setInterval(() => { fetchLiveScores(); }, 2 * 60 * 1000);
 }
 
-// ─── SCORE ANALYSIS ───
+// ─── SCORE PREDICTION ───
 let saMode = 'group';
 function saSwitch(mode, btn) {
   saMode = mode;
@@ -3411,165 +3411,113 @@ function saSwitch(mode, btn) {
   renderScoreAnalysis();
 }
 
+// Compute Poisson-based score prediction for two teams
+function predictScore(t1, t2, isKO) {
+  const avg = isKO ? 1.55 : 1.35;
+  const diff = calcAdjELO(t1) - calcAdjELO(t2);
+  const ef1 = Math.pow(10, diff / 800), ef2 = Math.pow(10, -diff / 800);
+  const l1 = Math.max(0.1, avg * (t1.attack||5)/6 / ((t2.defense||5)/6) * ef1);
+  const l2 = Math.max(0.1, avg * (t2.attack||5)/6 / ((t1.defense||5)/6) * ef2);
+  let pW=0, pD=0, pL=0;
+  const scores = [];
+  for (let i = 0; i <= 6; i++) {
+    for (let j = 0; j <= 6; j++) {
+      const p = poissonProb(l1,i) * poissonProb(l2,j);
+      if (i > j) pW += p; else if (i === j) pD += p; else pL += p;
+      if (p > 0.008) scores.push({ s1:i, s2:j, p });
+    }
+  }
+  scores.sort((a,b) => b.p - a.p);
+  return { pW, pD, pL, top: scores.slice(0,3), l1, l2 };
+}
+
 function renderScoreAnalysis() {
   const el = document.getElementById('saContent');
   if (!el) return;
-  if (!matchResults.length) {
-    el.innerHTML = '<div class="empty-state">录入比分后自动生成分析</div>';
-    return;
-  }
   saMode === 'group' ? renderSAGroup(el) : renderSAKO(el);
 }
 
-function renderSAGroup(el) {
-  // Classify: group match = both teams in same group
-  const groupMatches = matchResults.filter(m => {
-    const a = teams.find(t => t.name === m.t1), b = teams.find(t => t.name === m.t2);
-    return a && b && a.group === b.group;
-  });
-
-  if (!groupMatches.length) {
-    el.innerHTML = '<div class="empty-state">暂无小组赛比分</div>'; return;
-  }
-
-  const total = groupMatches.length;
-  const totalGoals = groupMatches.reduce((s, m) => s + m.score1 + m.score2, 0);
-  const draws = groupMatches.filter(m => m.score1 === m.score2).length;
-  const cleanSheets = groupMatches.filter(m => m.score1 === 0 || m.score2 === 0).length;
-  const avgGoals = (totalGoals / total).toFixed(2);
-
-  // Top scoring match
-  const topMatch = [...groupMatches].sort((a, b) => (b.score1 + b.score2) - (a.score1 + a.score2))[0];
-  // Biggest margin
-  const biggestMargin = [...groupMatches].sort((a, b) => Math.abs(b.score1 - b.score2) - Math.abs(a.score1 - a.score2))[0];
-
-  let html = `<div class="sa-stat-grid">
-    <div class="sa-stat-card"><div class="sa-stat-val">${total}</div><div class="sa-stat-lbl">已录入场次</div></div>
-    <div class="sa-stat-card"><div class="sa-stat-val">${totalGoals}</div><div class="sa-stat-lbl">总进球</div></div>
-    <div class="sa-stat-card"><div class="sa-stat-val">${avgGoals}</div><div class="sa-stat-lbl">场均进球</div></div>
-    <div class="sa-stat-card"><div class="sa-stat-val">${((draws/total)*100).toFixed(0)}%</div><div class="sa-stat-lbl">平局率</div></div>
+function spRow(t1, t2, isKO, recorded) {
+  const pred = predictScore(t1, t2, isKO);
+  const bestScore = pred.top[0];
+  const pctW = (pred.pW*100).toFixed(0), pctD = (pred.pD*100).toFixed(0), pctL = (pred.pL*100).toFixed(0);
+  const topScores = pred.top.map(s =>
+    `<span style="font-size:9px;padding:1px 5px;border-radius:10px;background:var(--bg3);margin-right:2px;white-space:nowrap;">${s.s1}-${s.s2} <span style="color:var(--text2)">${(s.p*100).toFixed(0)}%</span></span>`
+  ).join('');
+  const recBadge = recorded
+    ? `<span style="font-size:9px;padding:1px 5px;border-radius:10px;background:rgba(34,197,94,.15);color:#16a34a;font-weight:700;white-space:nowrap;">✓ ${recorded.score1}-${recorded.score2}</span>`
+    : '';
+  return `<div class="sa-match-row" style="flex-wrap:wrap;gap:4px;">
+    <span style="min-width:90px;text-align:right;font-weight:600;font-size:11px;">${getFlag(t1.name)} ${TN(t1.name)}</span>
+    <div style="display:flex;flex-direction:column;align-items:center;min-width:72px;">
+      <div style="font-size:13px;font-weight:800;color:var(--accent);">${bestScore.s1} - ${bestScore.s2}</div>
+      <div style="font-size:8px;color:var(--text2);white-space:nowrap;">${pctW}% / ${pctD}% / ${pctL}%</div>
+    </div>
+    <span style="min-width:90px;font-weight:600;font-size:11px;">${TN(t2.name)} ${getFlag(t2.name)}</span>
+    <div style="display:flex;align-items:center;gap:2px;flex-wrap:wrap;">${topScores}${recBadge}</div>
   </div>`;
+}
 
-  // Highlights
-  html += `<div class="sa-section-title">精彩场次</div>`;
-  if (topMatch) {
-    const ta = teams.find(t => t.name === topMatch.t1), tb = teams.find(t => t.name === topMatch.t2);
-    html += `<div class="sa-match-row">${getFlag(topMatch.t1)}<span class="sa-match-team">${TN(topMatch.t1)}</span>
-      <span class="sa-match-score">${topMatch.score1} - ${topMatch.score2}</span>
-      <span class="sa-match-team away">${TN(topMatch.t2)} ${getFlag(topMatch.t2)}</span>
-      <span class="sa-match-badge">最多进球</span></div>`;
-  }
-  if (biggestMargin && Math.abs(biggestMargin.score1 - biggestMargin.score2) > 0 &&
-      biggestMargin !== topMatch) {
-    html += `<div class="sa-match-row">${getFlag(biggestMargin.t1)}<span class="sa-match-team">${TN(biggestMargin.t1)}</span>
-      <span class="sa-match-score">${biggestMargin.score1} - ${biggestMargin.score2}</span>
-      <span class="sa-match-team away">${TN(biggestMargin.t2)} ${getFlag(biggestMargin.t2)}</span>
-      <span class="sa-match-badge">最大悬殊</span></div>`;
-  }
+function renderSAGroup(el) {
+  const GROUPS = ['A','B','C','D','E','F','G','H','I','J','K','L'];
+  // Group-stage schedule entries (exclude KO, exclude TBD)
+  const schedGroup = MATCH_SCHEDULE.filter(m => m.group !== 'KO' && m.home !== 'TBD' && m.away !== 'TBD');
+  if (!schedGroup.length) { el.innerHTML = '<div class="empty-state">赛程数据不可用</div>'; return; }
 
-  // Per-group goals tally
-  const groups = ['A','B','C','D','E','F','G','H','I','J','K','L'];
-  const groupStats = {};
-  groups.forEach(g => {
-    const gm = groupMatches.filter(m => {
-      const a = teams.find(t => t.name === m.t1); return a?.group === g;
+  // Group by group letter
+  let html = '';
+  GROUPS.forEach(g => {
+    const gMatches = schedGroup.filter(m => m.group === g);
+    if (!gMatches.length) return;
+    html += `<div class="sa-section-title">小组 ${g}</div>`;
+    gMatches.forEach(m => {
+      const t1 = teams.find(t => t.name === m.home), t2 = teams.find(t => t.name === m.away);
+      if (!t1 || !t2) return;
+      const recorded = matchResults.find(r =>
+        (r.t1===t1.name&&r.t2===t2.name)||(r.t1===t2.name&&r.t2===t1.name));
+      html += spRow(t1, t2, false, recorded ? {
+        score1: recorded.t1===t1.name ? recorded.score1 : recorded.score2,
+        score2: recorded.t1===t1.name ? recorded.score2 : recorded.score1
+      } : null);
     });
-    if (!gm.length) return;
-    // Team goal tallies
-    const scored = {};
-    gm.forEach(m => {
-      scored[m.t1] = (scored[m.t1] || 0) + m.score1;
-      scored[m.t2] = (scored[m.t2] || 0) + m.score2;
-    });
-    groupStats[g] = { matches: gm.length, goals: gm.reduce((s,m)=>s+m.score1+m.score2,0), scored };
   });
-
-  const activeGroups = Object.keys(groupStats);
-  if (activeGroups.length) {
-    html += `<div class="sa-section-title">各小组进球</div><div class="sa-group-grid">`;
-    activeGroups.forEach(g => {
-      const gs = groupStats[g];
-      const sorted = Object.entries(gs.scored).sort((a,b)=>b[1]-a[1]);
-      html += `<div class="sa-group-card"><div class="sa-group-title">小组 ${g} · ${gs.matches}场 · ${gs.goals}球</div>`;
-      sorted.forEach(([name, goals]) => {
-        html += `<div class="sa-group-team-row"><span>${getFlag(name)} ${TN(name)}</span><span style="font-weight:700;color:var(--accent);">${goals}</span></div>`;
-      });
-      html += `</div>`;
-    });
-    html += `</div>`;
-  }
-
-  // All group results list
-  html += `<div class="sa-section-title">全部比赛结果</div>`;
-  const sorted = [...groupMatches].sort((a,b) => new Date(b.time) - new Date(a.time));
-  sorted.forEach(m => {
-    const winner = m.score1 > m.score2 ? 'left' : m.score2 > m.score1 ? 'right' : 'draw';
-    html += `<div class="sa-match-row">
-      ${getFlag(m.t1)}<span class="sa-match-team" style="${winner==='left'?'color:var(--accent);':''}">${TN(m.t1)}</span>
-      <span class="sa-match-score">${m.score1} - ${m.score2}</span>
-      <span class="sa-match-team away" style="${winner==='right'?'color:var(--accent);':''}">${TN(m.t2)} ${getFlag(m.t2)}</span>
-    </div>`;
-  });
-
-  el.innerHTML = html;
+  el.innerHTML = html || '<div class="empty-state">暂无小组赛数据</div>';
 }
 
 function renderSAKO(el) {
-  // KO match = teams from different groups
-  const koMatches = matchResults.filter(m => {
-    const a = teams.find(t => t.name === m.t1), b = teams.find(t => t.name === m.t2);
-    return !a || !b || a.group !== b.group;
-  });
+  // KO bracket: use simResults if available, else show TBD placeholders from schedule
+  const koSchedule = MATCH_SCHEDULE.filter(m => m.group === 'KO');
+  if (!koSchedule.length) { el.innerHTML = '<div class="empty-state">淘汰赛赛程暂未开始</div>'; return; }
 
-  // Also check MATCH_SCHEDULE for KO group tag
-  const schedKO = new Set(
-    MATCH_SCHEDULE.filter(s => s.group === 'KO').map(s => s.home + '|' + s.away)
-  );
-  const koAll = matchResults.filter(m =>
-    schedKO.has(m.t1 + '|' + m.t2) || schedKO.has(m.t2 + '|' + m.t1) ||
-    (() => { const a=teams.find(t=>t.name===m.t1),b=teams.find(t=>t.name===m.t2); return a&&b&&a.group!==b.group; })()
-  );
-
-  if (!koAll.length) {
-    el.innerHTML = '<div class="empty-state">暂无淘汰赛比分</div>'; return;
-  }
-
-  const total = koAll.length;
-  const totalGoals = koAll.reduce((s,m)=>s+m.score1+m.score2,0);
-  const draws = koAll.filter(m=>m.score1===m.score2).length;
-
-  let html = `<div class="sa-stat-grid">
-    <div class="sa-stat-card"><div class="sa-stat-val">${total}</div><div class="sa-stat-lbl">已录入场次</div></div>
-    <div class="sa-stat-card"><div class="sa-stat-val">${totalGoals}</div><div class="sa-stat-lbl">总进球</div></div>
-    <div class="sa-stat-card"><div class="sa-stat-val">${(totalGoals/total).toFixed(2)}</div><div class="sa-stat-lbl">场均进球</div></div>
-    <div class="sa-stat-card"><div class="sa-stat-val">${draws}</div><div class="sa-stat-lbl">加时/点球场</div></div>
-  </div>`;
-
-  // Round detection: infer round by total KO matches recorded order
   const rounds = [
-    { label: '1/8决赛 (32强→16强)', size: 16 },
-    { label: '1/4决赛 (16强→8强)', size: 8 },
-    { label: '半决赛', size: 4 },
-    { label: '季军赛 / 决赛', size: 2 },
+    { label: '1/8决赛', matches: koSchedule.slice(0, 16) },
+    { label: '1/4决赛', matches: koSchedule.slice(16, 24) },
+    { label: '半决赛',  matches: koSchedule.slice(24, 28) },
+    { label: '决赛 / 季军赛', matches: koSchedule.slice(28, 32) },
   ];
-  let remaining = [...koAll].sort((a,b)=>new Date(a.time)-new Date(b.time));
-  rounds.forEach(round => {
-    const chunk = remaining.splice(0, round.size);
-    if (!chunk.length) return;
-    html += `<div class="sa-ko-round"><div class="sa-ko-round-title">${round.label}</div>`;
-    chunk.forEach(m => {
-      const winner = m.score1 > m.score2 ? 'left' : m.score2 > m.score1 ? 'right' : 'draw';
-      html += `<div class="sa-match-row">
-        ${getFlag(m.t1)}<span class="sa-match-team" style="${winner==='left'?'color:var(--accent);font-weight:800;':''}">${TN(m.t1)}</span>
-        <span class="sa-match-score">${m.score1} - ${m.score2}</span>
-        <span class="sa-match-team away" style="${winner==='right'?'color:var(--accent);font-weight:800;':''}">${TN(m.t2)} ${getFlag(m.t2)}</span>
-        ${winner==='draw'?'<span class="sa-match-badge">平/加时</span>':''}
-      </div>`;
+
+  let html = '';
+  rounds.forEach(({ label, matches }) => {
+    const valid = matches.filter(m => m.home !== 'TBD' && m.away !== 'TBD');
+    const tbd   = matches.filter(m => m.home === 'TBD' || m.away === 'TBD');
+    if (!matches.length) return;
+    html += `<div class="sa-ko-round"><div class="sa-ko-round-title">${label}</div>`;
+    valid.forEach(m => {
+      const t1 = teams.find(t => t.name === m.home), t2 = teams.find(t => t.name === m.away);
+      if (!t1 || !t2) return;
+      const recorded = matchResults.find(r =>
+        (r.t1===t1.name&&r.t2===t2.name)||(r.t1===t2.name&&r.t2===t1.name));
+      html += spRow(t1, t2, true, recorded ? {
+        score1: recorded.t1===t1.name ? recorded.score1 : recorded.score2,
+        score2: recorded.t1===t1.name ? recorded.score2 : recorded.score1
+      } : null);
     });
+    if (tbd.length) {
+      html += `<div style="font-size:10px;color:var(--text2);padding:4px 8px;">+ ${tbd.length} 场对阵待定（需录入小组赛结果）</div>`;
+    }
     html += `</div>`;
   });
-
-  el.innerHTML = html;
+  el.innerHTML = html || '<div class="empty-state">淘汰赛对阵待确定</div>';
 }
 
 // ─── TAB: HISTORY ───
@@ -3725,6 +3673,7 @@ function init() {
   }
   // Auto-start score refresh if keys are present
   if(scoreApiKeys.odds || scoreApiKeys.football) startScoreAutoRefresh();
+  renderScoreAnalysis();
 }
 // ─── EXPORT FOR ONCLICK HANDLERS ───
 window.runSim=runSim;
