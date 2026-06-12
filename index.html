@@ -1758,16 +1758,16 @@ async function fetchLiveOdds() {
     return;
   }
 
-  // Merge into savedOdds
-  Object.assign(savedOdds, newOdds);
+  // Replace savedOdds entirely with fresh data (don't merge — stale entries would persist)
+  savedOdds = newOdds;
   liveOddsData = newOdds;
   liveOddsUpdated = new Date();
   saveData();
 
   const timeStr = liveOddsUpdated.toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
   setLiveStatus(
-    `✅ 实时赔率已更新 · ${matched} 队 · ${bookmakerCount} 家博彩公司 · ${timeStr}` +
-    (unmatched.length ? `<br><span style="color:var(--text3);font-size:9px;">未匹配: ${unmatched.join(', ')}</span>` : ''),
+    `✅ 夺冠赔率已更新 · ${matched} 队 · ${bookmakerCount} 家博彩 · ${timeStr}` +
+    `<br><span style="color:var(--text3);font-size:9px;">注：夺冠盘口每天微调1-2次，非逐分钟更新${unmatched.length ? ' · 未匹配: '+unmatched.slice(0,5).join(', ') : ''}</span>`,
     'success'
   );
 
@@ -1954,8 +1954,13 @@ function updateOddsStatusBar() {
     const _w=Math.round(getBlendWeight()*100), _s=100-_w;
     const _oddsEntered=currentLang==='en'?`✓ ${n} teams' odds entered`:currentLang==='pt'?`✓ ${n} odds inseridas`:`✓ 已输入 ${n} 支球队赔率`;
     const _blend=currentLang==='en'?`Blend: Sim ${_s}% + Market ${_w}%`:currentLang==='pt'?`Combinado: Sim ${_s}% + Mercado ${_w}%`:`融合权重: 模拟 ${_s}% + 市场 ${_w}%`;
+    const ageStr = liveOddsUpdated
+      ? (() => { const m=Math.round((Date.now()-liveOddsUpdated)/60000); return m<1?'刚刚更新':m<60?`${m}分钟前更新`:`${Math.round(m/60)}小时前更新`; })()
+      : '';
     bar.innerHTML=`<span style="color:var(--green);">${_oddsEntered}</span>
-      <span style="color:var(--text3);margin-left:8px;">${_blend}</span>`;
+      <span style="color:var(--text3);margin-left:8px;">${_blend}</span>
+      ${ageStr?`<span style="color:var(--text3);margin-left:8px;font-size:10px;">· ${ageStr}</span>`:''}`;
+
   }
 }
 
