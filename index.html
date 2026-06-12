@@ -378,7 +378,7 @@ body {
   <span class="sep hide-mobile"></span>
   <div class="ctrl-group">
     <label id="headerSimLabel">模拟</label>
-    <input type="number" id="simCount" value="5000" min="500" max="20000" step="100">
+    <input type="number" id="simCount" value="5000" min="500" max="50000" step="500" title="500=快速预览 | 5000=标准精度(±1%) | 20000=高精度(±0.5%)">
     <span style="font-size:10px;color:var(--text3);" id="headerSimUnit">次</span>
   </div>
   <span class="sep hide-mobile"></span>
@@ -416,6 +416,7 @@ body {
   <button class="tab" onclick="switchTab('teams',this)">📊 球队数据</button>
   <button class="tab" onclick="switchTab('analysis',this)">🔬 分析</button>
   <button class="tab" onclick="switchTab('schedule',this)">📅 赛程</button>
+  <button class="tab" onclick="switchTab('predict',this)">🎯 比分预测</button>
   <button class="tab" onclick="switchTab('history',this)">📈 历史</button>
 </div>
 
@@ -666,17 +667,20 @@ body {
 </div>
 
 <!-- ─── TAB: HISTORY ─── -->
-<div class="tab-content" id="tab-history">
+<div class="tab-content" id="tab-predict">
   <div class="panel">
-    <div class="panel-header"><h3 data-i18n="panel_history">📈 模拟历史对比</h3><div><button class="btn btn-sm" onclick="saveSnapshot()" data-i18n="snapshot">📸 快照</button><button class="btn btn-sm" onclick="clearHistory()" style="margin-left:4px;" data-i18n="clear">清空</button></div></div>
-    <div id="historyContent"><div class="empty-state">运行模拟后保存快照，对比调参前后变化</div></div>
-  </div>
-  <div class="panel" style="margin-top:12px;">
     <div class="panel-header"><h3>🎯 比分预测</h3><div style="display:flex;gap:6px;">
       <button class="btn btn-sm sa-tab-btn active" onclick="saSwitch('group',this)">小组赛</button>
       <button class="btn btn-sm sa-tab-btn" onclick="saSwitch('ko',this)">淘汰赛</button>
     </div></div>
     <div id="saContent"></div>
+  </div>
+</div>
+
+<div class="tab-content" id="tab-history">
+  <div class="panel">
+    <div class="panel-header"><h3 data-i18n="panel_history">📈 模拟历史对比</h3><div><button class="btn btn-sm" onclick="saveSnapshot()" data-i18n="snapshot">📸 快照</button><button class="btn btn-sm" onclick="clearHistory()" style="margin-left:4px;" data-i18n="clear">清空</button></div></div>
+    <div id="historyContent"><div class="empty-state">运行模拟后保存快照，对比调参前后变化</div></div>
   </div>
 </div>
 
@@ -1401,6 +1405,7 @@ function switchTab(name,btn) {
   document.getElementById('tab-'+name).classList.add('active');
   if(name==='championship'){renderELO();renderHistogram();}
   if(name==='teams'){renderRadar();}
+  if(name==='predict'){renderScoreAnalysis();}
 }
 
 // ─── NOTIFY ───
@@ -1451,17 +1456,30 @@ async function runSim() {
     const p=mp(a,b),r=Math.random();
     let result=r<p.pA?'A':r<p.pA+p.pDraw?'D':'B';
     const avg=isKO?1.55:1.35;
-    const ed=(a.elo||1700)-(b.elo||1700);
-    const f1=Math.pow(10,ed/800),f2=Math.pow(10,-ed/800);
-    const l1=Math.max(0.1,avg*(a.attack||5)/6/(b.defense||5)/6*f1);
-    const l2=Math.max(0.1,avg*(b.attack||5)/6/(a.defense||5)/6*f2);
+    // 与 predictScore 保持一致：线性ELO调整±30% + sqrt压制极端比
+    const ea=calcAdjELO(a)+(HOST_SET.has(a.name)?HOST_BONUS:0);
+    const eb=calcAdjELO(b)+(HOST_SET.has(b.name)?HOST_BONUS:0);
+    const diff=ea-eb;
+    const eloAdj1=Math.min(Math.max(1+diff/2000,0.7),1.3);
+    const eloAdj2=Math.min(Math.max(1-diff/2000,0.7),1.3);
+    const att1=(a.attack||5)/5,def1=(a.defense||5)/5,gk1=(a.goalkeeper||5)/5;
+    const att2=(b.attack||5)/5,def2=(b.defense||5)/5,gk2=(b.goalkeeper||5)/5;
+    const r1=Math.sqrt(att1/(def2*0.8+0.2))/Math.sqrt(gk2*0.5+0.5);
+    const r2=Math.sqrt(att2/(def1*0.8+0.2))/Math.sqrt(gk1*0.5+0.5);
+    const l1=Math.min(Math.max(avg*r1*eloAdj1,0.15),2.8);
+    const l2=Math.min(Math.max(avg*r2*eloAdj2,0.15),2.8);
     function pps(l,k){if(l<=0)return k===0?1:0;let p=Math.exp(-l);for(let i=1;i<=k;i++)p*=l/i;return p;}
     let s1=0,s2=0,bestP=0;
     for(let i=0;i<=6;i++){for(let j=0;j<=6;j++){
       const pp=pps(l1,i)*pps(l2,j);
       if((result==='A'&&i>j||result==='D'&&i===j||result==='B'&&j>i)&&pp>bestP){s1=i;s2=j;bestP=pp;}
     }}
-    if(isKO&&s1===s2)s1++;
+    // KO平局→点球大战（约50/50，略偏强队）
+    if(isKO&&s1===s2){
+      const penWinA=p.pA/(p.pA+p.pB);
+      if(Math.random()<penWinA)s1++;else s2++;
+      result=s1>s2?'A':'B';
+    }
     const intensity=isKO?1.3:1.0;
     return {s1,s2,result,ycA:poissonSample(1.8*intensity),ycB:poissonSample(1.8*intensity),rcA:Math.random()<0.12*intensity?1:0,rcB:Math.random()<0.12*intensity?1:0};
   }
@@ -1835,7 +1853,13 @@ function startOddsAutoRefresh() {
 // ─── ODDS BLENDING ───
 function getBlendWeight() {
   const sl=document.getElementById('oddsBlendSlider');
-  return sl ? parseInt(sl.value)/100 : 0.5;
+  let w = sl ? parseInt(sl.value)/100 : 0.5;
+  // 赔率数据时效衰减：超过30分钟每小时降低20%权重，超过6小时权重归零
+  if(liveOddsUpdated) {
+    const ageHours = (Date.now() - liveOddsUpdated) / 3600000;
+    if(ageHours > 0.5) w *= Math.max(0, 1 - (ageHours - 0.5) / 5.5);
+  }
+  return w;
 }
 
 function getBlendedProbs() {
