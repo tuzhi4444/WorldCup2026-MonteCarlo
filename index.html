@@ -4311,24 +4311,25 @@ function renderSchedule() {
   _startCountdown();
 }
 
-// Dual timezone: local venue -> Portugal (UTC+1) + China (UTC+8)
+// Dual timezone: local venue time -> Portugal (WEST=UTC+1) + China (CST=UTC+8)
+// All American/Canadian/Mexican venues use fixed summer offsets (no ambiguity)
 const VENUE_TZ={
-  '\u7ebd\u7ea6':-4,'\u65b0\u6cfd\u897f':-4,'\u8d39\u57ce':-4,'\u6ce2\u58eb\u987f':-4,'\u8fc8\u963f\u5bc6':-4,'\u4e9a\u7279\u5170\u5927':-4,
-  '\u6d1b\u6749\u77f6':-7,'\u65e7\u91d1\u5c71':-7,'\u897f\u96c5\u56fe':-7,
-  '\u8fbe\u62c9\u65af':-5,'\u4f11\u65af\u987f':-5,
-  '\u582a\u8428\u65af\u57ce':-5,
+  '\u7ebd\u7ea6/\u65b0\u6cfd\u897f':-4,'\u7ebd\u7ea6':-4,'\u65b0\u6cfd\u897f':-4,'\u8d39\u57ce':-4,'\u6ce2\u58eb\u987f':-4,'\u8fc8\u963f\u5bc6':-4,'\u4e9a\u7279\u5170\u5927':-4,'\u591a\u4f26\u591a':-4,
+  '\u6d1b\u6749\u77f6':-7,'\u65e7\u91d1\u5c71':-7,'\u897f\u96c5\u56fe':-7,'\u6e29\u54e5\u534e':-7,
+  '\u8fbe\u62c9\u65af':-5,'\u4f11\u65af\u987f':-5,'\u582a\u8428\u65af\u57ce':-5,
   '\u58a8\u897f\u54e5\u57ce':-6,'\u8499\u7279\u96f7':-6,'\u74dc\u8fbe\u62c9\u54c8\u62c9':-6,
-  '\u6e29\u54e5\u534e':-7,'\u591a\u4f26\u591a':-4
 };
+// timeStr is local venue time (e.g. "21:00"); utcH may exceed 24 if game runs into next UTC day
 function showDualTime(dateStr,timeStr,city){
-  if(!timeStr||!city)return timeStr||'';
-  const off=VENUE_TZ[city]||-5;
-  const[m,h]=timeStr.split(':');
-  let utcH=parseInt(m)-off;
-  while(utcH<0)utcH+=24;while(utcH>=24)utcH-=24;
-  const ptH=(utcH+1)%24,cnH=(utcH+8)%24;
+  if(!timeStr)return timeStr||'';
+  const off=(city!=null&&VENUE_TZ[city]!=null)?VENUE_TZ[city]:-5;
+  const[hhStr,mmStr]=timeStr.split(':');
+  const utcH=parseInt(hhStr)-off; // total UTC hours from local midnight, may exceed 24
+  const ptH=utcH+1, cnH=utcH+8;  // Portugal WEST=UTC+1, China CST=UTC+8
   const z2=n=>String(n).padStart(2,'0');
-  return '\ud83c\uddf5\ud83c\uddf9 '+z2(ptH)+':'+h+' | \ud83c\udde8\ud83c\uddf3 '+z2(cnH)+':'+h;
+  const ptSfx=ptH>=48?'+2':ptH>=24?'+1':ptH<0?'-1':'';
+  const cnSfx=cnH>=48?'+2':cnH>=24?'+1':cnH<0?'-1':'';
+  return z2(ptH%24)+':'+mmStr+ptSfx+' \ud83c\uddf5\ud83c\uddf9 / '+z2(cnH%24)+':'+mmStr+cnSfx+' \ud83c\udde8\ud83c\uddf3';
 }
 
 function updateEntryGroup() {
