@@ -429,7 +429,7 @@ body {
     <div class="panel-header">
       <h3 id="champPanelH3">🏆 夺冠概率</h3>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-        <span class="panel-label">蒙特卡洛</span>
+        <span class="panel-label" id="champMcLabel">蒙特卡洛</span>
         <select id="champViewMode" onchange="renderChampionship()" style="font-size:10px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);">
           <option value="sim">仅模拟</option>
           <option value="blend">融合预测</option>
@@ -440,7 +440,7 @@ body {
   </div>
   <div class="panel" id="oddsBlendPanel">
     <div class="panel-header">
-      <h3>💰 实时市场赔率融合 <span class="panel-label" style="background:var(--gold-light);color:var(--gold);">🌐 在线数据</span></h3>
+      <h3 id="oddsBlendH3">💰 实时市场赔率融合 <span class="panel-label" style="background:var(--gold-light);color:var(--gold);">🌐 在线数据</span></h3>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <label style="font-size:10px;color:var(--text2);">模拟 ←融合→ 市场</label>
         <input type="range" id="oddsBlendSlider" min="0" max="100" value="60" style="width:90px;accent-color:var(--accent);" oninput="document.getElementById('oddsBlendPct').textContent=this.value+'%';renderChampionship();">
@@ -448,11 +448,11 @@ body {
       </div>
     </div>
     <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
-      <span style="font-size:11px;color:var(--text2);">💡 模拟完成后自动生成模型赔率，无需 API Key</span>
-      <button class="btn btn-sm" onclick="showOddsModal()" style="white-space:nowrap;margin-left:auto;">✏️ 手动编辑</button>
+      <span id="oddsAutoNote" style="font-size:11px;color:var(--text2);">💡 模拟完成后自动生成模型赔率，无需 API Key</span>
+      <button class="btn btn-sm" id="editOddsBtn" onclick="showOddsModal()" style="white-space:nowrap;margin-left:auto;">✏️ 手动编辑</button>
     </div>
     <details style="margin-bottom:10px;">
-      <summary style="font-size:10px;color:var(--text3);cursor:pointer;user-select:none;">🔑 高级：填入 The Odds API Key 获取真实市场赔率（可选）</summary>
+      <summary id="oddsAdvSummary" style="font-size:10px;color:var(--text3);cursor:pointer;user-select:none;">🔑 高级：填入 The Odds API Key 获取真实市场赔率（可选）</summary>
       <div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap;padding:10px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border);">
         <input type="password" id="oddsApiKey" placeholder="粘贴 The Odds API 免费Key..."
           style="flex:1;min-width:160px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text);font-size:11px;font-family:monospace;"
@@ -460,7 +460,7 @@ body {
         <button class="btn btn-primary" onclick="fetchLiveOdds()" id="fetchOddsBtn" style="white-space:nowrap;">
           🔄 获取真实赔率
         </button>
-        <a href="https://the-odds-api.com/" target="_blank" style="font-size:10px;color:var(--accent);text-decoration:none;white-space:nowrap;">🆓 注册Key</a>
+        <a id="registerKeyLink" href="https://the-odds-api.com/" target="_blank" style="font-size:10px;color:var(--accent);text-decoration:none;white-space:nowrap;">🆓 注册Key</a>
       </div>
     </details>
     <div id="liveOddsStatus" style="font-size:11px;margin-bottom:8px;"></div>
@@ -487,16 +487,16 @@ body {
 <div class="modal-overlay" id="oddsModal">
   <div class="modal-card" style="max-width:640px;">
     <button class="modal-close" onclick="document.getElementById('oddsModal').classList.remove('active')">×</button>
-    <h3 style="margin-bottom:4px;">💰 输入市场赔率</h3>
-    <p class="modal-sub">输入博彩公司欧赔（小数赔率，如 5.00 = 赔5倍）。留空表示不使用该队赔率。</p>
+    <h3 id="oddsModalTitle" style="margin-bottom:4px;">💰 输入市场赔率</h3>
+    <p id="oddsModalSub" class="modal-sub">输入博彩公司欧赔（小数赔率，如 5.00 = 赔5倍）。留空表示不使用该队赔率。</p>
     <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;">
-      <button class="btn btn-sm" onclick="prefillReferenceOdds(true)">⚡ 填入参考值（基于模型）</button>
-      <button class="btn btn-sm" onclick="clearAllOddsInputs()" style="color:var(--red);">🗑 清空</button>
+      <button id="oddsPrefillBtn" class="btn btn-sm" onclick="prefillReferenceOdds(true)">⚡ 填入参考值（基于模型）</button>
+      <button id="oddsClearInputsBtn" class="btn btn-sm" onclick="clearAllOddsInputs()" style="color:var(--red);">🗑 清空</button>
     </div>
     <div id="oddsModalGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px;max-height:400px;overflow-y:auto;margin-bottom:12px;"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;">
-      <button class="btn" onclick="document.getElementById('oddsModal').classList.remove('active')">取消</button>
-      <button class="btn btn-primary" onclick="saveOddsFromModal()">💾 保存并更新</button>
+      <button id="oddsCancelBtn" class="btn" onclick="document.getElementById('oddsModal').classList.remove('active')">取消</button>
+      <button id="oddsSaveUpdateBtn" class="btn btn-primary" onclick="saveOddsFromModal()">💾 保存并更新</button>
     </div>
   </div>
 </div>
@@ -510,10 +510,10 @@ body {
   </div>
   <div class="panel" style="margin-top:12px;">
     <div class="panel-header">
-      <h3>📊 小组积分模拟</h3>
+      <h3 id="groupSimH3">📊 小组积分模拟</h3>
       <div style="display:flex;gap:4px;flex-wrap:wrap;" id="groupSimGroupBtns"></div>
     </div>
-    <div style="font-size:11px;color:var(--text2);margin-bottom:8px;">选择小组，填入每场比分，实时计算积分榜和出线席位</div>
+    <div id="groupSimHint" style="font-size:11px;color:var(--text2);margin-bottom:8px;">选择小组，填入每场比分，实时计算积分榜和出线席位</div>
     <div id="groupSimContent"><div class="empty-state">请先选择小组</div></div>
   </div>
 </div>
@@ -521,7 +521,7 @@ body {
 <!-- ─── TAB: BRACKET ─── -->
 <div class="tab-content" id="tab-bracket">
   <div class="panel">
-    <div class="panel-header"><h3 id="bracketPanelH3">🏆 淘汰赛对阵图</h3><span class="panel-label">32强 → 冠军</span></div>
+    <div class="panel-header"><h3 id="bracketPanelH3">🏆 淘汰赛对阵图</h3><span id="bracketSubLabel" class="panel-label">32强 → 冠军</span></div>
     <div id="bracketContent"><div class="empty-state" id="bracketEmpty">运行模拟后显示淘汰赛对阵表</div></div>
   </div>
 </div>
@@ -542,8 +542,8 @@ body {
       <div class="panel-header"><h3 data-i18n="panel_editor">✏️ 因子编辑器</h3></div>
       <div class="editor-team-select">
         <select id="editorTeam" onchange="renderEditor()"><option value="">选择球队</option></select>
-        <button class="btn btn-sm" onclick="saveAndRefresh()" style="margin-left:6px;">💾 保存</button>
-        <button class="btn btn-sm" onclick="batchAdj()">批量±1</button>
+        <button id="editorSaveBtn" class="btn btn-sm" onclick="saveAndRefresh()" style="margin-left:6px;">💾 保存</button>
+        <button id="batchAdjBtn" class="btn btn-sm" onclick="batchAdj()">批量±1</button>
       </div>
       <div id="editorContent"><div class="empty-state">选择球队开始编辑因子评分</div></div>
     </div>
@@ -562,7 +562,7 @@ body {
 
   <!-- ── 头对头对比 ── -->
   <div class="panel">
-    <div class="panel-header"><h3>⚔️ 头对头对比</h3><span class="panel-label">ELO · 因子 · 胜率 · 比分</span></div>
+    <div class="panel-header"><h3 id="h2hTitle">⚔️ 头对头对比</h3><span id="h2hSublabel" class="panel-label">ELO · 因子 · 胜率 · 比分</span></div>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
       <select id="h2hT1" onchange="renderH2H()" style="flex:1;min-width:100px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:12px;"><option value="">选择球队</option></select>
       <span style="font-weight:800;font-size:18px;color:var(--text2)">⚔</span>
@@ -573,13 +573,13 @@ body {
 
   <!-- ── 小组出线概率 ── -->
   <div class="panel">
-    <div class="panel-header"><h3>📈 小组出线概率</h3><span class="panel-label">基于蒙特卡洛</span></div>
-    <div id="qualProbContent"><div class="empty-state">运行模拟后显示</div></div>
+    <div class="panel-header"><h3 id="qualProbH3">📈 小组出线概率</h3><span id="qualProbSublabel" class="panel-label">基于蒙特卡洛</span></div>
+    <div id="qualProbContent"><div class="empty-state">请先运行模拟</div></div>
   </div>
 
   <!-- ── 进球王预测 ── -->
   <div class="panel">
-    <div class="panel-header"><h3>🥅 进球王预测 Top 20</h3><span class="panel-label">启发式估算</span></div>
+    <div class="panel-header"><h3 id="topScorerH3">🥅 进球王预测 Top 20</h3><span id="topScorerSublabel" class="panel-label">启发式估算</span></div>
     <div id="topScorerContent"><div class="empty-state">加载中…</div></div>
   </div>
 
@@ -593,7 +593,7 @@ body {
     <div id="scenarioTeamList" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;max-height:160px;overflow-y:auto;"></div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <button class="btn btn-primary" id="runScenarioBtn" onclick="runScenarioSim()">🔮 重新模拟</button>
-      <button class="btn btn-sm" onclick="clearScenario()">✕ 清除</button>
+      <button id="clearScenarioBtn" class="btn btn-sm" onclick="clearScenario()">✕ 清除</button>
       <span style="font-size:10px;color:var(--text3);" id="scenarioStatus"></span>
     </div>
     <div id="scenarioResult" style="margin-top:10px;"></div>
@@ -624,7 +624,7 @@ body {
     <div style="margin-bottom:8px;">
       <select id="eventTeam" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:11px;"><option value="">选择球队</option></select>
       <select id="eventType" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:11px;margin-left:4px;"><option value="injury">🤕 核心伤病</option><option value="ban">🟥 主力禁赛</option><option value="coachChange">🔄 换帅</option><option value="formBoost">📈 状态爆发</option><option value="formDrop">📉 状态低迷</option><option value="morale">💪 士气高涨</option></select>
-      <button class="btn btn-sm" onclick="applyEvent()" style="margin-left:4px;background:var(--red);color:#fff;">⚡ 应用</button>
+      <button id="eventApplyBtn" class="btn btn-sm" onclick="applyEvent()" style="margin-left:4px;background:var(--red);color:#fff;">⚡ 应用</button>
       <span class="help-text" id="eventStatus" style="margin-left:4px;"></span>
     </div>
     <div id="eventList" style="max-height:160px;overflow-y:auto;font-size:10px;"><div style="color:var(--text3);">暂无活跃事件 | 事件影响因子评分并持久化到下次保存</div></div>
@@ -641,7 +641,7 @@ body {
       <select id="oddsTeam" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:11px;"><option value="">球队</option></select>
       <input type="number" id="oddsInput" placeholder="赔率(欧赔)" min="1.01" max="1000" step="0.01" style="width:80px;padding:4px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:11px;">
       <button class="btn btn-sm" onclick="saveOdds()" style="background:var(--accent);color:#fff;">💾</button>
-      <button class="btn btn-sm" onclick="batchOdds()">📋 批量</button>
+      <button id="oddsBatchBtn" class="btn btn-sm" onclick="batchOdds()">📋 批量</button>
       <span class="help-text" id="oddsStatus" style="margin:0;"></span>
     </div>
     <div id="oddsContent"><div class="empty-state">输入市场赔率后与模拟概率对比</div></div>
@@ -659,7 +659,7 @@ body {
       <span id="fetchStatus" style="font-size:11px;margin:0;"></span>
     </div>
     <details style="margin-bottom:10px;">
-      <summary style="font-size:10px;color:var(--text3);cursor:pointer;user-select:none;">🔑 高级：填入API Key可获取赔率数据（可选）</summary>
+      <summary id="apiAdvScheduleSummary" style="font-size:10px;color:var(--text3);cursor:pointer;user-select:none;">🔑 高级：填入API Key可获取赔率数据（可选）</summary>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;">
         <div style="display:flex;flex-direction:column;gap:4px;">
           <label id="oddsKeyLabel" style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;">The Odds API Key（赔率+比分，免费500次/月）</label>
@@ -682,12 +682,12 @@ body {
       </div>
     </details>
     <div style="display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap;align-items:center;">
-      <span style="font-size:10px;color:var(--text3);white-space:nowrap;">\ud83d\udcc5 \u65e5\u671f</span>
+      <span id="schedDateLabel" style="font-size:10px;color:var(--text3);white-space:nowrap;">📅 日期</span>
       <span id="schedDateBtns"></span>
     </div>
     <div style="display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap;align-items:center;">
-      <span style="font-size:10px;color:var(--text3);white-space:nowrap;">\ud83c\udff3 \u5c0f\u7ec4</span>
-      <button class="btn btn-sm" onclick="filterSchedGroup('ALL')" id="schedAllBtn">\u5168\u90e8</button>
+      <span id="schedGroupLabel" style="font-size:10px;color:var(--text3);white-space:nowrap;">🏳 小组</span>
+      <button class="btn btn-sm" onclick="filterSchedGroup('ALL')" id="schedAllBtn">全部</button>
       <span id="schedGroupBtns"></span>
     </div>
     <div class="schedule-grid" id="scheduleGrid"></div>
@@ -714,9 +714,9 @@ body {
 <!-- ─── TAB: PREDICT + HISTORY ─── -->
 <div class="tab-content" id="tab-history">
   <div class="panel">
-    <div class="panel-header"><h3>🎯 比分预测</h3><div style="display:flex;gap:6px;">
-      <button class="btn btn-sm sa-tab-btn active" onclick="saSwitch('group',this)">小组赛</button>
-      <button class="btn btn-sm sa-tab-btn" onclick="saSwitch('ko',this)">淘汰赛</button>
+    <div class="panel-header"><h3 id="scorePredH3">🎯 比分预测</h3><div style="display:flex;gap:6px;">
+      <button class="btn btn-sm sa-tab-btn active" id="groupStageBtn" onclick="saSwitch('group',this)">小组赛</button>
+      <button class="btn btn-sm sa-tab-btn" id="knockoutBtn" onclick="saSwitch('ko',this)">淘汰赛</button>
     </div></div>
     <div id="saContent"></div>
   </div>
@@ -728,7 +728,7 @@ body {
 
 <div class="tab-content" id="tab-squads">
   <div class="panel">
-    <div class="panel-header"><h3>📋 48队球队名单</h3>
+    <div class="panel-header"><h3 id="squadsH3">📋 48队球队名单</h3>
       <input id="squadSearch" type="text" placeholder="搜索球队..." style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;width:160px;" oninput="renderSquads()">
     </div>
     <div id="squadTeamGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;padding:8px 0;"></div>
@@ -777,7 +777,7 @@ let currentLang=localStorage.getItem('wc2026_lang')||'zh';
 const L={
   zh:{
     title:'2026世界杯 · 蒙特卡洛分析系统',
-    sim:'模拟',simBtn:'▶ 运行',ready:'就绪',running:'模拟中...',done:'已完成',
+    sim:'模拟',simBtn:'▶ 运行',ready:'就绪',running:'模拟中...',done:'已完成',error_label:'错误',saved_label:'✓ 已保存',
     factor:'因子',factorMultiplier:'倍',scenario:'场景',scenario_reset:'恢复默认',
     tab_champ:'🏆 夺冠概率',tab_groups:'📊 小组赛',tab_analysis:'🔬 分析',tab_factors:'🎛 因子编辑',
     tab_schedule:'📅 赛程',tab_history:'📈 历史',tab_bracket:'🌳 对阵树',
@@ -820,10 +820,98 @@ const L={
     champ_prob:'夺冠概率', advance_prob:'出线概率',
     scenario_panel:'🔮 情景模拟', force_out:'强制出局',
     run_scenario:'▶ 重新模拟', reset_scenario:'重置', baseline:'基准', scenario_label:'情景',
+    tab_squads:'📋 球队名单',
+    monte_carlo:'蒙特卡洛',
+    odds_blend_title:'💰 实时市场赔率融合',
+    odds_online_badge:'🌐 在线数据',
+    odds_auto_note:'💡 模拟完成后自动生成模型赔率，无需 API Key',
+    edit_odds_btn:'✏️ 手动编辑',
+    odds_adv_summary:'🔑 高级：填入 The Odds API Key 获取真实市场赔率（可选）',
+    odds_api_placeholder:'粘贴 The Odds API 免费Key...',
+    register_key_link:'🆓 注册Key',
+    odds_modal_title:'💰 输入市场赔率',
+    odds_modal_sub:'输入博彩公司欧赔（小数赔率，如 5.00 = 赔5倍）。留空表示不使用该队赔率。',
+    odds_prefill_btn:'⚡ 填入参考值（基于模型）',
+    odds_clear_inputs:'🗑 清空',
+    cancel:'取消',
+    odds_save_update:'💾 保存并更新',
+    group_sim_title:'📊 小组积分模拟',
+    group_sim_hint:'选择小组，填入每场比分，实时计算积分榜和出线席位',
+    group_sim_empty:'请先选择小组',
+    bracket_sub_label:'32强 → 冠军',
+    team1_opt:'球队1', team2_opt:'球队2', team3_opt:'球队3',
+    save_btn:'💾 保存',
+    batch_adj_btn:'批量±1',
+    players_empty:'选择球队查看球员信息',
+    h2h_title:'⚔️ 头对头对比',
+    h2h_sublabel:'ELO · 因子 · 胜率 · 比分',
+    h2h_empty:'选择两支不同的球队开始对比',
+    qual_prob_title:'📈 小组出线概率',
+    qual_prob_sublabel:'基于蒙特卡洛',
+    qual_prob_run_first:'请先运行模拟',
+    top_scorer_title:'🥅 进球王预测 Top 20',
+    top_scorer_sublabel:'启发式估算',
+    loading:'加载中…',
+    scenario_sublabel:'假设某队出局，重跑预测',
+    clear_btn:'✕ 清除',
+    home_team_opt:'主队', away_team_opt:'客队',
+    team_opt:'球队',
+    apply_btn:'⚡ 应用',
+    date_label:'📅 日期',
+    group_filter_label:'🏳 小组',
+    score_pred_title:'🎯 比分预测',
+    group_stage_btn:'小组赛',
+    knockout_btn:'淘汰赛',
+    squads_h3:'📋 48队球队名单',
+    search_placeholder:'搜索球队...',
+    fetch_all_btn:'📥 获取全部赛果',
+    api_adv_summary:'🔑 高级：填入API Key可获取赔率数据（可选）',
+    paste_odds_key:'粘贴 The Odds API Key...',
+    paste_football_key:'粘贴 football-data.org Token...',
+    register_link:'🆓 注册',
+    only_future:'仅未来场次',
+    adj_elo:'调整ELO',
+    win_label:'胜', draw_label:'平', loss_label:'负',
+    most_likely:'最可能',
+    factor_col:'因子',
+    gk_label:'⛳ 门将', df_label:'🛡 后卫', fw_label:'⚡ 前锋', mf_label:'⚙️ 中场',
+    player_col:'球员', team_col:'球队', club_val_col:'俱乐部 / 身价', predicted_goals:'预测进球',
+    scorer_note:'进攻评分 × 预期出场 × 前锋贡献率 | 身价来自球队名单',
+    elim_label:'淘汰',
+    group_suffix:'组',
+    squad_suffix:'队伍名单',
+    close_btn:'✕ 关闭',
+    head_coach_label:'主教练',
+    radar_chart_title:'⬡ 能力雷达图',
+    players_by_val:'名球员 · 按身价排序',
+    players_unit:'名',
+    scenario_france:'🇫🇷 法国夺冠',
+    scenario_argentina:'🇦🇷 阿根廷连冠',
+    scenario_darkhorse:'🐴 黑马崛起',
+    scenario_host:'🇺🇸 东道主优势',
+    score_entry:'比分输入',standings_lbl:'积分榜',clear_group_btn:'🔄 清空本组',
+    weight_col:'权重',val_col:'值',slider_col:'滑块',
+    slider_hint:'拖动滑块实时调整 | 点击「保存」持久化',
+    event_applied:'已应用',events_cleared:'所有事件已清除，评分已恢复',
+    odds_saved_notify:'赔率已保存，融合预测已更新',
+    odds_filled_modal:'已填入基于模拟结果的参考赔率（含10%边际）',
+    odds_filled_ref:'已填入参考赔率 | 你可以点击「输入赔率」按实际赔率修改',
+    ko_r32:'1/8决赛 (R32→16)',ko_r16:'1/4决赛 (16→8)',ko_sf:'半决赛',ko_3rd:'季军赛 & 决赛',
+    snap_saved:'快照已保存',history_recent:'最近两次对比',
+    prev_col:'上次',curr_col:'本次',delta_col:'变化',
+    factor_scores_lbl:'因子评分',edit_factor_btn:'✏️ 编辑因子',radar_btn:'📊 雷达对比',predict_btn:'⚡ 预测比赛',
+    data_source_lbl:'数据来源',odds_age_now:'刚刚更新',
+    host_bonus_badge:'🏠 主办国 +55 ELO',
+    win_stat:'胜',draw_stat:'平',loss_stat:'负',
+    exact_hit:'⚡ 精准命中',result_hit:'✓ 胜负准确',result_miss:'✗ 预测失误',
+    matches_played_lbl:'已比赛',val_unit_big:'亿€',val_unit_m:'M€',val_unit_sm:'万€',
+    event_injury_lbl:'🤕 伤病',event_ban_lbl:'🟥 禁赛',event_coach_lbl:'🔄 换帅',
+    event_boost_lbl:'📈 爆发',event_drop_lbl:'📉 低迷',event_morale_lbl:'💪 士气',
+    grp_prefix:'',pts_col:'积分',gf_ga_col:'进:失',gd_col:'净胜',
   },
   pt:{
     title:'Copa 2026 · Sistema Monte Carlo',
-    sim:'Simular',simBtn:'▶ Executar',ready:'Pronto',running:'Simulando...',done:'Concluído',
+    sim:'Simular',simBtn:'▶ Executar',ready:'Pronto',running:'Simulando...',done:'Concluído',error_label:'Erro',saved_label:'✓ Salvo',
     factor:'Fator',factorMultiplier:'×',scenario:'Cenário',scenario_reset:'Restaurar',
     tab_champ:'🏆 Probabilidade',tab_groups:'📊 Grupos',tab_analysis:'🔬 Análise',tab_factors:'🎛 Fatores',
     tab_schedule:'📅 Jogos',tab_history:'📈 Histórico',tab_bracket:'🌳 Chave',
@@ -866,10 +954,98 @@ const L={
     champ_prob:'Probabilidade Campeão', advance_prob:'Prob. Avanço',
     scenario_panel:'🔮 Simulação de Cenário', force_out:'Forçar Eliminação',
     run_scenario:'▶ Simular', reset_scenario:'Redefinir', baseline:'Base', scenario_label:'Cenário',
+    tab_squads:'📋 Escalações',
+    monte_carlo:'Monte Carlo',
+    odds_blend_title:'💰 Fusão de Odds em Tempo Real',
+    odds_online_badge:'🌐 Dados Online',
+    odds_auto_note:'💡 Odds do modelo geradas automaticamente, sem API Key',
+    edit_odds_btn:'✏️ Editar Manual',
+    odds_adv_summary:'🔑 Avançado: insira The Odds API Key para odds reais (opcional)',
+    odds_api_placeholder:'Cole The Odds API Key gratuita...',
+    register_key_link:'🆓 Registrar Key',
+    odds_modal_title:'💰 Inserir Odds de Mercado',
+    odds_modal_sub:'Insira odds decimais (ex: 5.00 = paga 5×). Deixe em branco para ignorar.',
+    odds_prefill_btn:'⚡ Preencher com Referência (Modelo)',
+    odds_clear_inputs:'🗑 Limpar',
+    cancel:'Cancelar',
+    odds_save_update:'💾 Salvar e Atualizar',
+    group_sim_title:'📊 Simulação de Grupo',
+    group_sim_hint:'Selecione um grupo, insira os resultados e calcule a classificação em tempo real',
+    group_sim_empty:'Selecione um grupo primeiro',
+    bracket_sub_label:'R32 → Campeão',
+    team1_opt:'Seleção 1', team2_opt:'Seleção 2', team3_opt:'Seleção 3',
+    save_btn:'💾 Salvar',
+    batch_adj_btn:'Ajuste ±1',
+    players_empty:'Selecione uma seleção para ver os jogadores',
+    h2h_title:'⚔️ Confronto Direto',
+    h2h_sublabel:'ELO · Fatores · Vitórias · Placar',
+    h2h_empty:'Selecione duas seleções diferentes para comparar',
+    qual_prob_title:'📈 Probabilidade de Avanço por Grupo',
+    qual_prob_sublabel:'Baseado em Monte Carlo',
+    qual_prob_run_first:'Execute a simulação primeiro',
+    top_scorer_title:'🥅 Previsão de Artilheiro Top 20',
+    top_scorer_sublabel:'Estimativa heurística',
+    loading:'Carregando…',
+    scenario_sublabel:'Marque uma equipa para eliminá-la e re-simule',
+    clear_btn:'✕ Limpar',
+    home_team_opt:'Casa', away_team_opt:'Fora',
+    team_opt:'Seleção',
+    apply_btn:'⚡ Aplicar',
+    date_label:'📅 Data',
+    group_filter_label:'🏳 Grupo',
+    score_pred_title:'🎯 Previsão de Resultados',
+    group_stage_btn:'Fase de Grupos',
+    knockout_btn:'Mata-Mata',
+    squads_h3:'📋 Escalações das 48 Seleções',
+    search_placeholder:'Buscar seleção...',
+    fetch_all_btn:'📥 Buscar Todos os Resultados',
+    api_adv_summary:'🔑 Avançado: insira API Key para dados de odds (opcional)',
+    paste_odds_key:'Cole The Odds API Key...',
+    paste_football_key:'Cole o token do football-data.org...',
+    register_link:'🆓 Registrar',
+    only_future:'Apenas Futuros',
+    adj_elo:'ELO Aj.',
+    win_label:'Vitória', draw_label:'Empate', loss_label:'Derrota',
+    most_likely:'Mais Provável',
+    factor_col:'Fator',
+    gk_label:'⛳ GR', df_label:'🛡 ZAG', fw_label:'⚡ Avançado', mf_label:'⚙️ Médio',
+    player_col:'Jogador', team_col:'Seleção', club_val_col:'Clube / Valor', predicted_goals:'Gols Previstos',
+    scorer_note:'Rating ofensivo × jogos esperados × contribuição individual | Valores do plantel',
+    elim_label:'Elim.',
+    group_suffix:'Grupo ',
+    squad_suffix:'Escalação',
+    close_btn:'✕ Fechar',
+    head_coach_label:'Técnico',
+    radar_chart_title:'⬡ Radar de Capacidade',
+    players_by_val:'jogadores · por valor',
+    players_unit:'',
+    scenario_france:'🇫🇷 França Campeã',
+    scenario_argentina:'🇦🇷 Argentina Bicampeã',
+    scenario_darkhorse:'🐴 Zebra Surpreendente',
+    scenario_host:'🇺🇸 Vantagem dos Anfitriões',
+    score_entry:'Marcadores',standings_lbl:'Classificação',clear_group_btn:'🔄 Limpar Grupo',
+    weight_col:'Peso',val_col:'Valor',slider_col:'Controlo',
+    slider_hint:'Arraste para ajustar | Clique "Salvar" para guardar',
+    event_applied:'aplicado',events_cleared:'Todos eventos limpos, pontuações repostas',
+    odds_saved_notify:'Odds salvas, previsão combinada atualizada',
+    odds_filled_modal:'Odds de referência preenchidas (margem de 10%)',
+    odds_filled_ref:'Odds de referência preenchidas | Clique "Editar" para ajustar',
+    ko_r32:'16avos de Final (R32→16)',ko_r16:'Quartas de Final (16→8)',ko_sf:'Meias-Finais',ko_3rd:'3.º Lugar & Final',
+    snap_saved:'Snapshot guardado',history_recent:'Comparação dos Últimos Dois',
+    prev_col:'Ant.',curr_col:'Atual',delta_col:'Δ',
+    factor_scores_lbl:'Pontuações de Fatores',edit_factor_btn:'✏️ Editar Fatores',radar_btn:'📊 Radar',predict_btn:'⚡ Prever',
+    data_source_lbl:'Fonte de dados',odds_age_now:'agora mesmo',
+    host_bonus_badge:'🏠 Anfitrião +55 ELO',
+    win_stat:'Vitória',draw_stat:'Empate',loss_stat:'Derrota',
+    exact_hit:'⚡ Exato!',result_hit:'✓ Resultado correto',result_miss:'✗ Errado',
+    matches_played_lbl:'Jogados',val_unit_big:'00M€',val_unit_m:'M€',val_unit_sm:'k€',
+    event_injury_lbl:'🤕 Lesão',event_ban_lbl:'🟥 Suspensão',event_coach_lbl:'🔄 Troca Técnico',
+    event_boost_lbl:'📈 Em Alta',event_drop_lbl:'📉 Em Baixa',event_morale_lbl:'💪 Moral',
+    grp_prefix:'Grupo ',pts_col:'Pts',gf_ga_col:'GM:GS',gd_col:'DG',
   },
   en:{
     title:'2026 World Cup · Monte Carlo System',
-    sim:'Simulate',simBtn:'▶ Run',ready:'Ready',running:'Running...',done:'Done',
+    sim:'Simulate',simBtn:'▶ Run',ready:'Ready',running:'Running...',done:'Done',error_label:'Error',saved_label:'✓ Saved',
     factor:'Factor',factorMultiplier:'×',scenario:'Scenario',scenario_reset:'Reset',
     elo_updated:'ELO auto-updated from results',
     record_btn:'📋 Record Scores',entry_group:'Select Group',
@@ -921,6 +1097,94 @@ const L={
     champ_prob:'Championship Probability', advance_prob:'Advance Prob.',
     scenario_panel:'Scenario Simulation', force_out:'Force out',
     run_scenario:'▶ Run Scenario', reset_scenario:'Reset', baseline:'Baseline', scenario_label:'Scenario',
+    tab_squads:'📋 Squads',
+    monte_carlo:'Monte Carlo',
+    odds_blend_title:'💰 Live Market Odds Blend',
+    odds_online_badge:'🌐 Live Data',
+    odds_auto_note:'💡 Model odds generated automatically after simulation, no API Key needed',
+    edit_odds_btn:'✏️ Edit Manually',
+    odds_adv_summary:'🔑 Advanced: enter The Odds API Key for real market odds (optional)',
+    odds_api_placeholder:'Paste The Odds API free Key...',
+    register_key_link:'🆓 Get Key',
+    odds_modal_title:'💰 Enter Market Odds',
+    odds_modal_sub:'Enter decimal odds from bookmakers (e.g. 5.00 = 5× payout). Leave blank to ignore.',
+    odds_prefill_btn:'⚡ Fill with Reference (Model)',
+    odds_clear_inputs:'🗑 Clear',
+    cancel:'Cancel',
+    odds_save_update:'💾 Save & Update',
+    group_sim_title:'📊 Group Simulation',
+    group_sim_hint:'Select a group, enter match scores, and calculate standings in real time',
+    group_sim_empty:'Please select a group first',
+    bracket_sub_label:'R32 → Champion',
+    team1_opt:'Team 1', team2_opt:'Team 2', team3_opt:'Team 3',
+    save_btn:'💾 Save',
+    batch_adj_btn:'Batch ±1',
+    players_empty:'Select a team to view player info',
+    h2h_title:'⚔️ Head-to-Head',
+    h2h_sublabel:'ELO · Factors · Win Rate · Score',
+    h2h_empty:'Select two different teams to compare',
+    qual_prob_title:'📈 Group Advance Probability',
+    qual_prob_sublabel:'Based on Monte Carlo',
+    qual_prob_run_first:'Run simulation first',
+    top_scorer_title:'🥅 Top Scorer Prediction Top 20',
+    top_scorer_sublabel:'Heuristic estimate',
+    loading:'Loading…',
+    scenario_sublabel:'Check a team to force them out, then re-simulate',
+    clear_btn:'✕ Clear',
+    home_team_opt:'Home', away_team_opt:'Away',
+    team_opt:'Team',
+    apply_btn:'⚡ Apply',
+    date_label:'📅 Date',
+    group_filter_label:'🏳 Group',
+    score_pred_title:'🎯 Score Predictions',
+    group_stage_btn:'Group Stage',
+    knockout_btn:'Knockout',
+    squads_h3:'📋 48 Team Squads',
+    search_placeholder:'Search team...',
+    fetch_all_btn:'📥 Fetch All Results',
+    api_adv_summary:'🔑 Advanced: enter API Key for odds data (optional)',
+    paste_odds_key:'Paste The Odds API Key...',
+    paste_football_key:'Paste football-data.org Token...',
+    register_link:'🆓 Register',
+    only_future:'Future Only',
+    adj_elo:'Adj. ELO',
+    win_label:'Win', draw_label:'Draw', loss_label:'Loss',
+    most_likely:'Most Likely',
+    factor_col:'Factor',
+    gk_label:'⛳ GK', df_label:'🛡 DF', fw_label:'⚡ Forward', mf_label:'⚙️ Midfielder',
+    player_col:'Player', team_col:'Team', club_val_col:'Club / Value', predicted_goals:'Pred. Goals',
+    scorer_note:'Attack rating × expected games × individual contribution | Values from squads',
+    elim_label:'Elim.',
+    group_suffix:'Group ',
+    squad_suffix:'Squad',
+    close_btn:'✕ Close',
+    head_coach_label:'Head Coach',
+    radar_chart_title:'⬡ Ability Radar',
+    players_by_val:'players · by value',
+    players_unit:'',
+    scenario_france:'🇫🇷 France Champion',
+    scenario_argentina:'🇦🇷 Argentina Defending',
+    scenario_darkhorse:'🐴 Dark Horse Rise',
+    scenario_host:'🇺🇸 Host Advantage',
+    score_entry:'Score Entry',standings_lbl:'Standings',clear_group_btn:'🔄 Clear Group',
+    weight_col:'Weight',val_col:'Value',slider_col:'Slider',
+    slider_hint:'Drag sliders to adjust | Click "Save" to persist',
+    event_applied:'applied',events_cleared:'All events cleared, scores reset',
+    odds_saved_notify:'Odds saved, blended prediction updated',
+    odds_filled_modal:'Reference odds filled (10% margin from simulation)',
+    odds_filled_ref:'Reference odds filled | Click "Edit" to adjust with actual odds',
+    ko_r32:'Round of 32 (R32→16)',ko_r16:'Quarter-Finals (16→8)',ko_sf:'Semi-Finals',ko_3rd:'Third Place & Final',
+    snap_saved:'Snapshot saved',history_recent:'Last Two Comparison',
+    prev_col:'Prev.',curr_col:'Curr.',delta_col:'Δ',
+    factor_scores_lbl:'Factor Scores',edit_factor_btn:'✏️ Edit Factors',radar_btn:'📊 Radar',predict_btn:'⚡ Predict',
+    data_source_lbl:'Data source',odds_age_now:'just now',
+    host_bonus_badge:'🏠 Host +55 ELO',
+    win_stat:'Win',draw_stat:'Draw',loss_stat:'Loss',
+    exact_hit:'⚡ Exact!',result_hit:'✓ Correct',result_miss:'✗ Wrong',
+    matches_played_lbl:'Played',val_unit_big:'00M€',val_unit_m:'M€',val_unit_sm:'k€',
+    event_injury_lbl:'🤕 Injury',event_ban_lbl:'🟥 Ban',event_coach_lbl:'🔄 Coach Change',
+    event_boost_lbl:'📈 Form Boost',event_drop_lbl:'📉 Form Slump',event_morale_lbl:'💪 Morale',
+    grp_prefix:'Group ',pts_col:'Pts',gf_ga_col:'GF:GA',gd_col:'GD',
   }
 };
 function T(key){return(L[currentLang]&&L[currentLang][key])||(L['zh']&&L['zh'][key])||key;}
@@ -978,13 +1242,16 @@ function applyLangDOM(){
   const fl=document.getElementById('headerFactorLabel'); if(fl)fl.textContent=T('factor');
   const rb=document.getElementById('runBtn'); if(rb)rb.textContent=T('simBtn');
   const ht=document.getElementById('headerTitle'); if(ht)ht.textContent='⚽ '+(zh?'2026 世界杯':en?'2026 World Cup':'Copa 2026');
-  // Scenario select
+  // Scenario select — translate all options
   const sc=document.getElementById('scenarioSelect');
-  if(sc&&sc.options[0])sc.options[0].text=T('scenario');
-  if(sc){const opts=sc.options;if(opts[opts.length-1]&&opts[opts.length-1].value==='reset')opts[opts.length-1].text=T('scenario_reset');}
-  // Tabs
+  if(sc){
+    sc.options[0].text=T('scenario');
+    const scMap={france:'scenario_france',argentina:'scenario_argentina',darkhorse:'scenario_darkhorse',host:'scenario_host',reset:'scenario_reset'};
+    Array.from(sc.options).forEach(o=>{if(scMap[o.value])o.text=T(scMap[o.value]);});
+  }
+  // Tabs — correct order: championship, groups, bracket, teams, analysis, schedule, history, squads
   const tabs=document.querySelectorAll('.tab');
-  const tabKeys={0:'tab_champ',1:'tab_bracket',2:'tab_teams',3:'tab_analysis',4:'tab_factors',5:'tab_schedule',6:'tab_history'};
+  const tabKeys={0:'tab_champ',1:'tab_groups',2:'tab_bracket',3:'tab_teams',4:'tab_analysis',5:'tab_schedule',6:'tab_history',7:'tab_squads'};
   tabs.forEach((t,i)=>{if(tabKeys[i])t.textContent=T(tabKeys[i]);});
   // Status badge
   const sd=document.getElementById('simStatus');
@@ -994,7 +1261,7 @@ function applyLangDOM(){
   if(mc)mc.textContent=T('recorded')+' '+matchResults.length+' '+T('matches');
   const mct=document.getElementById('matchCountText');
   if(mct){const lbl=document.getElementById('matchCountLabel');
-    mct.innerHTML=(zh?'已录入 ':en?'Recorded ':' '+(pt?'Registrados: ':''))+'<span id="matchCountLabel">'+(lbl?lbl.textContent:'0')+'</span>'+(zh?' 场':en?' results':' jogos');}
+    mct.innerHTML=(zh?'已录入 ':en?'Recorded ':pt?'Registrados: ':'')+'<span id="matchCountLabel">'+(lbl?lbl.textContent:'0')+'</span>'+(zh?' 场':en?' results':' jogos');}
   // Schedule panel
   const schedTitle=document.getElementById('schedPanelTitle');
   if(schedTitle)schedTitle.innerHTML='📅 '+(zh?'赛程 &amp; 实时比分':en?'Schedule &amp; Live Scores':'Jogos &amp; Resultados')+' <span class="panel-label" style="background:var(--green-light);color:var(--green);">🌐 '+(zh?'在线':en?'Live':'Ao Vivo')+'</span>';
@@ -1004,56 +1271,128 @@ function applyLangDOM(){
   if(fbLbl)fbLbl.textContent='football-data.org Token — '+(zh?'更完整的比分，免费':en?'Richer scores, free':'Resultados completos, grátis');
   const fsBtn=document.getElementById('fetchScoresBtn');
   if(fsBtn)fsBtn.textContent='🔄 '+(zh?'立即获取实时比分':en?'Fetch Live Scores':'Buscar Resultados');
+  const faBtn=document.getElementById('fetchAllBtn');
+  if(faBtn)faBtn.textContent=T('fetch_all_btn');
   const orBtn=document.getElementById('oddsRegisterBtn');
-  if(orBtn)orBtn.textContent='🆓 '+(zh?'注册':en?'Sign up':'Registrar');
+  if(orBtn)orBtn.textContent=T('register_link');
   const frBtn=document.getElementById('footballRegisterBtn');
-  if(frBtn)frBtn.textContent='🆓 '+(zh?'注册':en?'Sign up':'Registrar');
+  if(frBtn)frBtn.textContent=T('register_link');
   // Manual entry panel
   const met=document.getElementById('manualEntryTitle');
   if(met)met.textContent='📝 '+(zh?'手动录入比分':en?'Manual Score Entry':'Inserir Resultados');
   const egp=document.getElementById('entryGroupPlaceholder');
-  if(egp)egp.textContent=zh?'选择小组':en?'Select Group':'Selecionar Grupo';
+  if(egp)egp.textContent=T('select_group');
   const rmb=document.getElementById('recordMatchesBtn');
   if(rmb)rmb.textContent='📋 '+(zh?'录入比分':en?'Record Scores':'Registrar');
   // Schedule filter
   const sab=document.getElementById('schedAllBtn');if(sab)sab.textContent=T('all');
   const lsb=document.querySelector('#tab-schedule button[onclick*="fetchLiveScores"]');if(lsb)lsb.textContent=T('live_scores');
+  // Schedule date/group filter labels
+  const sdl=document.getElementById('schedDateLabel');if(sdl)sdl.textContent=T('date_label');
+  const sgl=document.getElementById('schedGroupLabel');if(sgl)sgl.textContent=T('group_filter_label');
   // Championship view mode dropdown
   const cvm=document.getElementById('champViewMode');
-  if(cvm&&cvm.options[0])cvm.options[0].text=zh?'仅模拟':en?'Sim Only':'Só Simulação';
-  if(cvm&&cvm.options[1])cvm.options[1].text=zh?'融合预测':en?'Blended':'Combinado';
-  // Champ panel header
+  if(cvm&&cvm.options[0])cvm.options[0].text=T('sim_only');
+  if(cvm&&cvm.options[1])cvm.options[1].text=T('blend_label');
+  // Championship panel elements
   const cph=document.getElementById('champPanelH3');
   if(cph)cph.textContent=zh?'🏆 夺冠概率':en?'🏆 Championship Probability':'🏆 Probabilidade de Título';
-  // Groups panel header
+  const cml=document.getElementById('champMcLabel');if(cml)cml.textContent=T('monte_carlo');
+  const obh=document.getElementById('oddsBlendH3');
+  if(obh)obh.innerHTML=T('odds_blend_title')+' <span class="panel-label" style="background:var(--gold-light);color:var(--gold);">'+T('odds_online_badge')+'</span>';
+  const odbl=document.querySelector('#oddsBlendPanel .panel-header label');
+  if(odbl)odbl.textContent=zh?'模拟 ←融合→ 市场':en?'Sim ← blend → Market':'Sim ← combinar → Mercado';
+  const oanEl=document.getElementById('oddsAutoNote');if(oanEl)oanEl.textContent=T('odds_auto_note');
+  const eob=document.getElementById('editOddsBtn');if(eob)eob.textContent=T('edit_odds_btn');
+  const oaSum=document.getElementById('oddsAdvSummary');if(oaSum)oaSum.textContent=T('odds_adv_summary');
+  const oApEl=document.getElementById('oddsApiKey');if(oApEl)oApEl.placeholder=T('odds_api_placeholder');
+  const rklEl=document.getElementById('registerKeyLink');if(rklEl)rklEl.textContent=T('register_key_link');
+  // Odds modal
+  const omTitle=document.getElementById('oddsModalTitle');if(omTitle)omTitle.textContent=T('odds_modal_title');
+  const omSub=document.getElementById('oddsModalSub');if(omSub)omSub.textContent=T('odds_modal_sub');
+  const opfBtn=document.getElementById('oddsPrefillBtn');if(opfBtn)opfBtn.textContent=T('odds_prefill_btn');
+  const ociBtn=document.getElementById('oddsClearInputsBtn');if(ociBtn)ociBtn.textContent=T('odds_clear_inputs');
+  const canBtn=document.getElementById('oddsCancelBtn');if(canBtn)canBtn.textContent=T('cancel');
+  const osuBtn=document.getElementById('oddsSaveUpdateBtn');if(osuBtn)osuBtn.textContent=T('odds_save_update');
+  // Groups panel
   const gph=document.getElementById('groupsPanelH3');
   if(gph)gph.textContent=zh?'🏟 小组出线概率 & 积分榜':en?'🏟 Group Standings & Advance Odds':'🏟 Grupos & Probabilidades';
   const gpl=document.getElementById('groupsPanelLabel');
   if(gpl)gpl.textContent=zh?'12组 48队':en?'12 groups · 48 teams':'12 grupos · 48 seleções';
-  const odbl=document.querySelector('#oddsBlendPanel .panel-header label');
-  if(odbl)odbl.textContent=zh?'模拟 ←融合→ 市场':en?'Sim ← blend → Market':'Sim ← combinar → Mercado';
-  // Bracket tab header
+  const gsh=document.getElementById('groupSimH3');if(gsh)gsh.textContent=T('group_sim_title');
+  const gshint=document.getElementById('groupSimHint');if(gshint)gshint.textContent=T('group_sim_hint');
+  const gse=document.querySelector('#groupSimContent .empty-state');if(gse)gse.textContent=T('group_sim_empty');
+  // Bracket tab
   const bph=document.getElementById('bracketPanelH3');
   if(bph)bph.textContent=zh?'🏆 淘汰赛对阵图':en?'🏆 Knockout Bracket':'🏆 Chave Eliminatória';
-  // Empty states
-  const pe=document.getElementById('probContent');
-  if(pe&&pe.querySelector('.empty-state'))pe.querySelector('.empty-state').textContent=zh?'点击「运行」开始模拟':en?'Click "Run" to start simulation':'Clique em "Executar" para simular';
-  const be=document.getElementById('bracketEmpty');
-  if(be)be.textContent=zh?'运行模拟后显示淘汰赛对阵表':en?'Run simulation to view knockout bracket':'Execute a simulação para ver a chave';
+  const bsl=document.getElementById('bracketSubLabel');if(bsl)bsl.textContent=T('bracket_sub_label');
+  // Teams tab — radar selects, editor
+  const rt1=document.querySelector('#radarT1 option[value=""]');if(rt1)rt1.textContent=T('team1_opt');
+  const rt2=document.querySelector('#radarT2 option[value=""]');if(rt2)rt2.textContent=T('team2_opt');
+  const rt3=document.querySelector('#radarT3 option[value=""]');if(rt3)rt3.textContent=T('team3_opt');
+  const edOpt=document.querySelector('#editorTeam option[value=""]');if(edOpt)edOpt.textContent=T('select_team');
+  const savBtn=document.getElementById('editorSaveBtn');if(savBtn)savBtn.textContent=T('save_btn');
+  const bchBtn=document.getElementById('batchAdjBtn');if(bchBtn)bchBtn.textContent=T('batch_adj_btn');
+  const edEmpty=document.querySelector('#editorContent .empty-state');if(edEmpty)edEmpty.textContent=T('players_empty');
+  const plOpt=document.querySelector('#playerTeamSelect option[value=""]');if(plOpt)plOpt.textContent=T('select_team');
+  const plEmpty=document.querySelector('#playersContent .empty-state');if(plEmpty)plEmpty.textContent=T('players_empty');
+  // Analysis tab — H2H, qual prob, top scorer, scenario, events, path, odds
+  const h2hH3=document.getElementById('h2hTitle');if(h2hH3)h2hH3.textContent=T('h2h_title');
+  const h2hLbl=document.getElementById('h2hSublabel');if(h2hLbl)h2hLbl.textContent=T('h2h_sublabel');
+  const h2hOpt1=document.querySelector('#h2hT1 option[value=""]');if(h2hOpt1)h2hOpt1.textContent=T('select_team');
+  const h2hOpt2=document.querySelector('#h2hT2 option[value=""]');if(h2hOpt2)h2hOpt2.textContent=T('select_team');
+  const h2hEmpty=document.querySelector('#h2hContent .empty-state');if(h2hEmpty)h2hEmpty.textContent=T('h2h_empty');
+  const qpH3=document.getElementById('qualProbH3');if(qpH3)qpH3.textContent=T('qual_prob_title');
+  const qpLbl=document.getElementById('qualProbSublabel');if(qpLbl)qpLbl.textContent=T('qual_prob_sublabel');
+  const qpEmpty=document.querySelector('#qualProbContent .empty-state');if(qpEmpty)qpEmpty.textContent=T('qual_prob_run_first');
+  const tsH3=document.getElementById('topScorerH3');if(tsH3)tsH3.textContent=T('top_scorer_title');
+  const tsLbl=document.getElementById('topScorerSublabel');if(tsLbl)tsLbl.textContent=T('top_scorer_sublabel');
+  const tsEmpty=document.querySelector('#topScorerContent .empty-state');if(tsEmpty)tsEmpty.textContent=T('loading');
   // Scenario panel
   const spt=document.getElementById('scenarioPanelTitle');
   if(spt)spt.textContent=zh?'🔮 情景模拟':en?'🔮 Scenario Simulation':'🔮 Simulação de Cenários';
+  const spl=document.getElementById('scenarioPanelLabel');if(spl)spl.textContent=T('scenario_sublabel');
   const spd=document.getElementById('scenarioDesc');
   if(spd)spd.textContent=zh?'勾选球队代表"假设该队小组赛出局"，再点击重新模拟，对比夺冠概率变化。':
     en?'Check teams to force them out of the tournament, then re-simulate to see how championship odds change.':
     'Marque equipes para eliminá-las e re-simule para comparar as probabilidades.';
   const rsb=document.getElementById('runScenarioBtn');
   if(rsb)rsb.textContent=zh?'🔮 重新模拟':en?'🔮 Re-Simulate':'🔮 Re-Simular';
+  const clrScenBtn=document.getElementById('clearScenarioBtn');if(clrScenBtn)clrScenBtn.textContent=T('clear_btn');
+  // Match predictor selects
+  const mt1Opt=document.querySelector('#matchT1 option[value=""]');if(mt1Opt)mt1Opt.textContent=T('home_team_opt');
+  const mt2Opt=document.querySelector('#matchT2 option[value=""]');if(mt2Opt)mt2Opt.textContent=T('away_team_opt');
+  // Upset content empty state
+  const upEmpty=document.querySelector('#upsetContent .empty-state');if(upEmpty)upEmpty.textContent=T('run_first');
+  // Events panel
+  const evTeamOpt=document.querySelector('#eventTeam option[value=""]');if(evTeamOpt)evTeamOpt.textContent=T('select_team');
+  const evTypeSel=document.getElementById('eventType');
+  if(evTypeSel){
+    const evMap={'injury':'event_injury','ban':'event_ban','coachChange':'event_coach','formBoost':'event_boost','formDrop':'event_drop','morale':'event_morale'};
+    Array.from(evTypeSel.options).forEach(o=>{if(evMap[o.value])o.text=T(evMap[o.value]);});
+  }
+  const evApplyBtn=document.getElementById('eventApplyBtn');if(evApplyBtn)evApplyBtn.textContent=T('apply_btn');
+  const evListEmpty=document.querySelector('#eventList div');
+  if(evListEmpty&&evListEmpty.style.color&&!evListEmpty.style.background)evListEmpty.textContent=T('event_empty');
+  // Path panel
+  const pathOpt=document.querySelector('#pathTeam option[value=""]');if(pathOpt)pathOpt.textContent=T('select_team');
+  const pathEmpty=document.querySelector('#pathContent .empty-state');if(pathEmpty)pathEmpty.textContent=T('pick_path_team');
+  // Odds calibration panel
+  const oddsTeamOpt=document.querySelector('#oddsTeam option[value=""]');if(oddsTeamOpt)oddsTeamOpt.textContent=T('team_opt');
+  const oddsBatchBtn=document.getElementById('oddsBatchBtn');if(oddsBatchBtn)oddsBatchBtn.textContent=T('odds_batch');
+  const oddsEmpty=document.querySelector('#oddsContent .empty-state');if(oddsEmpty)oddsEmpty.textContent=T('odds_empty');
   // Groups help text
   const ght=document.getElementById('groupsHelpText');
   if(ght)ght.textContent=zh?'绿色 ≥70% | 蓝色 30-70% | 灰色 <30% | 点击球队查看详情 | 底部展开积分榜':
     en?'Green ≥70% | Blue 30-70% | Grey <30% | Click team for details | Expand standings below':
     'Verde ≥70% | Azul 30-70% | Cinza <30% | Clique na seleção | Expanda a classificação';
+  // Empty states
+  const pe=document.getElementById('probContent');
+  if(pe&&pe.querySelector('.empty-state'))pe.querySelector('.empty-state').textContent=zh?'点击「运行」开始模拟':en?'Click "Run" to start simulation':'Clique em "Executar" para simular';
+  const be=document.getElementById('bracketEmpty');
+  if(be)be.textContent=zh?'运行模拟后显示淘汰赛对阵表':en?'Run simulation to view knockout bracket':'Execute a simulação para ver a chave';
+  const ciEmpty=document.querySelector('#ciContent .empty-state');if(ciEmpty)ciEmpty.textContent=T('run_first');
+  const histEmpty=document.querySelector('#historyContent .empty-state');if(histEmpty)histEmpty.textContent=T('snapshot_hint');
   // Clear events button
   const ceb=document.getElementById('clearEventsBtn');
   if(ceb)ceb.textContent=zh?'🔄 清除所有事件（需重跑模拟）':en?'🔄 Clear All Events (re-run sim)':'🔄 Limpar Eventos (re-simular)';
@@ -1063,30 +1402,48 @@ function applyLangDOM(){
   // Odds input placeholder
   const oi=document.getElementById('oddsInput');
   if(oi)oi.placeholder=zh?'赔率(欧赔)':en?'Odds (decimal)':'Odd (decimal)';
-  // data-i18n elements — single loop covers all tagged panel headers and labels
+  // History tab — score prediction buttons
+  const spH3=document.getElementById('scorePredH3');if(spH3)spH3.textContent=T('score_pred_title');
+  const gsBtn=document.getElementById('groupStageBtn');if(gsBtn)gsBtn.textContent=T('group_stage_btn');
+  const koBtn2=document.getElementById('knockoutBtn');if(koBtn2)koBtn2.textContent=T('knockout_btn');
+  // Squads tab
+  const sqH3=document.getElementById('squadsH3');if(sqH3)sqH3.textContent=T('squads_h3');
+  const sqSearch=document.getElementById('squadSearch');if(sqSearch)sqSearch.placeholder=T('search_placeholder');
+  // API key advanced summary
+  const apiAdvSched=document.getElementById('apiAdvScheduleSummary');if(apiAdvSched)apiAdvSched.textContent=T('api_adv_summary');
+  const scOddsKey=document.getElementById('scoresOddsKey');if(scOddsKey)scOddsKey.placeholder=T('paste_odds_key');
+  const scFbKey=document.getElementById('scoresFootballKey');if(scFbKey)scFbKey.placeholder=T('paste_football_key');
+  // data-i18n elements — covers all tagged panel headers and labels
   document.querySelectorAll('[data-i18n]').forEach(el=>{
     const t=T(el.getAttribute('data-i18n'));
     if(t&&t!==el.getAttribute('data-i18n'))el.textContent=t;
   });
+  // data-i18n-placeholder — for input placeholders
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{
+    const t=T(el.getAttribute('data-i18n-placeholder'));
+    if(t&&t!==el.getAttribute('data-i18n-placeholder'))el.placeholder=t;
+  });
   renderScenarioPanel();
+  if(typeof initGroupSim==='function')initGroupSim();
 }
 
 // ─── CONSTANTS ───
 const FACTORS = [
-  { key:'overall', name:'整体实力', weight:20, color:'#58a6ff', group:'综合' },
-  { key:'depth', name:'阵容深度', weight:16, color:'#56d4dd', group:'综合' },
-  { key:'defense', name:'防守', weight:12, color:'#3fb950', group:'战术' },
-  { key:'attack', name:'进攻', weight:8, color:'#f85149', group:'战术' },
-  { key:'stars', name:'球星质量', weight:8, color:'#e3b341', group:'人员' },
-  { key:'coach', name:'教练', weight:8, color:'#bc8cff', group:'人员' },
-  { key:'experience', name:'大赛经验', weight:4, color:'#d29922', group:'心理' },
-  { key:'fitness', name:'体能储备', weight:5, color:'#56d4dd', group:'身体' },
-  { key:'goalkeeper', name:'门将', weight:5, color:'#58a6ff', group:'战术' },
-  { key:'setpiece', name:'定位球', weight:5, color:'#f778ba', group:'战术' },
-  { key:'chemistry', name:'更衣室', weight:2, color:'#bc8cff', group:'心理' },
-  { key:'leader', name:'灵魂人物', weight:1, color:'#e3b341', group:'心理' },
-  { key:'tactFlex', name:'战术灵活', weight:3, color:'#f778ba', group:'战术' },
+  { key:'overall', name:'整体实力', en:'Overall', pt:'Geral', weight:20, color:'#58a6ff', group:'综合' },
+  { key:'depth', name:'阵容深度', en:'Squad Depth', pt:'Profundidade', weight:16, color:'#56d4dd', group:'综合' },
+  { key:'defense', name:'防守', en:'Defense', pt:'Defesa', weight:12, color:'#3fb950', group:'战术' },
+  { key:'attack', name:'进攻', en:'Attack', pt:'Ataque', weight:8, color:'#f85149', group:'战术' },
+  { key:'stars', name:'球星质量', en:'Star Quality', pt:'Estrelas', weight:8, color:'#e3b341', group:'人员' },
+  { key:'coach', name:'教练', en:'Coach', pt:'Técnico', weight:8, color:'#bc8cff', group:'人员' },
+  { key:'experience', name:'大赛经验', en:'Experience', pt:'Experiência', weight:4, color:'#d29922', group:'心理' },
+  { key:'fitness', name:'体能储备', en:'Fitness', pt:'Condição Física', weight:5, color:'#56d4dd', group:'身体' },
+  { key:'goalkeeper', name:'门将', en:'Goalkeeper', pt:'Guarda-Redes', weight:5, color:'#58a6ff', group:'战术' },
+  { key:'setpiece', name:'定位球', en:'Set Pieces', pt:'Bolas Paradas', weight:5, color:'#f778ba', group:'战术' },
+  { key:'chemistry', name:'更衣室', en:'Chemistry', pt:'Química', weight:2, color:'#bc8cff', group:'心理' },
+  { key:'leader', name:'灵魂人物', en:'Leadership', pt:'Liderança', weight:1, color:'#e3b341', group:'心理' },
+  { key:'tactFlex', name:'战术灵活', en:'Tact. Flex.', pt:'Flex. Tática', weight:3, color:'#f778ba', group:'战术' },
 ];
+function FN(f){return(currentLang!=='zh'&&f[currentLang])||f.name;}
 const GROUPS = ['A','B','C','D','E','F','G','H','I','J','K','L'];
 
 // ─── TEAM FLAGS ───
@@ -2143,7 +2500,7 @@ function notify(msg, type='info') {
 async function runSim() {
   if(!teams||!Array.isArray(teams)||teams.length<8){
     console.error('teams invalid, re-initializing');
-    try{initTeams();}catch(e){notify('球队数据初始化失败','error');return;}
+    try{initTeams();}catch(e){notify(currentLang==='en'?'Team data init failed':currentLang==='pt'?'Falha ao inicializar dados':'球队数据初始化失败','error');return;}
   }
   // 根据已录入的比赛结果更新ELO，让模拟更贴近当前实际状态
   if(matchResults.length) rebuildEloFromHistory();
@@ -2356,7 +2713,7 @@ async function runSim() {
     console.error('runChunk error:', chunkErr);
     notify('模拟出错: ' + chunkErr.message, 'error');
     document.getElementById('simStatus').className='status-badge status-error';
-    document.getElementById('simStatus').textContent='错误';
+    document.getElementById('simStatus').textContent=T('error_label');
     document.querySelector('.btn-primary').disabled=false;
     document.getElementById('progressBar').classList.remove('active');
   }
@@ -2368,7 +2725,7 @@ async function runSim() {
     console.error('Simulation error:', e);
     notify('模拟出错: '+e.message, 'error');
     document.getElementById('simStatus').className='status-badge status-error';
-    document.getElementById('simStatus').textContent='错误';
+    document.getElementById('simStatus').textContent=T('error_label');
     document.querySelector('.btn-primary').disabled=false;
     document.getElementById('progressBar').classList.remove('active');
   }
@@ -2377,7 +2734,8 @@ async function runSim() {
 function updateFactorMult() {
   const _fm = parseFloat(document.getElementById('factorMult').value);
   FACTOR_MULT = (!isNaN(_fm) && _fm >= 0) ? _fm : 4.0;
-  notify('因子权重='+FACTOR_MULT.toFixed(1)+' | 重新运行模拟以生效','info');
+  const _multMsg=currentLang==='en'?`Factor mult.=${FACTOR_MULT.toFixed(1)} | Re-run simulation to apply`:currentLang==='pt'?`Multiplicador=${FACTOR_MULT.toFixed(1)} | Re-execute para aplicar`:`因子权重=${FACTOR_MULT.toFixed(1)} | 重新运行模拟以生效`;
+  notify(_multMsg,'info');
 }
 function updateAll() {
   renderChampionship(); renderGroups(); renderBracket(); renderEditor();
@@ -2429,23 +2787,28 @@ async function fetchLiveOdds() {
   const keyInput = document.getElementById('oddsApiKey');
   const key = (keyInput ? keyInput.value.trim() : '') || oddsApiKey;
   if (!key) {
-    setLiveStatus('⚠️ 请先填入 API Key（点击右侧「🆓 免费注册Key」获取）', 'warn');
+    const _noKey=currentLang==='en'?'⚠️ Enter an API Key first (click "🆓 Get Key" to register)':currentLang==='pt'?'⚠️ Insira uma API Key primeiro (clique em "🆓 Registrar Key")':'⚠️ 请先填入 API Key（点击右侧「🆓 免费注册Key」获取）';
+    setLiveStatus(_noKey, 'warn');
     return;
   }
   saveApiKey(key);
 
   const btn = document.getElementById('fetchOddsBtn');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ 获取中...'; }
-  setLiveStatus('🌐 正在连接 The Odds API...', 'info');
+  const _fetching=currentLang==='en'?'⏳ Fetching...':currentLang==='pt'?'⏳ A buscar...':'⏳ 获取中...';
+  if (btn) { btn.disabled = true; btn.textContent = _fetching; }
+  const _connecting=currentLang==='en'?'🌐 Connecting to The Odds API...':currentLang==='pt'?'🌐 A ligar ao The Odds API...':'🌐 正在连接 The Odds API...';
+  setLiveStatus(_connecting, 'info');
 
   // Step 1: dynamically discover available WC sport keys from API
-  setLiveStatus('🌐 正在查询可用赛事列表...', 'info');
+  const _querying=currentLang==='en'?'🌐 Querying available sport keys...':currentLang==='pt'?'🌐 A consultar chaves disponíveis...':'🌐 正在查询可用赛事列表...';
+  setLiveStatus(_querying, 'info');
   let dynamicKeys = [];
   try {
     const listResp = await fetch(`https://api.the-odds-api.com/v4/sports/?apiKey=${key}`);
     if (listResp.status === 401) {
-      if (btn) { btn.disabled = false; btn.textContent = '🔄 立即获取实时赔率'; }
-      setLiveStatus('❌ API Key 无效，请重新检查（注意不要有多余空格）', 'error');
+      if (btn) { btn.disabled = false; btn.textContent = T('live_scores'); }
+      const _badKey=currentLang==='en'?'❌ Invalid API Key — please check for extra spaces':currentLang==='pt'?'❌ API Key inválida — verifique espaços extra':'❌ API Key 无效，请重新检查（注意不要有多余空格）';
+      setLiveStatus(_badKey, 'error');
       return;
     }
     if (listResp.ok) {
@@ -2460,7 +2823,8 @@ async function fetchLiveOdds() {
   const staticKeys = ['soccer_fifa_world_cup_winner','soccer_world_cup_winner','soccer_fifa_world_cup','soccer_world_cup'];
   const sportKeys = dynamicKeys.length ? [...new Set([...dynamicKeys, ...staticKeys])] : staticKeys;
 
-  setLiveStatus(`🌐 正在获取赔率（尝试 ${sportKeys.length} 个赛事Key）...`, 'info');
+  const _tryMsg=currentLang==='en'?`🌐 Fetching odds (trying ${sportKeys.length} sport keys)...`:currentLang==='pt'?`🌐 A obter odds (tentando ${sportKeys.length} chaves)...`:`🌐 正在获取赔率（尝试 ${sportKeys.length} 个赛事Key）...`;
+  setLiveStatus(_tryMsg, 'info');
 
   let data = null;
   let lastErr = '';
@@ -2468,20 +2832,22 @@ async function fetchLiveOdds() {
     try {
       const url = `https://api.the-odds-api.com/v4/sports/${sportKey}/odds/?apiKey=${key}&regions=eu,uk&markets=outrights&oddsFormat=decimal`;
       const resp = await fetch(url);
-      if (resp.status === 401) { lastErr = 'API Key 无效，请检查'; break; }
-      if (resp.status === 422) { lastErr = `"${sportKey}" 暂未上线`; continue; }
+      if (resp.status === 401) { lastErr = currentLang==='en'?'Invalid API Key':'API Key inválida'; break; }
+      if (resp.status === 422) { lastErr = `"${sportKey}" ${currentLang==='en'?'not yet available':currentLang==='pt'?'indisponível':'暂未上线'}`; continue; }
       if (!resp.ok) { lastErr = `HTTP ${resp.status}`; continue; }
       const json = await resp.json();
       if (Array.isArray(json) && json.length > 0) { data = json; break; }
-      if (Array.isArray(json) && json.length === 0) { lastErr = `"${sportKey}" 赔率暂无数据（比赛进行中赔率可能已关闭）`; }
-    } catch(e) { lastErr = '网络错误: ' + e.message; }
+      if (Array.isArray(json) && json.length === 0) { lastErr = currentLang==='en'?`"${sportKey}" no odds data (market may be closed)`:currentLang==='pt'?`"${sportKey}" sem dados de odds`:`"${sportKey}" 赔率暂无数据（比赛进行中赔率可能已关闭）`; }
+    } catch(e) { lastErr = (currentLang==='en'?'Network error: ':currentLang==='pt'?'Erro de rede: ':'网络错误: ') + e.message; }
   }
 
-  if (btn) { btn.disabled = false; btn.textContent = '🔄 立即获取实时赔率'; }
+  if (btn) { btn.disabled = false; btn.textContent = T('live_scores'); }
 
   if (!data) {
     const keysStr = sportKeys.join(', ');
-    setLiveStatus(`❌ 获取失败：${lastErr}<br><span style="font-size:10px;color:var(--text3);">已尝试: ${keysStr}</span>`, 'error');
+    const _tried=currentLang==='en'?'Tried':currentLang==='pt'?'Tentado':'已尝试';
+    const _failed=currentLang==='en'?`❌ Fetch failed: ${lastErr}`:currentLang==='pt'?`❌ Falha: ${lastErr}`:`❌ 获取失败：${lastErr}`;
+    setLiveStatus(`${_failed}<br><span style="font-size:10px;color:var(--text3);">${_tried}: ${keysStr}</span>`, 'error');
     return;
   }
 
@@ -2530,12 +2896,15 @@ async function fetchLiveOdds() {
   liveOddsUpdated = new Date();
   saveData();
 
-  const timeStr = liveOddsUpdated.toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
-  setLiveStatus(
-    `✅ 夺冠赔率已更新 · ${matched} 队 · ${bookmakerCount} 家博彩 · ${timeStr}` +
-    `<br><span style="color:var(--text3);font-size:9px;">注：夺冠盘口每天微调1-2次，非逐分钟更新${unmatched.length ? ' · 未匹配: '+unmatched.slice(0,5).join(', ') : ''}</span>`,
-    'success'
-  );
+  const _tsLocale=currentLang==='en'?'en-GB':currentLang==='pt'?'pt-PT':'zh-CN';
+  const timeStr = liveOddsUpdated.toLocaleTimeString(_tsLocale, {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  const _oddsMainMsg=currentLang==='en'?`✅ Championship odds updated · ${matched} teams · ${bookmakerCount} bookmakers · ${timeStr}`:
+    currentLang==='pt'?`✅ Odds atualizadas · ${matched} seleções · ${bookmakerCount} casas · ${timeStr}`:
+    `✅ 夺冠赔率已更新 · ${matched} 队 · ${bookmakerCount} 家博彩 · ${timeStr}`;
+  const _oddsNote=currentLang==='en'?`Note: odds update 1-2×/day, not every minute${unmatched.length?' · Unmatched: '+unmatched.slice(0,5).join(', '):''}`:
+    currentLang==='pt'?`Nota: odds atualizam 1-2×/dia, não por minuto${unmatched.length?' · Não encontradas: '+unmatched.slice(0,5).join(', '):''}`:
+    `注：夺冠盘口每天微调1-2次，非逐分钟更新${unmatched.length?' · 未匹配: '+unmatched.slice(0,5).join(', '):''}`;
+  setLiveStatus(`${_oddsMainMsg}<br><span style="color:var(--text3);font-size:9px;">${_oddsNote}</span>`,'success');
 
   // Switch to blend mode
   const modeEl = document.getElementById('champViewMode');
@@ -2544,7 +2913,10 @@ async function fetchLiveOdds() {
   renderLiveOddsPreview(newOdds, bookmakersSeen);
   updateOddsStatusBar();
   renderChampionship();
-  notify(`实时赔率已更新：${matched} 队数据，来自 ${bookmakerCount} 家博彩 | 已切换融合预测`, 'success');
+  const _oddsNotify=currentLang==='en'?`Live odds updated: ${matched} teams from ${bookmakerCount} bookmakers | Switched to blended`:
+    currentLang==='pt'?`Odds ao vivo atualizadas: ${matched} seleções de ${bookmakerCount} casas | Modo combinado ativado`:
+    `实时赔率已更新：${matched} 队数据，来自 ${bookmakerCount} 家博彩 | 已切换融合预测`;
+  notify(_oddsNotify,'success');
 }
 
 async function fetchSportsList(key) {
@@ -2556,7 +2928,10 @@ async function fetchSportsList(key) {
     const wc = list.filter(s => s.key.toLowerCase().includes('world_cup') || s.key.toLowerCase().includes('worldcup'));
     if (wc.length) {
       const keys = wc.map(s => s.key).join(', ');
-      setLiveStatus(`❌ 获取失败。可用赛事Key: ${keys}（请联系开发者更新）`, 'error');
+      const _failMsg=currentLang==='en'?`❌ Fetch failed. Available WC keys: ${keys} (contact developer)`:
+        currentLang==='pt'?`❌ Falha. Chaves disponíveis: ${keys} (contacte o desenvolvedor)`:
+        `❌ 获取失败。可用赛事Key: ${keys}（请联系开发者更新）`;
+      setLiveStatus(_failMsg,'error');
     }
   } catch(e) { /* silent */ }
 }
@@ -2572,8 +2947,9 @@ function renderLiveOddsPreview(oddsMap, bookmakersSeen) {
   const el = document.getElementById('liveOddsPreview');
   if (!el) return;
   const sorted = Object.entries(oddsMap).sort((a, b) => a[1] - b[1]).slice(0, 20);
-  const bms = [...(bookmakersSeen||[])].join(' · ') || '多家博彩';
-  let html = `<div style="font-size:10px;color:var(--text3);margin-bottom:6px;">数据来源: ${bms}</div>`;
+  const _bmsDefault=currentLang==='en'?'multiple bookmakers':currentLang==='pt'?'várias casas':'多家博彩';
+  const bms = [...(bookmakersSeen||[])].join(' · ') || _bmsDefault;
+  let html = `<div style="font-size:10px;color:var(--text3);margin-bottom:6px;">${T('data_source_lbl')}: ${bms}</div>`;
   html += '<div style="display:flex;flex-wrap:wrap;gap:4px;">';
   sorted.forEach(([name, odds]) => {
     const impliedPct = (100 / odds).toFixed(1);
@@ -2681,7 +3057,7 @@ function saveOddsFromModal() {
   document.getElementById('oddsModal').classList.remove('active');
   updateOddsStatusBar();
   renderChampionship();
-  notify('赔率已保存，融合预测已更新','success');
+  notify(T('odds_saved_notify'),'success');
 }
 
 function clearAllOddsInputs() {
@@ -2689,7 +3065,7 @@ function clearAllOddsInputs() {
 }
 
 function prefillReferenceOdds(inModal=false) {
-  if(!simResults){notify('请先运行模拟','error');return;}
+  if(!simResults){notify(currentLang==='en'?'Run simulation first':currentLang==='pt'?'Execute a simulação primeiro':'请先运行模拟','error');return;}
   // Build reference odds from simulation (convert sim prob → decimal odds, add ~10% margin)
   const margin=1.10;
   teams.forEach(t=>{
@@ -2704,12 +3080,12 @@ function prefillReferenceOdds(inModal=false) {
       const v=savedOdds[inp.dataset.team];
       if(v) inp.value=v;
     });
-    notify('已填入基于模拟结果的参考赔率（含10%边际）','info');
+    notify(T('odds_filled_modal'),'info');
   } else {
     saveData();
     updateOddsStatusBar();
     renderChampionship();
-    notify('已填入参考赔率 | 你可以点击「输入赔率」按实际赔率修改','info');
+    notify(T('odds_filled_ref'),'info');
   }
 }
 
@@ -2727,7 +3103,11 @@ function updateOddsStatusBar() {
     const _oddsEntered=currentLang==='en'?`✓ ${n} teams' odds entered`:currentLang==='pt'?`✓ ${n} odds inseridas`:`✓ 已输入 ${n} 支球队赔率`;
     const _blend=currentLang==='en'?`Blend: Sim ${_s}% + Market ${_w}%`:currentLang==='pt'?`Combinado: Sim ${_s}% + Mercado ${_w}%`:`融合权重: 模拟 ${_s}% + 市场 ${_w}%`;
     const ageStr = liveOddsUpdated
-      ? (() => { const m=Math.round((Date.now()-liveOddsUpdated)/60000); return m<1?'刚刚更新':m<60?`${m}分钟前更新`:`${Math.round(m/60)}小时前更新`; })()
+      ? (() => { const m=Math.round((Date.now()-liveOddsUpdated)/60000);
+          if(m<1) return T('odds_age_now');
+          if(m<60) return currentLang==='en'?`${m}m ago`:currentLang==='pt'?`${m}min atrás`:`${m}分钟前更新`;
+          return currentLang==='en'?`${Math.round(m/60)}h ago`:currentLang==='pt'?`${Math.round(m/60)}h atrás`:`${Math.round(m/60)}小时前更新`;
+        })()
       : '';
     bar.innerHTML=`<span style="color:var(--green);">${_oddsEntered}</span>
       <span style="color:var(--text3);margin-left:8px;">${_blend}</span>
@@ -2903,7 +3283,7 @@ function renderGroups() {
     if(simResults){
       const {advanceCount,totalSims}=simResults;
       gt.sort((a,b)=>(advanceCount[b.name]||0)-(advanceCount[a.name]||0));
-      html+=`<div class="group-card"><h4>${currentLang==='zh'?g+' 组':'Group '+g}</h4>`;
+      html+=`<div class="group-card"><h4>${currentLang==='zh'?g+T('group_suffix'):T('grp_prefix')+g}</h4>`;
       gt.forEach(t=>{
         const pct=((advanceCount[t.name]||0)/totalSims*100).toFixed(1);
         const color=pct>=70?'var(--green)':pct>=30?'var(--accent)':'var(--text3)';
@@ -2921,7 +3301,7 @@ function renderGroups() {
       html+='</div>';
     } else {
       gt.sort((a,b)=>calcWeight(b)-calcWeight(a));
-      html+=`<div class="group-card"><h4>${currentLang==='zh'?g+' 组':'Group '+g}</h4>`;
+      html+=`<div class="group-card"><h4>${currentLang==='zh'?g+T('group_suffix'):T('grp_prefix')+g}</h4>`;
       gt.forEach(t=>{html+=`<div class="team-row" onclick="showTeam('${t.name}')"><span style="flex:1">${getFlag(t.name)} ${TN(t.name)}</span><span style="color:var(--text2);font-size:9px;">${calcWeight(t)}</span></div>`;});
       html+='</div>';
     }
@@ -3429,7 +3809,7 @@ function renderRadar() {
   chartInstances.radar=new Chart(ctx,{
     type:'radar',
     responsive:false,
-    data:{labels:df.map(f=>f.name),datasets:selected.map((t,i)=>({label:t.name+' ('+calcWeight(t)+')',data:df.map(f=>t[f.key]||5),borderColor:colors[i],backgroundColor:colors[i]+'18',borderWidth:2,pointRadius:3,pointBackgroundColor:colors[i]}))},
+    data:{labels:df.map(f=>FN(f)),datasets:selected.map((t,i)=>({label:TN(t.name)+' ('+calcWeight(t)+')',data:df.map(f=>t[f.key]||5),borderColor:colors[i],backgroundColor:colors[i]+'18',borderWidth:2,pointRadius:3,pointBackgroundColor:colors[i]}))},
     options:{maintainAspectRatio:false,
       plugins:{legend:{position:'bottom',labels:{font:{size:10},padding:12,usePointStyle:true,color:d?'#e6edf3':'#1f2328'}}},
     scales:{r:{min:0,max:10,ticks:{stepSize:2,font:{size:9},color:d?'#8b949e':'#656d72',backdropColor:'transparent'},pointLabels:{font:{size:9},color:d?'#e6edf3':'#1f2328'},
@@ -3442,9 +3822,9 @@ function renderPlayers() {
   const name = document.getElementById('playerTeamSelect').value;
   const el = document.getElementById('playersContent');
   if(!el) return;
-  if(!name){el.innerHTML='<div class="empty-state">选择球队查看详情</div>';return;}
+  if(!name){el.innerHTML=`<div class="empty-state">${T('players_empty')}</div>`;return;}
   const t = teams.find(x=>x.name===name);
-  if(!t){el.innerHTML='<div class="empty-state">未找到球队数据</div>';return;}
+  if(!t){el.innerHTML=`<div class="empty-state">${T('players_empty')}</div>`;return;}
   const adj = calcAdjELO(t), ws = calcWeight(t);
   const factorBar = (v,max=10) => {
     const pct = (v/max*100).toFixed(0);
@@ -3458,17 +3838,22 @@ function renderPlayers() {
   };
   const rows = FACTORS.map(f=>`
     <div style="display:grid;grid-template-columns:80px 1fr;align-items:center;gap:8px;padding:3px 0;border-bottom:1px solid var(--border);">
-      <span style="font-size:10px;color:var(--text2);">${f.name||f.key}</span>
+      <span style="font-size:10px;color:var(--text2);">${FN(f)||f.key}</span>
       ${factorBar(t[f.key]||5)}
     </div>`).join('');
-  const hostNote = ['美国','加拿大','墨西哥'].includes(t.name)?'<span style="font-size:9px;color:var(--orange);margin-left:6px;">🏠 主办国 +55 ELO</span>':'';
+  const hostNote = ['美国','加拿大','墨西哥'].includes(t.name)?`<span style="font-size:9px;color:var(--orange);margin-left:6px;">${T('host_bonus_badge')}</span>`:'';
+  const _grpLbl=currentLang==='zh'?t.group+T('group_suffix'):T('grp_prefix')+t.group;
+  const _baseElo=currentLang==='en'?'Base ELO':currentLang==='pt'?'ELO Base':'基础 ELO';
+  const _adjElo=currentLang==='en'?'Adj. ELO':currentLang==='pt'?'ELO Aj.':'综合 ELO';
+  const _fScore=currentLang==='en'?'Factor score':currentLang==='pt'?'Pontuação':'因子总分';
+  const _fMult=currentLang==='en'?'Factor mult.':currentLang==='pt'?'Multiplicador':'因子倍数';
   el.innerHTML=`
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px;background:var(--bg2);border-radius:8px;">
       <div style="font-size:28px;">${getFlag(t.name)}</div>
       <div>
         <div style="font-size:14px;font-weight:800;">${TN(t.name)}${hostNote}</div>
-        <div style="font-size:10px;color:var(--text2);">小组 ${t.group} &nbsp;·&nbsp; 基础 ELO <b>${t.elo}</b> &nbsp;·&nbsp; 综合 ELO <span style="color:var(--accent);font-weight:700;">${adj}</span></div>
-        <div style="font-size:10px;color:var(--text2);">因子总分 <b>${ws.toFixed(1)}</b> / 10 &nbsp;·&nbsp; 因子倍数 ×${FACTOR_MULT.toFixed(1)}</div>
+        <div style="font-size:10px;color:var(--text2);">${_grpLbl} &nbsp;·&nbsp; ${_baseElo} <b>${t.elo}</b> &nbsp;·&nbsp; ${_adjElo} <span style="color:var(--accent);font-weight:700;">${adj}</span></div>
+        <div style="font-size:10px;color:var(--text2);">${_fScore} <b>${ws.toFixed(1)}</b> / 10 &nbsp;·&nbsp; ${_fMult} ×${FACTOR_MULT.toFixed(1)}</div>
       </div>
     </div>
     <div>${rows}</div>`;
@@ -3487,7 +3872,7 @@ function renderSquads() {
     return `<div onclick="showSquad('${t.name}')" style="cursor:pointer;padding:10px 8px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);text-align:center;transition:all .2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
       <div style="font-size:26px">${flag}</div>
       <div style="font-size:12px;font-weight:600;margin-top:4px">${t.name}</div>
-      <div style="font-size:10px;color:var(--text2);margin-top:2px">€${topVal>=10000?(topVal/10000).toFixed(1)+'亿':(topVal/100).toFixed(0)+'M'}</div>
+      <div style="font-size:10px;color:var(--text2);margin-top:2px">€${topVal>=10000?(topVal/10000).toFixed(1)+T('val_unit_big'):(topVal/100).toFixed(0)+T('val_unit_m')}</div>
     </div>`;
   }).join('');
   if(!q && detail.style.display==='none') detail.style.display='none';
@@ -3508,7 +3893,7 @@ function showSquad(name) {
     return `<span style="display:inline-block;padding:1px 6px;border-radius:3px;background:${col};color:#fff;font-size:10px;font-weight:700;min-width:28px;text-align:center">${pos}</span>`;
   };
 
-  const valStr = v => v>=10000?(v/10000).toFixed(1)+'亿':(v/100).toFixed(0)+'M';
+  const valStr = v => v>=10000?(v/10000).toFixed(1)+T('val_unit_big'):(v/100).toFixed(0)+T('val_unit_m');
 
   const playerRow = (p, rank) => `
     <div style="display:flex;align-items:flex-start;gap:8px;padding:9px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg2)">
@@ -3530,7 +3915,7 @@ function showSquad(name) {
   sq.players.forEach(p => { if(byPos[p.pos]) byPos[p.pos].push(p); });
   Object.values(byPos).forEach(arr => arr.sort((a,b)=>(b.val||0)-(a.val||0)));
 
-  const posLabels = {GK:'⛳ 门将', DF:'🛡 后卫', MF:'⚙️ 中场', FW:'⚡ 前锋'};
+  const posLabels = {GK:T('gk_label'), DF:T('df_label'), MF:T('mf_label'), FW:T('fw_label')};
 
   let globalRank = 1;
   const posSection = (posKey) => {
@@ -3539,14 +3924,14 @@ function showSquad(name) {
     const rows = players.map(p => playerRow(p, globalRank++)).join('');
     return `
       <div style="margin-top:12px">
-        <div style="font-size:12px;font-weight:700;letter-spacing:.5px;color:var(--text2);margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border)">${posLabels[posKey]} · ${players.length} 人</div>
+        <div style="font-size:12px;font-weight:700;letter-spacing:.5px;color:var(--text2);margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border)">${posLabels[posKey]} · ${players.length}${T('players_unit')?' '+T('players_unit'):''}</div>
         <div style="display:flex;flex-direction:column;gap:6px">${rows}</div>
       </div>`;
   };
 
   const coachHtml = `<div style="padding:10px;border-radius:8px;border:2px solid #8e44ad;background:var(--bg2)">
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <span style="display:inline-block;padding:1px 6px;border-radius:3px;background:#8e44ad;color:#fff;font-size:10px;font-weight:700">主教练</span>
+      <span style="display:inline-block;padding:1px 6px;border-radius:3px;background:#8e44ad;color:#fff;font-size:10px;font-weight:700">${T('head_coach_label')}</span>
       <span style="font-weight:600">${sq.coach.n}</span>
     </div>
     ${sq.coach.s&&sq.coach.s[0]?`<div style="margin-top:5px;font-size:11px"><span style="color:var(--green)">✓ </span>${sq.coach.s.join(' · ')}</div>`:''}
@@ -3555,21 +3940,21 @@ function showSquad(name) {
 
   const totalPlayers = sq.players.length;
   const adjElo = t ? calcAdjELO(t) : 0;
-  const eloLine = t ? `<span style="font-size:11px;color:var(--text3);">ELO ${t.elo} · 调整ELO ${adjElo}</span>` : '';
+  const eloLine = t ? `<span style="font-size:11px;color:var(--text3);">ELO ${t.elo} · ${T('adj_elo')} ${adjElo}</span>` : '';
   detail.innerHTML = `<div class="panel">
     <div class="panel-header">
-      <h3 style="display:flex;align-items:center;gap:8px"><span style="font-size:28px">${flag}</span>${name} 队伍名单</h3>
-      <button class="btn btn-sm" onclick="document.getElementById('squadDetail').style.display='none'">✕ 关闭</button>
+      <h3 style="display:flex;align-items:center;gap:8px"><span style="font-size:28px">${flag}</span>${name} ${T('squad_suffix')}</h3>
+      <button class="btn btn-sm" onclick="document.getElementById('squadDetail').style.display='none'">${T('close_btn')}</button>
     </div>
     <div style="padding:8px 0">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap;">
-        <span style="font-size:12px;color:var(--text2);">共 ${totalPlayers} 名球员 · 按身价排序</span>
+        <span style="font-size:12px;color:var(--text2);">${currentLang==='zh'?`共 ${totalPlayers} `:`${totalPlayers} `}${T('players_by_val')}</span>
         ${eloLine}
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;align-items:start;">
         <div>${coachHtml}</div>
         <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px;">
-          <div style="font-size:10px;color:var(--text3);font-weight:600;margin-bottom:4px;text-align:center;">⬡ 能力雷达图</div>
+          <div style="font-size:10px;color:var(--text3);font-weight:600;margin-bottom:4px;text-align:center;">${T('radar_chart_title')}</div>
           <canvas id="squadRadarCanvas" style="max-height:200px;"></canvas>
         </div>
       </div>
@@ -3585,7 +3970,7 @@ function showSquad(name) {
     setTimeout(()=>{
       const ctx = document.getElementById('squadRadarCanvas');
       if(!ctx) return;
-      const labels = FACTORS.map(f=>f.name);
+      const labels = FACTORS.map(f=>FN(f));
       const data   = FACTORS.map(f=>t[f.key]||5);
       const isDark = document.documentElement.getAttribute('data-theme')==='dark';
       const lineCol = isDark?'rgba(88,166,255,0.9)':'rgba(37,99,235,0.9)';
@@ -3609,7 +3994,7 @@ function renderH2H() {
   const n1=(document.getElementById('h2hT1')||{}).value||'';
   const n2=(document.getElementById('h2hT2')||{}).value||'';
   const el=document.getElementById('h2hContent'); if(!el) return;
-  if(!n1||!n2||n1===n2){el.innerHTML='<div class="empty-state">选择两支不同的球队开始对比</div>';return;}
+  if(!n1||!n2||n1===n2){el.innerHTML=`<div class="empty-state">${T('h2h_empty')}</div>`;return;}
   const t1=teams.find(x=>x.name===n1),t2=teams.find(x=>x.name===n2);
   if(!t1||!t2) return;
   const e1=calcAdjELO(t1),e2=calcAdjELO(t2);
@@ -3638,7 +4023,7 @@ function renderH2H() {
         </div>
       </td>
       <td style="text-align:left;padding:3px 8px;font-size:12px;font-weight:${v2>v1?700:400};color:${c2}">${v2}</td>
-      <td style="text-align:center;padding:3px 8px;font-size:10px;color:var(--text2)">${f.name}</td>
+      <td style="text-align:center;padding:3px 8px;font-size:10px;color:var(--text2)">${FN(f)}</td>
     </tr>`;
   }).join('');
   const pAp=(p.pA*100).toFixed(1),pDp=(p.pD*100).toFixed(1),pBp=(p.pB*100).toFixed(1);
@@ -3648,25 +4033,25 @@ function renderH2H() {
         <div style="font-size:30px">${getFlag(n1)}</div>
         <div style="font-weight:700;font-size:13px;margin:4px 0">${n1}</div>
         <div style="font-size:22px;font-weight:800;color:var(--accent)">${e1}</div>
-        <div style="font-size:10px;color:var(--text2)">调整ELO</div>
+        <div style="font-size:10px;color:var(--text2)">${T('adj_elo')}</div>
       </div>
       <div style="text-align:center;padding:8px">
         <div style="font-size:11px;color:var(--green);font-weight:700">${pAp}%</div>
-        <div style="font-size:9px;color:var(--text2)">胜</div>
+        <div style="font-size:9px;color:var(--text2)">${T('win_label')}</div>
         <div style="margin:4px 0;font-size:20px;color:var(--text3)">─</div>
         <div style="font-size:11px;color:var(--text2);font-weight:700">${pDp}%</div>
-        <div style="font-size:9px;color:var(--text2)">平</div>
+        <div style="font-size:9px;color:var(--text2)">${T('draw_label')}</div>
         <div style="margin:4px 0;font-size:20px;color:var(--text3)">─</div>
         <div style="font-size:11px;color:var(--red);font-weight:700">${pBp}%</div>
-        <div style="font-size:9px;color:var(--text2)">负</div>
-        <div style="margin-top:8px;font-size:11px;color:var(--text2)">最可能</div>
+        <div style="font-size:9px;color:var(--text2)">${T('loss_label')}</div>
+        <div style="margin-top:8px;font-size:11px;color:var(--text2)">${T('most_likely')}</div>
         <div style="font-size:18px;font-weight:800;color:var(--accent)">${bs}</div>
       </div>
       <div style="text-align:center;padding:12px;background:var(--bg2);border-radius:8px;border:1px solid var(--border)">
         <div style="font-size:30px">${getFlag(n2)}</div>
         <div style="font-weight:700;font-size:13px;margin:4px 0">${n2}</div>
         <div style="font-size:22px;font-weight:800;color:var(--accent)">${e2}</div>
-        <div style="font-size:10px;color:var(--text2)">调整ELO</div>
+        <div style="font-size:10px;color:var(--text2)">${T('adj_elo')}</div>
       </div>
     </div>
     <div style="margin-bottom:8px">
@@ -3682,7 +4067,7 @@ function renderH2H() {
           <th style="text-align:right;padding:4px 8px;font-size:11px;color:var(--text2)">${n1}</th>
           <th style="width:120px"></th>
           <th style="text-align:left;padding:4px 8px;font-size:11px;color:var(--text2)">${n2}</th>
-          <th style="text-align:center;padding:4px 8px;font-size:11px;color:var(--text2)">因子</th>
+          <th style="text-align:center;padding:4px 8px;font-size:11px;color:var(--text2)">${T('factor_col')}</th>
         </tr></thead>
         <tbody>${factorRows}</tbody>
       </table>
@@ -3692,7 +4077,7 @@ function renderH2H() {
 // ─── QUAL PROBABILITY (from simResults) ───
 function renderQualProb() {
   const el=document.getElementById('qualProbContent'); if(!el) return;
-  if(!simResults){el.innerHTML='<div class="empty-state">请先运行模拟</div>';return;}
+  if(!simResults){el.innerHTML=`<div class="empty-state">${T('qual_prob_run_first')}</div>`;return;}
   const {advanceCount,champCount,totalSims}=simResults;
   const groups={};
   teams.forEach(t=>{if(!groups[t.group])groups[t.group]=[];groups[t.group].push(t);});
@@ -3711,12 +4096,12 @@ function renderQualProb() {
           </div>
         </td>
         <td style="padding:4px 6px;font-size:12px;font-weight:700;color:${col};white-space:nowrap">${adv.toFixed(1)}%</td>
-        <td style="padding:4px 6px;font-size:11px;color:var(--text2);white-space:nowrap">淘汰 ${elim}%</td>
+        <td style="padding:4px 6px;font-size:11px;color:var(--text2);white-space:nowrap">${T('elim_label')} ${elim}%</td>
         <td style="padding:4px 6px;font-size:11px;color:var(--accent);white-space:nowrap">🏆 ${champ.toFixed(1)}%</td>
       </tr>`;
     }).join('');
     return `<div style="background:var(--bg2);border-radius:8px;border:1px solid var(--border);padding:8px 4px;overflow:hidden">
-      <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px;padding:0 6px">${g} 组</div>
+      <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px;padding:0 6px">${currentLang==='zh'?g+T('group_suffix'):T('group_suffix')+g}</div>
       <table style="width:100%;border-collapse:collapse">${rows}</table>
     </div>`;
   }).join('');
@@ -3748,10 +4133,10 @@ function renderTopScorer() {
   });
   scorers.sort((a,b)=>b.goals-a.goals);
   const top20=scorers.slice(0,20);
-  const valFmt=v=>!v||v<=0?'—':v>=10000?(v/10000).toFixed(1)+'亿€':v>=100?(v/100).toFixed(0)+'M€':v+'万€';
+  const valFmt=v=>!v||v<=0?'—':v>=10000?(v/10000).toFixed(1)+T('val_unit_big'):v>=100?(v/100).toFixed(0)+T('val_unit_m'):v+T('val_unit_sm');
   const rows=top20.map((s,i)=>`<tr style="${i<3?'background:rgba(234,179,8,.08)':''}">
     <td style="padding:5px 8px;font-size:13px;font-weight:700;color:${i===0?'#f59e0b':i===1?'#94a3b8':i===2?'#b45309':'var(--text2)'}">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</td>
-    <td style="padding:5px 8px;font-size:13px;font-weight:600">${s.n}<br><span style="font-size:9px;color:var(--text3);font-weight:400">${s.pos==='FW'?'⚡前锋':'⚙️中场'}</span></td>
+    <td style="padding:5px 8px;font-size:13px;font-weight:600">${s.n}<br><span style="font-size:9px;color:var(--text3);font-weight:400">${s.pos==='FW'?T('fw_label'):T('mf_label')}</span></td>
     <td style="padding:5px 8px;font-size:12px;white-space:nowrap">${getFlag(s.team)} ${s.team}</td>
     <td style="padding:5px 8px;font-size:11px;color:var(--text2);max-width:120px;">${s.club||'—'}<br><span style="font-size:10px;color:var(--accent);font-weight:600;">${valFmt(s.val)}</span></td>
     <td style="padding:5px 8px;text-align:center;">
@@ -3760,15 +4145,15 @@ function renderTopScorer() {
     </td>
   </tr>`).join('');
   el.innerHTML=`<div style="font-size:11px;color:var(--text2);margin-bottom:8px">
-    进攻评分 × 预期出场 × 前锋个人贡献率 | 身价数据来自球队名单
+    ${T('scorer_note')}
   </div>
   <table style="width:100%;border-collapse:collapse">
     <thead><tr style="border-bottom:1px solid var(--border)">
       <th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--text2)">#</th>
-      <th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--text2)">球员</th>
-      <th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--text2)">球队</th>
-      <th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--text2)">俱乐部 / 身价</th>
-      <th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--text2)">预测进球</th>
+      <th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--text2)">${T('player_col')}</th>
+      <th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--text2)">${T('team_col')}</th>
+      <th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--text2)">${T('club_val_col')}</th>
+      <th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--text2)">${T('predicted_goals')}</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
@@ -3779,7 +4164,7 @@ let _groupSimScores={}, _groupSimCurrent='';
 function initGroupSim() {
   const btnEl=document.getElementById('groupSimGroupBtns'); if(!btnEl) return;
   const groups=['A','B','C','D','E','F','G','H','I','J','K','L'];
-  btnEl.innerHTML=groups.map(g=>`<button class="btn btn-sm" id="gsBtn${g}" onclick="selectGroupSim('${g}')">${g}组</button>`).join('');
+  btnEl.innerHTML=groups.map(g=>`<button class="btn btn-sm" id="gsBtn${g}" onclick="selectGroupSim('${g}')">${currentLang==='zh'?g+T('group_suffix'):T('group_suffix')+g}</button>`).join('');
 }
 function selectGroupSim(g) {
   _groupSimCurrent=g;
@@ -3796,7 +4181,7 @@ function _groupMatchups(g) {
 }
 function renderGroupSim() {
   const el=document.getElementById('groupSimContent'); if(!el) return;
-  const g=_groupSimCurrent; if(!g){el.innerHTML='<div class="empty-state">请先选择小组</div>';return;}
+  const g=_groupSimCurrent; if(!g){el.innerHTML=`<div class="empty-state">${T('group_sim_empty')}</div>`;return;}
   const matchups=_groupMatchups(g);
   if(!_groupSimScores[g]) _groupSimScores[g]={};
   const matchRows=matchups.map((m,idx)=>{
@@ -3829,20 +4214,20 @@ function renderGroupSim() {
   }).join('');
   el.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start">
     <div>
-      <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">比分输入</div>
+      <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">${T('score_entry')}</div>
       ${matchRows}
-      <button class="btn btn-sm" style="margin-top:8px" onclick="_gsReset('${g}')">🔄 清空本组</button>
+      <button class="btn btn-sm" style="margin-top:8px" onclick="_gsReset('${g}')">${T('clear_group_btn')}</button>
     </div>
     <div>
-      <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">积分榜</div>
+      <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">${T('standings_lbl')}</div>
       <table style="width:100%;border-collapse:collapse">
         <thead><tr style="border-bottom:1px solid var(--border)">
           <th style="padding:4px 8px;font-size:10px;color:var(--text2)">#</th>
-          <th style="padding:4px 8px;font-size:10px;color:var(--text2);text-align:left">球队</th>
-          <th style="padding:4px 8px;font-size:10px;color:var(--text2)">积分</th>
+          <th style="padding:4px 8px;font-size:10px;color:var(--text2);text-align:left">${T('team_col')}</th>
+          <th style="padding:4px 8px;font-size:10px;color:var(--text2)">${T('pts_col')}</th>
           <th style="padding:4px 8px;font-size:10px;color:var(--text2)">W/D/L</th>
-          <th style="padding:4px 8px;font-size:10px;color:var(--text2)">进:失</th>
-          <th style="padding:4px 8px;font-size:10px;color:var(--text2)">净胜</th>
+          <th style="padding:4px 8px;font-size:10px;color:var(--text2)">${T('gf_ga_col')}</th>
+          <th style="padding:4px 8px;font-size:10px;color:var(--text2)">${T('gd_col')}</th>
         </tr></thead>
         <tbody>${standRows}</tbody>
       </table>
@@ -3909,12 +4294,13 @@ function _updateCountdowns() {
     if(!ts||isNaN(ts)){el.textContent='';return;}
     const diff=ts-now;
     if(diff<=-5400000){el.textContent='';return;}
-    if(diff<=0){el.textContent='🔴 进行中';el.style.color='var(--red)';return;}
+    if(diff<=0){el.textContent=currentLang==='en'?'🔴 Live':currentLang==='pt'?'🔴 Ao Vivo':'🔴 进行中';el.style.color='var(--red)';return;}
     const d=Math.floor(diff/86400000),h=Math.floor(diff%86400000/3600000);
     const m=Math.floor(diff%3600000/60000),s=Math.floor(diff%60000/1000);
-    if(d>0) el.textContent=`⏱ ${d}天${h}时${m}分`;
-    else if(h>0) el.textContent=`⏱ ${h}时${m}分`;
-    else el.textContent=`⏱ ${m}分${s}秒`;
+    const _zh=currentLang==='zh';
+    if(d>0) el.textContent=_zh?`⏱ ${d}天${h}时${m}分`:`⏱ ${d}d ${h}h ${m}m`;
+    else if(h>0) el.textContent=_zh?`⏱ ${h}时${m}分`:`⏱ ${h}h ${m}m`;
+    else el.textContent=_zh?`⏱ ${m}分${s}秒`:`⏱ ${m}m ${s}s`;
     el.style.color=diff<3600000?'var(--red)':'var(--accent)';
   });
 }
@@ -3930,13 +4316,13 @@ function renderEditor() {
   const _adjElo=currentLang==='en'?'Adj.ELO':currentLang==='pt'?'ELO Aj.':'调整ELO';
   const _baseElo=currentLang==='en'?'Base ELO':currentLang==='pt'?'ELO Base':'基础ELO';
   let html=`<div class="editor-summary">${TN(name)} | ${_score}: <span style="color:var(--accent);">${ws}</span> | ${_adjElo}: <span style="color:var(--purple);">${adj}</span> | ${_baseElo}: ${t.elo}</div>`;
-  html+='<table class="editor-table"><tr><th>因子</th><th>权重</th><th>值</th><th>滑块</th></tr>';
+  html+=`<table class="editor-table"><tr><th>${T('factor_col')}</th><th>${T('weight_col')}</th><th>${T('val_col')}</th><th>${T('slider_col')}</th></tr>`;
   FACTORS.forEach(f=>{
-    html+=`<tr><td style="color:${f.color};font-weight:600;text-align:left;">${f.name}</td><td>${f.weight}%</td>
+    html+=`<tr><td style="color:${f.color};font-weight:600;text-align:left;">${FN(f)}</td><td>${f.weight}%</td>
     <td><input type="number" id="edit_${f.key}" value="${t[f.key]||5}" min="1" max="10" onchange="onFactorChange('${f.key}',this.value)"></td>
     <td><input type="range" id="range_${f.key}" value="${t[f.key]||5}" min="1" max="10" step="0.5" oninput="onFactorSlide('${f.key}',this.value)"></td></tr>`;
   });
-  html+='</table><p class="help-text">拖动滑块实时调整 | 点击「保存」持久化</p>';
+  html+=`</table><p class="help-text">${T('slider_hint')}</p>`;
   el.innerHTML=html;
 }
 function onFactorChange(key,val){
@@ -3963,7 +4349,8 @@ function refreshEditorPreview(){
 }
 function saveAndRefresh(){saveData();updateAll();notify(T('save'),'success');}
 function batchAdj(){
-  const adj=prompt('批量调整所有因子 (+1 / -0.5):','+1');
+  const _batchPrompt=currentLang==='en'?'Batch adjust all factors (+1 / -0.5):':currentLang==='pt'?'Ajustar todos os fatores (+1 / -0.5):':'批量调整所有因子 (+1 / -0.5):';
+  const adj=prompt(_batchPrompt,'+1');
   if(!adj)return;
   const delta=parseFloat(adj);
   if(isNaN(delta))return;
@@ -3992,13 +4379,14 @@ function applyEvent(){
   const eff=EVENT_EFFECTS[type];
   const t=teams.find(x=>x.name===name);
   if(t){for(const[k,v]of Object.entries(eff)){t[k]=Math.max(1,Math.min(10,(t[k]||5)+v));}}
-  saveData();renderEvents();notify(name+': '+document.getElementById('eventType').selectedOptions[0].text+' 已应用','warn');
+  saveData();renderEvents();notify(TN(name)+': '+document.getElementById('eventType').selectedOptions[0].text+' '+T('event_applied'),'warn');
 }
 function clearEvents(){
   if(!Object.keys(activeEvents).length)return;
-  if(!confirm('清除所有事件并恢复初始评分？'))return;
+  const _clearConfirm=currentLang==='en'?'Clear all events and reset scores?':currentLang==='pt'?'Limpar todos os eventos e repor pontuações?':'清除所有事件并恢复初始评分？';
+  if(!confirm(_clearConfirm))return;
   initTeams();activeEvents={};saveData();updateAll();renderEvents();
-  notify('所有事件已清除，评分已恢复','success');
+  notify(T('events_cleared'),'success');
 }
 function renderEvents(){
   const el=document.getElementById('eventList');
@@ -4009,7 +4397,7 @@ function renderEvents(){
   }
   if(!all.length){el.innerHTML=`<div style="color:var(--text3);">${T('event_empty')}</div>`;return;}
   all.sort((a,b)=>new Date(b.time)-new Date(a.time));
-  const labels={injury:'🤕 伤病',ban:'🟥 禁赛',coachChange:'🔄 换帅',formBoost:'📈 爆发',formDrop:'📉 低迷',morale:'💪 士气'};
+  const labels={injury:T('event_injury_lbl'),ban:T('event_ban_lbl'),coachChange:T('event_coach_lbl'),formBoost:T('event_boost_lbl'),formDrop:T('event_drop_lbl'),morale:T('event_morale_lbl')};
   el.innerHTML=all.map(e=>`<div style="display:flex;align-items:center;gap:4px;padding:3px 6px;margin-bottom:2px;border-radius:4px;background:var(--red-light);">${labels[e.type]||e.type} <strong>${e.name}</strong> <span style="color:var(--text3);font-size:9px;">${new Date(e.time).toLocaleTimeString()}</span></div>`).join('');
 }
 
@@ -4019,17 +4407,22 @@ function saveOdds(){
   const val=parseFloat(document.getElementById('oddsInput').value);
   if(!name||isNaN(val)||val<1.01)return;
   savedOdds[name]=val;saveData();renderOdds();
-  document.getElementById('oddsStatus').textContent='✓ 已保存 '+name;
+  document.getElementById('oddsStatus').textContent=T('saved_label')+' '+name;
 }
 function batchOdds(){
-  const input=prompt('批量录入赔率（每行: 球队=赔率）\n例: 西班牙=5.5\n    阿根廷=6.0\n    法国=6.5','');
+  const _batchOddsPrompt=currentLang==='en'?'Batch enter odds (one per line: team=odds)\nE.g. Spain=5.5\n    Argentina=6.0\n    France=6.5':
+    currentLang==='pt'?'Inserir odds em lote (uma por linha: seleção=odd)\nEx: Espanha=5.5\n    Argentina=6.0\n    França=6.5':
+    '批量录入赔率（每行: 球队=赔率）\n例: 西班牙=5.5\n    阿根廷=6.0\n    法国=6.5';
+  const input=prompt(_batchOddsPrompt,'');
   if(!input)return;
   input.split('\n').forEach(line=>{
     const m=line.match(/^(.+?)\s*[=：:]\s*(\d+\.?\d*)\s*$/);
     if(m){savedOdds[m[1].trim()]=parseFloat(m[2]);}
   });
   saveData();renderOdds();
-  notify('已录入 '+Object.keys(savedOdds).length+' 队赔率','success');
+  const _n=Object.keys(savedOdds).length;
+  const _batchNotify=currentLang==='en'?`Entered odds for ${_n} teams`:currentLang==='pt'?`Odds inseridas para ${_n} seleções`:`已录入 ${_n} 队赔率`;
+  notify(_batchNotify,'success');
 }
 
 // ─── TAB: ANALYSIS ───
@@ -4057,10 +4450,11 @@ function predictMatch(){
     if(p>0.003&&i+j<=8)scores.push({score:i+'-'+j,p:p,result:i>j?'W':i===j?'D':'L'});
   }}
   scores.sort((a,b)=>b.p-a.p);
+  const _win=T('win_stat'),_draw=T('draw_stat');
   document.getElementById('matchResult').innerHTML=
-    `<div class="result-box win"><div class="pct">${(pW*100).toFixed(1)}%</div><div class="label">${t1.name} 胜</div></div>
-     <div class="result-box draw"><div class="pct">${(pD*100).toFixed(1)}%</div><div class="label">平局</div></div>
-     <div class="result-box loss"><div class="pct">${(pL*100).toFixed(1)}%</div><div class="label">${t2.name} 胜</div></div>`;
+    `<div class="result-box win"><div class="pct">${(pW*100).toFixed(1)}%</div><div class="label">${TN(t1.name)} ${_win}</div></div>
+     <div class="result-box draw"><div class="pct">${(pD*100).toFixed(1)}%</div><div class="label">${_draw}</div></div>
+     <div class="result-box loss"><div class="pct">${(pL*100).toFixed(1)}%</div><div class="label">${TN(t2.name)} ${_win}</div></div>`;
   const maxP=scores[0]?.p||0.01;
   const top6=scores.slice(0,6);
   document.getElementById('scoreGrid').innerHTML=top6.map(s=>
@@ -4111,7 +4505,7 @@ function renderUpset(){
     const c=m.upset>0.30?'var(--red)':m.upset>0.25?'var(--orange)':'var(--text2)';
     html+=`<div style="display:flex;align-items:center;gap:4px;padding:3px 6px;margin-bottom:1px;border-radius:4px;font-size:10px;background:var(--bg);">
       <span style="font-weight:600;min-width:14px;color:var(--text3);">${i+1}</span>
-      <span style="color:var(--text3);min-width:16px;">${currentLang==='zh'?m.group+'组':'Grp '+m.group}</span>
+      <span style="color:var(--text3);min-width:16px;">${currentLang==='zh'?m.group+T('group_suffix'):'Grp '+m.group}</span>
       <span style="font-weight:500;">${TN(m.stronger)}</span>
       <span style="color:var(--text3);">vs</span>
       <span style="font-weight:500;color:${c};">${TN(m.weaker)}</span>
@@ -4177,7 +4571,8 @@ function renderOdds(){
   let html='';
   if(!Object.keys(savedOdds).length){el.innerHTML=`<div class="empty-state">${T('odds_empty')}</div>`;return;}
   const _oddsCount=Object.keys(savedOdds).length;
-  html+=`<div style="margin-bottom:6px;font-size:10px;color:var(--text2);">${currentLang==='en'?'Entered':'已录入'} <strong>${_oddsCount}</strong> ${currentLang==='en'?'teams':'队'} | <a href="#" onclick="savedOdds={};saveData();renderOdds();" style="color:var(--red);">${T('clear')}</a></div>`;
+  const _oddsEnteredLbl=currentLang==='en'?`Entered <strong>${_oddsCount}</strong> teams`:currentLang==='pt'?`<strong>${_oddsCount}</strong> odds inseridas`:`已录入 <strong>${_oddsCount}</strong> 队`;
+  html+=`<div style="margin-bottom:6px;font-size:10px;color:var(--text2);">${_oddsEnteredLbl} | <a href="#" onclick="savedOdds={};saveData();renderOdds();" style="color:var(--red);">${T('clear')}</a></div>`;
   if(!simResults){el.innerHTML=html+`<div class="empty-state">${T('run_first')}</div>`;return;}
   const {champCount,totalSims}=simResults;
   const items=[];
@@ -4530,7 +4925,7 @@ function renderStandings() {
   const _stitle=currentLang==='en'?'📋 Group Standings':currentLang==='pt'?'📋 Classificação':'📋 小组积分榜';
   let html=`<div style="font-size:12px;font-weight:600;margin-bottom:8px;">${_stitle}</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;">`;
   Object.entries(sbg).forEach(([g,st])=>{
-    html+=`<div><strong style="font-size:10px;">${currentLang==='zh'?g+' 组':'Group '+g}</strong><table class="prob-table" style="font-size:9px;"><tr><th>#</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th></tr>`;
+    html+=`<div><strong style="font-size:10px;">${currentLang==='zh'?g+T('group_suffix'):T('grp_prefix')+g}</strong><table class="prob-table" style="font-size:9px;"><tr><th>#</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th></tr>`;
     st.forEach((s,i)=>{
       const cls=i<2?'color:var(--green);font-weight:700':(i>=3?'color:var(--text3)':'color:var(--orange);font-weight:600');
       html+=`<tr style="${cls}"><td>${i+1}</td><td>${s.pts}</td><td>${s.w}</td><td>${s.d}</td><td>${s.l}</td><td>${s.gf}</td><td>${s.ga}</td><td>${s.gd>=0?'+':''}${s.gd}</td></tr>`;
@@ -4676,8 +5071,10 @@ window.fetchUpcomingOddsESPN=fetchUpcomingOddsESPN;
 // Fetch all WC2026 results from tournament start to today
 async function fetchAllTournamentScores() {
   const btn = document.getElementById('fetchAllBtn');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ 获取中...'; }
-  setScoreStatus('📥 正在获取全部赛果（ESPN）...', 'info');
+  const _fetchingLbl=currentLang==='en'?'⏳ Fetching...':currentLang==='pt'?'⏳ A buscar...':'⏳ 获取中...';
+  if (btn) { btn.disabled = true; btn.textContent = _fetchingLbl; }
+  const _fetchAllMsg=currentLang==='en'?'📥 Fetching all results from ESPN...':currentLang==='pt'?'📥 A buscar todos os resultados (ESPN)...':'📥 正在获取全部赛果（ESPN）...';
+  setScoreStatus(_fetchAllMsg, 'info');
   const start = new Date('2026-06-11');
   const today = new Date();
   let changed = 0, total = 0;
@@ -4700,9 +5097,16 @@ async function fetchAllTournamentScores() {
       });
     } catch(e){}
   }
-  if(btn){btn.disabled=false;btn.textContent='📥 获取全部赛果';}
-  if(changed>0){saveData();updateAll();setScoreStatus(`✅ ESPN 全量同步完成·共 ${total} 场·更新 ${changed} 场`,'ok');notify(`已同步全部赛果，${changed} 场有新数据，建议重新运行模拟`,'success');}
-  else{setScoreStatus(`✅ ESPN 全量同步完成·共 ${total} 场·无新数据`,'ok');}
+  if(btn){btn.disabled=false;btn.textContent=T('fetch_all_btn');}
+  if(changed>0){
+    saveData();updateAll();
+    const _syncOk=currentLang==='en'?`✅ ESPN sync complete · ${total} matches · ${changed} updated`:currentLang==='pt'?`✅ Sincronização ESPN concluída · ${total} jogos · ${changed} atualizados`:`✅ ESPN 全量同步完成·共 ${total} 场·更新 ${changed} 场`;
+    const _syncNotify=currentLang==='en'?`All results synced, ${changed} new — recommend re-running simulation`:currentLang==='pt'?`Resultados sincronizados, ${changed} novos — recomenda-se re-simulação`:`已同步全部赛果，${changed} 场有新数据，建议重新运行模拟`;
+    setScoreStatus(_syncOk,'ok');notify(_syncNotify,'success');
+  } else {
+    const _syncNone=currentLang==='en'?`✅ ESPN sync complete · ${total} matches · no new data`:currentLang==='pt'?`✅ Sincronização ESPN concluída · ${total} jogos · sem novos dados`:`✅ ESPN 全量同步完成·共 ${total} 场·无新数据`;
+    setScoreStatus(_syncNone,'ok');
+  }
 }
 window.fetchAllTournamentScores = fetchAllTournamentScores;
 
@@ -4782,8 +5186,10 @@ async function fetchScoresFootballData(token) {
 
 async function fetchLiveScores() {
   const btn = document.getElementById('fetchScoresBtn');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ 获取中...'; }
-  setScoreStatus('🌐 正在连接 ESPN...', 'info');
+  const _fetchLbl=currentLang==='en'?'⏳ Fetching...':currentLang==='pt'?'⏳ A buscar...':'⏳ 获取中...';
+  if (btn) { btn.disabled = true; btn.textContent = _fetchLbl; }
+  const _connectMsg=currentLang==='en'?'🌐 Connecting to ESPN...':currentLang==='pt'?'🌐 A ligar ao ESPN...':'🌐 正在连接 ESPN...';
+  setScoreStatus(_connectMsg, 'info');
 
   // Sync optional API keys from input fields
   const k1 = document.getElementById('scoresOddsKey');
@@ -4811,20 +5217,26 @@ async function fetchLiveScores() {
     catch(e) { lastErr += (lastErr?' | ':'') + 'football-data: ' + e.message; }
   }
 
-  if (btn) { btn.disabled = false; btn.textContent = '🔄 立即获取实时比分'; }
+  if (btn) { btn.disabled = false; btn.textContent = T('live_scores'); }
 
   if (!result) {
-    setScoreStatus(`❌ 获取失败 — ${lastErr || '网络错误，请稍后重试'}`, 'err');
+    const _netErr=currentLang==='en'?'Network error, please try again':currentLang==='pt'?'Erro de rede, tente novamente':'网络错误，请稍后重试';
+    const _fetchFail=currentLang==='en'?`❌ Fetch failed — ${lastErr||_netErr}`:currentLang==='pt'?`❌ Falha — ${lastErr||_netErr}`:`❌ 获取失败 — ${lastErr||_netErr}`;
+    setScoreStatus(_fetchFail, 'err');
     return;
   }
 
-  const timeStr = new Date().toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  const _tsLoc=currentLang==='en'?'en-GB':currentLang==='pt'?'pt-PT':'zh-CN';
+  const timeStr = new Date().toLocaleTimeString(_tsLoc, {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  const _srcLbl=currentLang==='en'?'Source':currentLang==='pt'?'Fonte':'来源';
   if (result.changed > 0) {
     saveData(); updateAll();
-    setScoreStatus(`✅ 来源: ${result.source} · 新增/更新 ${result.changed} 场 · ${timeStr}`, 'ok');
-    notify(`实时比分已更新：${result.changed} 场新赛果 | 建议重新运行模拟`, 'success');
+    setScoreStatus(`✅ ${_srcLbl}: ${result.source} · ${result.changed} ${currentLang==='en'?'new/updated':currentLang==='pt'?'novos':'新增/更新'} · ${timeStr}`, 'ok');
+    const _liveNotify=currentLang==='en'?`Live scores updated: ${result.changed} new results | Recommend re-running simulation`:currentLang==='pt'?`Resultados ao vivo: ${result.changed} novos | Recomenda-se re-simulação`:`实时比分已更新：${result.changed} 场新赛果 | 建议重新运行模拟`;
+    notify(_liveNotify, 'success');
   } else {
-    setScoreStatus(`✅ 来源: ${result.source} · 暂无新数据 · ${timeStr}`, 'ok');
+    const _noNew=currentLang==='en'?'No new data':currentLang==='pt'?'Sem novos dados':'暂无新数据';
+    setScoreStatus(`✅ ${_srcLbl}: ${result.source} · ${_noNew} · ${timeStr}`, 'ok');
   }
 
   startScoreAutoRefresh();
@@ -4833,7 +5245,7 @@ async function fetchLiveScores() {
 function startScoreAutoRefresh() {
   if (_scoreRefreshTimer) clearInterval(_scoreRefreshTimer);
   const badge = document.getElementById('autoRefreshBadge');
-  if (badge) badge.textContent = '⏱ 每2分钟自动刷新';
+  if (badge) badge.textContent = currentLang==='en'?'⏱ Auto-refresh every 2 min':currentLang==='pt'?'⏱ Atualização automática a cada 2 min':'⏱ 每2分钟自动刷新';
   _scoreRefreshTimer = setInterval(() => { fetchLiveScores(); }, 2 * 60 * 1000);
 }
 
@@ -4856,7 +5268,7 @@ function saSetGroup(g) {
 function saToggleFuture() {
   saFutureOnly = !saFutureOnly;
   const btn = document.getElementById('saFutureBtn');
-  if (btn) { btn.classList.toggle('active', saFutureOnly); btn.textContent = saFutureOnly ? '仅未来场次 ✓' : '仅未来场次'; }
+  if (btn) { btn.classList.toggle('active', saFutureOnly); btn.textContent = saFutureOnly ? T('only_future')+' ✓' : T('only_future'); }
   renderScoreAnalysis();
 }
 
@@ -4948,7 +5360,7 @@ function spCard(t1, t2, isKO, recorded, matchDate) {
   if (recorded) {
     const hit = checkPredictionHit(pred, recorded);
     const rs1=recorded.score1,rs2=recorded.score2;
-    const correct = hit.exactHit?'⚡ 精准命中':hit.resultHit?'✓ 胜负准确':'✗ 预测失误';
+    const correct = hit.exactHit?T('exact_hit'):hit.resultHit?T('result_hit'):T('result_miss');
     const correctColor = hit.exactHit?'#a855f7':hit.resultHit?'#16a34a':'var(--red)';
     recBlock = `<div style="display:flex;align-items:center;gap:6px;margin-top:4px;padding:4px 8px;border-radius:6px;background:${hit.exactHit?'rgba(168,85,247,.1)':hit.resultHit?'rgba(34,197,94,.1)':'rgba(239,68,68,.08)'};">
       <span style="font-weight:800;font-size:13px;">${rs1} - ${rs2}</span>
@@ -4967,7 +5379,7 @@ function spCard(t1, t2, isKO, recorded, matchDate) {
       </div>
       <div style="text-align:center;min-width:56px;">
         <div style="font-size:18px;font-weight:900;color:${favColor};line-height:1.1;">${best.s1}–${best.s2}</div>
-        <div style="font-size:8px;color:var(--text3);">最可能</div>
+        <div style="font-size:8px;color:var(--text3);">${T('most_likely')}</div>
       </div>
       <div style="text-align:left;">
         <div style="font-size:12px;font-weight:700;">${TN(t2.name)} ${getFlag(t2.name)}</div>
@@ -4980,9 +5392,9 @@ function spCard(t1, t2, isKO, recorded, matchDate) {
       <div style="width:${barL}%;background:var(--red,#ef4444);"></div>
     </div>
     <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text2);margin-bottom:6px;">
-      <span style="color:var(--accent);font-weight:600;">${pw}% 胜</span>
-      <span>${pd}% 平</span>
-      <span style="color:var(--red,#ef4444);font-weight:600;">${pl}% 负</span>
+      <span style="color:var(--accent);font-weight:600;">${pw}% ${T('win_stat')}</span>
+      <span>${pd}% ${T('draw_stat')}</span>
+      <span style="color:var(--red,#ef4444);font-weight:600;">${pl}% ${T('loss_stat')}</span>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:3px;">${scoreChips}</div>
     ${recBlock}
@@ -4998,7 +5410,7 @@ function renderScoreAnalysis() {
 function renderSAGroup(el) {
   const ALL_GROUPS = ['A','B','C','D','E','F','G','H','I','J','K','L'];
   const schedGroup = MATCH_SCHEDULE.filter(m => m.group !== 'KO' && m.home !== 'TBD' && m.away !== 'TBD');
-  if (!schedGroup.length) { el.innerHTML = '<div class="empty-state">赛程数据不可用</div>'; return; }
+  if (!schedGroup.length) { el.innerHTML=`<div class="empty-state">${T('run_first')}</div>`; return; }
 
   // Accuracy stats
   let total=0, resultHits=0, exactHits=0;
@@ -5016,20 +5428,22 @@ function renderSAGroup(el) {
 
   // Group filter chips
   let filterHtml = `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;">
-    <button class="btn btn-sm sa-gf-btn${saGroupFilter==='ALL'?' active':''}" data-g="ALL" onclick="saSetGroup('ALL')" style="font-size:9px;padding:2px 8px;">全部</button>`;
+    <button class="btn btn-sm sa-gf-btn${saGroupFilter==='ALL'?' active':''}" data-g="ALL" onclick="saSetGroup('ALL')" style="font-size:9px;padding:2px 8px;">${T('all')}</button>`;
   ALL_GROUPS.forEach(g => {
-    filterHtml += `<button class="btn btn-sm sa-gf-btn${saGroupFilter===g?' active':''}" data-g="${g}" onclick="saSetGroup('${g}')" style="font-size:9px;padding:2px 8px;">${g}组</button>`;
+    filterHtml += `<button class="btn btn-sm sa-gf-btn${saGroupFilter===g?' active':''}" data-g="${g}" onclick="saSetGroup('${g}')" style="font-size:9px;padding:2px 8px;">${currentLang==='zh'?g+T('group_suffix'):T('group_suffix')+g}</button>`;
   });
-  filterHtml += `<button class="btn btn-sm${saFutureOnly?' active':''}" id="saFutureBtn" onclick="saToggleFuture()" style="font-size:9px;padding:2px 8px;margin-left:4px;">${saFutureOnly?'仅未来场次 ✓':'仅未来场次'}</button></div>`;
+  filterHtml += `<button class="btn btn-sm${saFutureOnly?' active':''}" id="saFutureBtn" onclick="saToggleFuture()" style="font-size:9px;padding:2px 8px;margin-left:4px;">${saFutureOnly?T('only_future')+' ✓':T('only_future')}</button></div>`;
 
   // Accuracy banner
   let accBanner = '';
   if (total > 0) {
     const rPct=(resultHits/total*100).toFixed(0), ePct=(exactHits/total*100).toFixed(0);
+    const _pl=T('matches_played_lbl'),_ra=currentLang==='en'?`Result accuracy ${rPct}%`:currentLang==='pt'?`Precisão ${rPct}%`:`胜负准确率 ${rPct}%`;
+    const _ea=currentLang==='en'?`Exact score ${ePct}% (${exactHits})`:currentLang==='pt'?`Placar exato ${ePct}% (${exactHits})`:`精准比分 ${ePct}%（${exactHits}场）`;
     accBanner = `<div style="display:flex;gap:8px;margin-bottom:10px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:10px;">
-      <span style="color:var(--text2);">已比赛 <b>${total}</b> 场</span>
-      <span style="color:var(--accent);font-weight:700;">胜负准确率 ${rPct}%</span>
-      <span style="color:#a855f7;font-weight:700;">精准比分 ${ePct}%（${exactHits}场）</span>
+      <span style="color:var(--text2);">${_pl} <b>${total}</b></span>
+      <span style="color:var(--accent);font-weight:700;">${_ra}</span>
+      <span style="color:#a855f7;font-weight:700;">${_ea}</span>
     </div>`;
   }
 
@@ -5051,20 +5465,21 @@ function renderSAGroup(el) {
     const rec=matchResults.find(r=>(r.t1===t1.name&&r.t2===t2.name)||(r.t1===t2.name&&r.t2===t1.name));
     if(saFutureOnly && rec) return;
     const recorded=rec?{score1:rec.t1===t1.name?rec.score1:rec.score2,score2:rec.t1===t1.name?rec.score2:rec.score1}:null;
-    const dateLabel = m.date ? `2026/${m.date} · 小组${m.group}` : `小组${m.group}`;
+    const _grpTag=currentLang==='zh'?m.group+T('group_suffix'):T('grp_prefix')+m.group;
+    const dateLabel = m.date ? `2026/${m.date} · ${_grpTag}` : _grpTag;
     if(m.date && m.date !== lastDate) {
       html += `<div style="font-size:10px;font-weight:800;color:var(--text2);letter-spacing:.5px;margin:10px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border);">📅 2026/${m.date}</div>`;
       lastDate = m.date;
     }
-    html += spCard(t1, t2, false, recorded, `小组${m.group}`);
+    html += spCard(t1, t2, false, recorded, currentLang==='zh'?`小组${m.group}`:`${T('group_suffix')}${m.group}`);
   });
 
-  el.innerHTML = html || '<div class="empty-state">暂无符合条件的场次</div>';
+  el.innerHTML = html || `<div class="empty-state">${currentLang==='en'?'No matches found':currentLang==='pt'?'Nenhum jogo encontrado':'暂无符合条件的场次'}</div>`;
 }
 
 function renderSAKO(el) {
   const koSchedule = MATCH_SCHEDULE.filter(m => m.group==='KO');
-  if (!koSchedule.length) { el.innerHTML = '<div class="empty-state">淘汰赛赛程暂未开始</div>'; return; }
+  if (!koSchedule.length) { el.innerHTML=`<div class="empty-state">${currentLang==='en'?'Knockout schedule not yet started':currentLang==='pt'?'Fase eliminatória ainda não começou':'淘汰赛赛程暂未开始'}</div>`; return; }
 
   // Accuracy stats
   let total=0, resultHits=0, exactHits=0;
@@ -5083,18 +5498,20 @@ function renderSAKO(el) {
   let accBanner='';
   if(total>0){
     const rPct=(resultHits/total*100).toFixed(0), ePct=(exactHits/total*100).toFixed(0);
+    const _pl=T('matches_played_lbl'),_ra=currentLang==='en'?`Result accuracy ${rPct}%`:currentLang==='pt'?`Precisão ${rPct}%`:`胜负准确率 ${rPct}%`;
+    const _ea=currentLang==='en'?`Exact score ${ePct}% (${exactHits})`:currentLang==='pt'?`Placar exato ${ePct}% (${exactHits})`:`精准比分 ${ePct}%（${exactHits}场）`;
     accBanner=`<div style="display:flex;gap:8px;margin-bottom:10px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:10px;">
-      <span style="color:var(--text2);">已比赛 <b>${total}</b> 场</span>
-      <span style="color:var(--accent);font-weight:700;">胜负准确率 ${rPct}%</span>
-      <span style="color:#a855f7;font-weight:700;">精准比分 ${ePct}%（${exactHits}场）</span>
+      <span style="color:var(--text2);">${_pl} <b>${total}</b></span>
+      <span style="color:var(--accent);font-weight:700;">${_ra}</span>
+      <span style="color:#a855f7;font-weight:700;">${_ea}</span>
     </div>`;
   }
 
   const rounds=[
-    {label:'1/8决赛 (R32→16)', matches:koSchedule.slice(0,16)},
-    {label:'1/4决赛 (16→8)',   matches:koSchedule.slice(16,24)},
-    {label:'半决赛',            matches:koSchedule.slice(24,28)},
-    {label:'季军赛 & 决赛',     matches:koSchedule.slice(28,32)},
+    {label:T('ko_r32'), matches:koSchedule.slice(0,16)},
+    {label:T('ko_r16'), matches:koSchedule.slice(16,24)},
+    {label:T('ko_sf'),  matches:koSchedule.slice(24,28)},
+    {label:T('ko_3rd'), matches:koSchedule.slice(28,32)},
   ];
 
   let html = accBanner;
@@ -5113,18 +5530,19 @@ function renderSAKO(el) {
     if(!sectionHtml&&!tbdCount) return;
     html+=`<div style="font-size:10px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border);">${label}</div>`;
     html+=sectionHtml;
-    if(tbdCount) html+=`<div style="font-size:10px;color:var(--text3);padding:6px 0;">+ ${tbdCount} 场对阵待定</div>`;
+    if(tbdCount) html+=`<div style="font-size:10px;color:var(--text3);padding:6px 0;">+ ${tbdCount} ${currentLang==='en'?'matches TBD':currentLang==='pt'?'jogos a definir':'场对阵待定'}</div>`;
   });
-  el.innerHTML = html || '<div class="empty-state">淘汰赛对阵待确定</div>';
+  el.innerHTML = html || `<div class="empty-state">${currentLang==='en'?'Knockout bracket to be determined':currentLang==='pt'?'Chave eliminatória a definir':'淘汰赛对阵待确定'}</div>`;
 }
 
 // ─── TAB: HISTORY ───
 function saveSnapshot() {
-  if(!simResults){notify('请先运行模拟','warn');return;}
+  if(!simResults){notify(T('run_first'),'warn');return;}
   simHistory.push({timestamp:new Date().toISOString(),simResults:JSON.parse(JSON.stringify(simResults)),teams:JSON.parse(JSON.stringify(teams))});
   if(simHistory.length>10)simHistory.shift();
   saveData();renderHistory();
-  notify('快照已保存 (共'+simHistory.length+'个)','success');
+  const _snapMsg=currentLang==='en'?`${T('snap_saved')} (${simHistory.length} total)`:currentLang==='pt'?`${T('snap_saved')} (${simHistory.length} no total)`:`${T('snap_saved')} (共${simHistory.length}个)`;
+  notify(_snapMsg,'success');
 }
 function clearHistory(){simHistory=[];saveData();renderHistory();}
 
@@ -5132,16 +5550,17 @@ function renderHistory() {
   const el=document.getElementById('historyContent');
   if(!simHistory.length){el.innerHTML=`<div class="empty-state">${T('snapshot_hint')}</div>`;return;}
   const _time=currentLang==='en'?'Time':currentLang==='pt'?'Hora':'时间';
+  const _timeKey=currentLang==='en'?'en-GB':currentLang==='pt'?'pt-PT':'zh-CN';
   let html=`<table class="prob-table"><tr><th>#</th><th>${_time}</th><th>Top 5</th></tr>`;
   simHistory.forEach((h,i)=>{
     const top5=teams.map(t=>({name:t.name,pct:(h.simResults.champCount[t.name]||0)/h.simResults.totalSims*100})).sort((a,b)=>b.pct-a.pct).slice(0,5);
-    html+=`<tr><td>${i+1}</td><td>${new Date(h.timestamp).toLocaleString()}</td><td style="font-size:10px;">${top5.map(t=>TN(t.name)+' '+t.pct.toFixed(1)+'%').join(' | ')}</td></tr>`;
+    html+=`<tr><td>${i+1}</td><td>${new Date(h.timestamp).toLocaleString(_timeKey)}</td><td style="font-size:10px;">${top5.map(t=>TN(t.name)+' '+t.pct.toFixed(1)+'%').join(' | ')}</td></tr>`;
   });
   html+='</table>';
   if(simHistory.length>=2){
     const p=simHistory[simHistory.length-2],c=simHistory[simHistory.length-1];
-    html+='<div style="margin-top:8px;font-size:11px;font-weight:600;">最近两次对比</div>';
-    html+='<table class="prob-table"><tr><th>球队</th><th>上次</th><th>本次</th><th>变化</th></tr>';
+    html+=`<div style="margin-top:8px;font-size:11px;font-weight:600;">${T('history_recent')}</div>`;
+    html+=`<table class="prob-table"><tr><th>${T('team_col')}</th><th>${T('prev_col')}</th><th>${T('curr_col')}</th><th>${T('delta_col')}</th></tr>`;
     const diffs=teams.map(t=>({name:t.name,prev:(p.simResults.champCount[t.name]||0)/p.simResults.totalSims*100,curr:(c.simResults.champCount[t.name]||0)/c.simResults.totalSims*100})).filter(d=>Math.abs(d.prev-d.curr)>0.1).sort((a,b)=>Math.abs(b.prev-b.curr)-Math.abs(a.prev-b.curr)).slice(0,10);
     diffs.forEach(d=>{
       const delta=(d.curr-d.prev).toFixed(1);
@@ -5160,26 +5579,28 @@ function showTeam(name) {
   const ws=calcWeight(t), adj=calcAdjELO(t);
   let cp='--',ap='--';
   if(simResults){cp=((simResults.champCount[t.name]||0)/simResults.totalSims*100).toFixed(1)+'%';ap=((simResults.advanceCount[t.name]||0)/simResults.totalSims*100).toFixed(1)+'%';}
-  let html=`<h3>${getFlag(t.name)} ${t.name} <span style="font-size:13px;color:var(--text2);">(${t.en})</span></h3>
-    <div class="modal-sub">${t.group} 组 | ELO: ${t.elo} | 调整ELO: ${adj} | 综合: ${ws}</div>
+  const _modalGrp=currentLang==='zh'?t.group+T('group_suffix'):T('grp_prefix')+t.group;
+  const _modalSub=`${_modalGrp} | ELO: ${t.elo} | ${T('adj_elo')}: ${adj} | ${currentLang==='en'?'Score':currentLang==='pt'?'Pontuação':'综合'}: ${ws}`;
+  let html=`<h3>${getFlag(t.name)} ${TN(t.name)} <span style="font-size:13px;color:var(--text2);">(${t.en})</span></h3>
+    <div class="modal-sub">${_modalSub}</div>
     <div class="modal-stats">
-      <div class="modal-stat"><div class="val" style="color:var(--gold);">${cp}</div><div class="lbl">夺冠概率</div></div>
-      <div class="modal-stat"><div class="val" style="color:var(--accent);">${ap}</div><div class="lbl">出线概率</div></div>
-      <div class="modal-stat"><div class="val" style="color:var(--purple);">${adj}</div><div class="lbl">调整ELO</div></div>
+      <div class="modal-stat"><div class="val" style="color:var(--gold);">${cp}</div><div class="lbl">${T('champ_prob')}</div></div>
+      <div class="modal-stat"><div class="val" style="color:var(--accent);">${ap}</div><div class="lbl">${T('advance_prob')}</div></div>
+      <div class="modal-stat"><div class="val" style="color:var(--purple);">${adj}</div><div class="lbl">${T('adj_elo')}</div></div>
     </div>
-    <div style="font-size:11px;font-weight:600;margin-bottom:4px;">因子评分</div>
+    <div style="font-size:11px;font-weight:600;margin-bottom:4px;">${T('factor_scores_lbl')}</div>
     <div class="modal-factors">`;
   FACTORS.forEach(f=>{
-    html+=`<div class="modal-factor"><span class="mf-name" style="color:${f.color}">${f.name}</span>
+    html+=`<div class="modal-factor"><span class="mf-name" style="color:${f.color}">${FN(f)}</span>
       <div class="mf-bar-wrap"><div class="mf-bar" style="width:${((t[f.key]||5)/10*100).toFixed(0)}%;background:${f.color};"></div></div>
       <span class="mf-val">${t[f.key]||5}</span>
       <span style="font-size:8px;color:var(--text3);width:20px;">${f.weight}%</span></div>`;
   });
   html+=`</div>
     <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;">
-      <button class="btn btn-sm" style="background:var(--accent);color:#fff;" onclick="quickEdit('${t.name}')">✏️ 编辑因子</button>
-      <button class="btn btn-sm" onclick="quickRadar('${t.name}')">📊 雷达对比</button>
-      <button class="btn btn-sm" onclick="quickPredict('${t.name}')">⚡ 预测比赛</button>
+      <button class="btn btn-sm" style="background:var(--accent);color:#fff;" onclick="quickEdit('${t.name}')">${T('edit_factor_btn')}</button>
+      <button class="btn btn-sm" onclick="quickRadar('${t.name}')">${T('radar_btn')}</button>
+      <button class="btn btn-sm" onclick="quickPredict('${t.name}')">${T('predict_btn')}</button>
     </div>`;
   document.getElementById('teamModalBody').innerHTML=html;
   document.getElementById('teamModal').classList.add('active');
@@ -5199,11 +5620,11 @@ function applyScenario() {
   if(!s)return;
   initTeams();
   switch(s){
-    case'france':teams.forEach(t=>{if(t.name==='法国'){t.overall=10;t.depth=10;t.defense=10;t.attack=10;t.stars=10;t.coach=10;t.fitness=9;t.goalkeeper=9;t.tactFlex=9;}});notify('已应用「法国夺冠模式」','info');break;
-    case'argentina':teams.forEach(t=>{if(t.name==='阿根廷'){t.overall=10;t.attack=10;t.coach=9;t.experience=10;t.chemistry=10;t.leader=10;}});notify('已应用「阿根廷连冠模式」','info');break;
-    case'darkhorse':teams.forEach(t=>{const w=calcWeight(t);if(w>=80)FACTORS.forEach(f=>{t[f.key]=Math.max(5,(t[f.key]||5)-1);});else if(w>=55&&w<70)FACTORS.forEach(f=>{t[f.key]=Math.min(10,(t[f.key]||5)+1.5);});});notify('已应用「黑马崛起模式」','info');break;
-    case'host':teams.forEach(t=>{if(['美国','墨西哥','加拿大'].includes(t.name)){t.fitness=9;t.chemistry=8;t.experience=Math.min(10,(t.experience||5)+1);}});notify('已应用「东道主优势模式」','info');break;
-    case'reset':initTeams();notify('已恢复默认评分','info');break;
+    case'france':teams.forEach(t=>{if(t.name==='法国'){t.overall=10;t.depth=10;t.defense=10;t.attack=10;t.stars=10;t.coach=10;t.fitness=9;t.goalkeeper=9;t.tactFlex=9;}});notify(currentLang==='en'?'Applied: France Champion mode':currentLang==='pt'?'Aplicado: Modo França Campeã':'已应用「法国夺冠模式」','info');break;
+    case'argentina':teams.forEach(t=>{if(t.name==='阿根廷'){t.overall=10;t.attack=10;t.coach=9;t.experience=10;t.chemistry=10;t.leader=10;}});notify(currentLang==='en'?'Applied: Argentina Defending mode':currentLang==='pt'?'Aplicado: Modo Argentina Bicampeã':'已应用「阿根廷连冠模式」','info');break;
+    case'darkhorse':teams.forEach(t=>{const w=calcWeight(t);if(w>=80)FACTORS.forEach(f=>{t[f.key]=Math.max(5,(t[f.key]||5)-1);});else if(w>=55&&w<70)FACTORS.forEach(f=>{t[f.key]=Math.min(10,(t[f.key]||5)+1.5);});});notify(currentLang==='en'?'Applied: Dark Horse Rise mode':currentLang==='pt'?'Aplicado: Modo Zebra':'已应用「黑马崛起模式」','info');break;
+    case'host':teams.forEach(t=>{if(['美国','墨西哥','加拿大'].includes(t.name)){t.fitness=9;t.chemistry=8;t.experience=Math.min(10,(t.experience||5)+1);}});notify(currentLang==='en'?'Applied: Host Advantage mode':currentLang==='pt'?'Aplicado: Modo Vantagem dos Anfitriões':'已应用「东道主优势模式」','info');break;
+    case'reset':initTeams();notify(currentLang==='en'?'Scores reset to defaults':currentLang==='pt'?'Pontuações repostas':'已恢复默认评分','info');break;
   }
   saveData();updateAll();
   document.getElementById('scenarioSelect').value='';
@@ -5233,7 +5654,7 @@ function populateSelects() {
   const pts=document.getElementById('playerTeamSelect');
   if(pts)pts.innerHTML=`<option value="">${sel}</option>`+sorted.map(t=>`<option value="${t.name}">${getFlag(t.name)} ${TN(t.name)}</option>`).join('');
   const eg=document.getElementById('entryGroup');
-  if(eg)eg.innerHTML=`<option value="">${selGrp}</option>`+GROUPS.map(g=>`<option value="${g}">${currentLang==='zh'?g+' 组':'Group '+g}</option>`).join('');
+  if(eg)eg.innerHTML=`<option value="">${selGrp}</option>`+GROUPS.map(g=>`<option value="${g}">${currentLang==='zh'?g+T('group_suffix'):T('grp_prefix')+g}</option>`).join('');
 }
 
 // ─── KEYBOARD ───
