@@ -714,9 +714,10 @@ body {
 <!-- ─── TAB: PREDICT + HISTORY ─── -->
 <div class="tab-content active" id="tab-history">
   <div class="panel">
-    <div class="panel-header"><h3 id="scorePredH3">🎯 比分预测</h3><div style="display:flex;gap:6px;">
+    <div class="panel-header"><h3 id="scorePredH3">🎯 比分预测</h3><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
       <button class="btn btn-sm sa-tab-btn active" id="groupStageBtn" onclick="saSwitch('group',this)">小组赛</button>
       <button class="btn btn-sm sa-tab-btn" id="knockoutBtn" onclick="saSwitch('ko',this)">淘汰赛</button>
+      <button class="btn btn-sm" id="refreshOddsBtn" onclick="refreshPredOdds(this)" style="font-size:9px;padding:2px 8px;">📊 刷新赔率</button>
     </div></div>
     <div id="saSummaryBanner"></div>
     <div id="saContent"></div>
@@ -5065,7 +5066,7 @@ async function fetchUpcomingOddsESPN(daysAhead) {
       });
     } catch(e){}
   }
-  if(found>0) renderSchedule();
+  if(found>0) { renderSchedule(); renderScoreAnalysis(); }
   return found;
 }
 window.fetchUpcomingOddsESPN=fetchUpcomingOddsESPN;
@@ -5232,7 +5233,7 @@ async function fetchLiveScores() {
   const timeStr = new Date().toLocaleTimeString(_tsLoc, {hour:'2-digit', minute:'2-digit', second:'2-digit'});
   const _srcLbl=currentLang==='en'?'Source':currentLang==='pt'?'Fonte':'来源';
   if (result.changed > 0) {
-    saveData(); updateAll();
+    saveData(); updateAll(); renderScoreAnalysis();
     setScoreStatus(`✅ ${_srcLbl}: ${result.source} · ${result.changed} ${currentLang==='en'?'new/updated':currentLang==='pt'?'novos':'新增/更新'} · ${timeStr}`, 'ok');
     const _liveNotify=currentLang==='en'?`Live scores updated: ${result.changed} new results | Recommend re-running simulation`:currentLang==='pt'?`Resultados ao vivo: ${result.changed} novos | Recomenda-se re-simulação`:`实时比分已更新：${result.changed} 场新赛果 | 建议重新运行模拟`;
     notify(_liveNotify, 'success');
@@ -5397,7 +5398,7 @@ function checkPredictionHit(pred, recorded) {
 }
 
 /* ── Match prediction card ── */
-function spCard(t1, t2, isKO, recorded, matchDate, isToday) {
+function spCard(t1, t2, isKO, recorded, matchDate, isToday, matchTime) {
   const pred = predictScore(t1, t2, isKO);  // 已内置市场赔率融合
   const best = pred.top[0];
   const pw=(pred.pW*100).toFixed(1), pd=(pred.pD*100).toFixed(1), pl=(pred.pL*100).toFixed(1);
@@ -5513,7 +5514,17 @@ function spCard(t1, t2, isKO, recorded, matchDate, isToday) {
     </div>`;
   }
 
-  const dateStr = matchDate ? `<span style="font-size:9px;color:var(--text3);">${matchDate}</span>` : '';
+  // 开球时间：美东(ET) → 北京(+12h)
+  let timeStr = '';
+  if (matchTime && !recorded) {
+    const [hh, mm] = matchTime.split(':').map(Number);
+    const bjH = (hh + 12) % 24;
+    const bjStr = String(bjH).padStart(2,'0') + ':' + String(mm).padStart(2,'0');
+    const localLabel = zh ? `ET ${matchTime}` : `ET ${matchTime}`;
+    const bjLabel = zh ? `北京 ${bjStr}` : `BJ ${bjStr}`;
+    timeStr = `<span style="font-size:8px;color:var(--text3);margin-left:4px;">⏰ ${localLabel} · ${bjLabel}</span>`;
+  }
+  const dateStr = matchDate ? `<span style="font-size:9px;color:var(--text3);">${matchDate}</span>${timeStr}` : '';
   const cardBorder = isToday && !recorded ? '2px solid var(--red)' : '1px solid var(--border)';
   const cardBg = isToday && !recorded ? 'background:rgba(239,68,68,.04)' : 'background:var(--bg2)';
 
@@ -5699,7 +5710,7 @@ function renderSAGroup(el) {
       html += `<div style="${dayStyle}">${dayLabel}</div>`;
       lastDate = d;
     }
-    html += spCard(t1, t2, false, recorded, currentLang==='zh'?`小组${m.group}`:`${T('group_suffix')}${m.group}`, isToday);
+    html += spCard(t1, t2, false, recorded, currentLang==='zh'?`小组${m.group}`:`${T('group_suffix')}${m.group}`, isToday, m.time);
   });
 
   el.innerHTML = html || `<div class="empty-state">${currentLang==='en'?'No matches found':currentLang==='pt'?'Nenhum jogo encontrado':'暂无符合条件的场次'}</div>`;
@@ -5753,7 +5764,7 @@ function renderSAKO(el) {
       const rec=matchResults.find(r=>(r.t1===t1.name&&r.t2===t2.name)||(r.t1===t2.name&&r.t2===t1.name));
       if(saFutureOnly&&rec) return;
       const recorded=rec?{score1:rec.t1===t1.name?rec.score1:rec.score2,score2:rec.t1===t1.name?rec.score2:rec.score1}:null;
-      sectionHtml+=spCard(t1,t2,true,recorded,m.date||'');
+      sectionHtml+=spCard(t1,t2,true,recorded,m.date||'',false,m.time);
     });
     if(!sectionHtml&&!tbdCount) return;
     html+=`<div style="font-size:10px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border);">${label}</div>`;
@@ -6010,8 +6021,24 @@ window.renderHistory=renderHistory;
 window.renderScoreAnalysis=renderScoreAnalysis;
 window.saSwitch=saSwitch;
 window.saSetGroup=saSetGroup;
+async function refreshPredOdds(btn) {
+  if (btn) { btn.disabled=true; btn.textContent='⏳ 加载中...'; }
+  await fetchLiveScores();
+  const found = await fetchUpcomingOddsESPN(7);
+  renderScoreAnalysis();
+  if (btn) {
+    btn.disabled=false;
+    const zh=currentLang==='zh',en=currentLang==='en';
+    btn.textContent = found>0
+      ? (zh?`✅ 已更新${found}场`:en?`✅ ${found} updated`:`✅ ${found} atualizados`)
+      : (zh?'📊 刷新赔率':en?'📊 Refresh Odds':'📊 Odds');
+    setTimeout(()=>{ btn.textContent=zh?'📊 刷新赔率':en?'📊 Refresh Odds':'📊 Odds'; }, 3000);
+  }
+}
+
 window.saToggleFuture=saToggleFuture;
 window.saSetTime=saSetTime;
+window.refreshPredOdds=refreshPredOdds;
 window.renderOdds=renderOdds;
 window.renderEvents=renderEvents;
 window.showOddsModal=showOddsModal;
