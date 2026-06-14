@@ -3264,6 +3264,24 @@ function renderHistogram(){
 }
 
 // ─── TAB: GROUPS ───
+// 返回完整积分榜（含未上场球队，始终返回全组4队）
+function getGroupStandingsFull(g) {
+  const groupTeams = teams.filter(t => t.group === g);
+  const pts={},gd={},gf={},ga={},w={},d={},l={},mp={};
+  groupTeams.forEach(t => { pts[t.name]=0;gd[t.name]=0;gf[t.name]=0;ga[t.name]=0;w[t.name]=0;d[t.name]=0;l[t.name]=0;mp[t.name]=0; });
+  matchResults.forEach(m => {
+    if(pts[m.t1]===undefined||pts[m.t2]===undefined) return;
+    mp[m.t1]++;mp[m.t2]++;
+    gf[m.t1]+=m.score1;ga[m.t1]+=m.score2;gf[m.t2]+=m.score2;ga[m.t2]+=m.score1;
+    gd[m.t1]+=m.score1-m.score2;gd[m.t2]+=m.score2-m.score1;
+    if(m.score1>m.score2){pts[m.t1]+=3;w[m.t1]++;l[m.t2]++;}
+    else if(m.score2>m.score1){pts[m.t2]+=3;w[m.t2]++;l[m.t1]++;}
+    else{pts[m.t1]++;pts[m.t2]++;d[m.t1]++;d[m.t2]++;}
+  });
+  return groupTeams.map(t=>({name:t.name,pts:pts[t.name],mp:mp[t.name],w:w[t.name],d:d[t.name],l:l[t.name],gf:gf[t.name],ga:ga[t.name],gd:gd[t.name]}))
+    .sort((a,b)=>b.pts-a.pts||b.gd-a.gd||b.gf-a.gf);
+}
+
 function getGroupStandings(g) {
   if(!matchResults.length) return null;
   const gMatches=matchResults.filter(m=>{const a=teams.find(x=>x.name===m.t1),b=teams.find(x=>x.name===m.t2); return a?.group===g&&b?.group===g;});
@@ -3284,33 +3302,59 @@ function getGroupStandings(g) {
 function renderGroups() {
   const grid=document.getElementById('groupsGrid');
   let html='';
+  const hasResults = matchResults.length > 0;
   for(const g of GROUPS){
     const gt=teams.filter(t=>t.group===g);
-    if(simResults){
-      const {advanceCount,totalSims}=simResults;
-      gt.sort((a,b)=>(advanceCount[b.name]||0)-(advanceCount[a.name]||0));
-      html+=`<div class="group-card"><h4>${currentLang==='zh'?g+T('group_suffix'):T('grp_prefix')+g}</h4>`;
-      gt.forEach(t=>{
-        const pct=((advanceCount[t.name]||0)/totalSims*100).toFixed(1);
-        const color=pct>=70?'var(--green)':pct>=30?'var(--accent)':'var(--text3)';
-        html+=`<div class="team-row" onclick="showTeam('${t.name}')"><span style="flex:1">${getFlag(t.name)} ${TN(t.name)}</span><span class="adv-pct" style="color:${color}">${pct}%</span><div class="advance-bar" style="width:${pct}%;background:${color};"></div></div>`;
+    const st = getGroupStandingsFull(g);  // 始终包含全组4队
+    const gLabel = currentLang==='zh'?g+T('group_suffix'):T('grp_prefix')+g;
+    // 检查该组是否已全部赛完（每队3场 = 组内6场）
+    const groupMatchCount = matchResults.filter(m=>teams.find(t=>t.name===m.t1&&t.group===g)&&teams.find(t=>t.name===m.t2&&t.group===g)).length;
+    const groupDone = groupMatchCount >= 6;
+    const doneTag = groupDone ? `<span style="font-size:8px;color:#22c55e;font-weight:700;margin-left:4px;">✅ 已完赛</span>` : (groupMatchCount>0?`<span style="font-size:8px;color:var(--accent);margin-left:4px;">${groupMatchCount}/6场</span>`:'');
+
+    html+=`<div class="group-card"><h4 style="display:flex;align-items:center;">${gLabel}${doneTag}</h4>`;
+
+    // 实际积分榜（有成绩时显示完整数据）
+    if(hasResults) {
+      html+='<div class="group-standings"><table><tr><th>#</th><th style="font-size:8px;min-width:20px;">MP</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th style="color:var(--accent)">Pts</th></tr>';
+      st.forEach((s,i)=>{
+        // 晋级颜色: 前2绿, 第3橙(可能最佳第三), 第4灰
+        const cls = i<2?'var(--green)':i===2?'var(--orange)':'var(--text3)';
+        const fw = i<2?'700':'400';
+        const indicator = i<2?'▲':i===2?'◆':'';
+        html+=`<tr style="color:${cls};font-weight:${fw};">
+          <td style="color:${cls};">${indicator}${i+1}</td>
+          <td>${s.mp}</td><td>${s.w}</td><td>${s.d}</td><td>${s.l}</td>
+          <td>${s.gf}</td><td>${s.ga}</td>
+          <td>${s.gd>=0?'+':''}${s.gd}</td>
+          <td style="font-weight:700;color:${cls};">${s.pts}</td>
+        </tr>`;
+        // 队名行
+        html+=`<tr onclick="showTeam('${s.name}')" style="cursor:pointer;">
+          <td colspan="9" style="font-size:9px;padding:1px 2px;color:var(--text);">${getFlag(s.name)} ${TN(s.name)}`;
+        if(simResults){
+          const pct=((simResults.advanceCount[s.name]||0)/simResults.totalSims*100).toFixed(0);
+          html+=` <span style="color:var(--text3);font-size:8px;">出线${pct}%</span>`;
+        }
+        html+='</td></tr>';
       });
-      const st=getGroupStandings(g);
-      if(st&&st.length){
-        html+='<div class="group-standings"><table><tr><th>#</th><th>W</th><th>D</th><th>L</th><th>GD</th><th>Pts</th></tr>';
-        st.forEach((s,i)=>{
-          const cls=i<2?'var(--green)':i>=3?'var(--text3)':'var(--orange)';
-          html+=`<tr style="color:${cls};font-weight:${i<2?'700':'400'};"><td>${s.name.slice(0,3)}</td><td>${s.w}</td><td>${s.d}</td><td>${s.l}</td><td>${s.gd>=0?'+':''}${s.gd}</td><td>${s.pts}</td></tr>`;
-        });
-        html+='</table></div>';
-      }
-      html+='</div>';
+      html+='</table></div>';
     } else {
-      gt.sort((a,b)=>calcWeight(b)-calcWeight(a));
-      html+=`<div class="group-card"><h4>${currentLang==='zh'?g+T('group_suffix'):T('grp_prefix')+g}</h4>`;
-      gt.forEach(t=>{html+=`<div class="team-row" onclick="showTeam('${t.name}')"><span style="flex:1">${getFlag(t.name)} ${TN(t.name)}</span><span style="color:var(--text2);font-size:9px;">${calcWeight(t)}</span></div>`;});
-      html+='</div>';
+      // 无比赛结果时：仅显示预测出线率（来自模拟）
+      if(simResults){
+        const {advanceCount,totalSims}=simResults;
+        gt.sort((a,b)=>(advanceCount[b.name]||0)-(advanceCount[a.name]||0));
+        gt.forEach(t=>{
+          const pct=((advanceCount[t.name]||0)/totalSims*100).toFixed(1);
+          const color=pct>=70?'var(--green)':pct>=30?'var(--accent)':'var(--text3)';
+          html+=`<div class="team-row" onclick="showTeam('${t.name}')"><span style="flex:1">${getFlag(t.name)} ${TN(t.name)}</span><span class="adv-pct" style="color:${color}">${pct}%</span><div class="advance-bar" style="width:${pct}%;background:${color};"></div></div>`;
+        });
+      } else {
+        gt.sort((a,b)=>calcWeight(b)-calcWeight(a));
+        gt.forEach(t=>{html+=`<div class="team-row" onclick="showTeam('${t.name}')"><span style="flex:1">${getFlag(t.name)} ${TN(t.name)}</span><span style="color:var(--text2);font-size:9px;">${calcWeight(t)}</span></div>`;});
+      }
     }
+    html+='</div>';
   }
   grid.innerHTML=html;
 }
@@ -3324,10 +3368,60 @@ function getMatchProb(a,b){
   const d=ea-eb,rp=1/(1+Math.pow(10,-d/400)),pd=Math.max(0.12,0.28-0.0004*Math.abs(d));
   return {pA:Math.max(0.01,rp*(1-pd)),pB:Math.max(0.01,(1-rp)*(1-pd)),pD:pd};
 }
+// 根据实际比赛结果 + 模拟混合填充赛程签位
+function getActualBracketSlots() {
+  const GS=['A','B','C','D','E','F','G','H','I','J','K','L'];
+  function getBestGroupRanking(g) {
+    const st = getGroupStandingsFull(g);
+    const anyPlayed = st.some(s=>s.mp>0);
+    if (!anyPlayed && simResults) {
+      // 无实际结果：用模拟
+      const gt=teams.filter(t=>t.group===g).slice();
+      gt.sort((a,b)=>(simResults.advanceCount[b.name]||0)-(simResults.advanceCount[a.name]||0));
+      return gt.map(t=>t.name);
+    }
+    // 有实际结果：用积分榜（即使未全部赛完，当前排名也比模拟更准）
+    return st.map(s=>s.name);
+  }
+  const groupRanks={};
+  GS.forEach(g=>{groupRanks[g]=getBestGroupRanking(g);});
+
+  // 最佳第三名：实际有成绩用实际积分，否则用模拟
+  const thirds=[];
+  GS.forEach(g=>{
+    const t3=groupRanks[g][2];
+    if(t3) {
+      const st=getGroupStandingsFull(g).find(s=>s.name===t3);
+      thirds.push({name:t3, pts:st?.pts||0, gd:st?.gd||0, gf:st?.gf||0,
+        simAdv:simResults?(simResults.advanceCount[t3]||0):0});
+    }
+  });
+  thirds.sort((a,b)=>{
+    // 优先用实际积分排序，否则用模拟概率
+    const hasReal = thirds.some(x=>x.pts>0||x.gd!==0);
+    if(hasReal) return b.pts-a.pts||b.gd-a.gd||b.gf-a.gf;
+    return b.simAdv-a.simAdv;
+  });
+
+  const slots=new Array(32).fill('?');
+  const pairs=[['A','B'],['C','D'],['E','F'],['G','H'],['I','J'],['K','L']];
+  pairs.forEach(([g1,g2],pi)=>{
+    const base=pi*4;
+    slots[base]  =groupRanks[g1][0]||'?';
+    slots[base+1]=groupRanks[g2][1]||'?';
+    slots[base+2]=groupRanks[g2][0]||'?';
+    slots[base+3]=groupRanks[g1][1]||'?';
+  });
+  for(let i=0;i<8;i++) slots[24+i]=thirds[i]?.name||'?';
+  return slots;
+}
+
 // Build default bracket slots from sim results using official group-pair structure:
 // Group pairs (A-B),(C-D),(E-F),(G-H),(I-J),(K-L); 8 best 3rd-place fill remaining 8 slots.
 // Each pair block occupies 4 consecutive slots: [G1-winner, G2-runner-up, G2-winner, G1-runner-up]
 function getDefaultBracketSlots(){
+  // 有实际成绩时，优先用实际结果填充签位
+  if(matchResults.length > 0) return getActualBracketSlots();
   if(!simResults) return null;
   const {advanceCount,totalSims}=simResults;
   const GS=['A','B','C','D','E','F','G','H','I','J','K','L'];
@@ -3422,9 +3516,14 @@ function renderBracket(){
     :'';
 
   const upLbl=currentLang==='en'?'🎯 My Picks':currentLang==='pt'?'🎯 Meus Picks':'🎯 自定义预测';
+  const actualCount=matchResults.length;
+  const bracketSrcLabel = actualCount>0
+    ? (currentLang==='zh'?`📊 基于${actualCount}场实际成绩`:currentLang==='en'?`📊 ${actualCount} actual results`:` 📊 ${actualCount} jogos reais`)
+    : (currentLang==='zh'?'🎲 蒙特卡洛模拟':currentLang==='en'?'🎲 Monte Carlo sim':'🎲 Simulação MC');
   let html=`<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
     <button onclick="toggleBracketEdit()" class="btn-sm${bracketEditMode?' btn-active':''}" style="${bracketEditMode?'background:var(--accent);color:#fff;border-color:var(--accent);':''}">${editBtnLbl}</button>
     <button onclick="resetBracket()" class="btn-sm">${resetLbl}</button>${editHint}
+    <span style="font-size:9px;color:var(--text2);padding:2px 6px;background:var(--bg3);border-radius:4px;">${bracketSrcLabel}</span>
     <button onclick="toggleUserPick()" class="btn-sm" style="margin-left:auto;">${upLbl}</button>
   </div>`;
   html+=`<div class="bk-tree" id="bkTree">`;
@@ -5297,7 +5396,7 @@ function calcRecentForm(teamName) {
     const home=m.t1===teamName, gs=home?m.score1:m.score2, gc=home?m.score2:m.score1;
     if(gs>gc) w++;
   });
-  return 1 + w*0.04;
+  return 1 + w*0.025;
 }
 
 function calcMD3Motivation(teamName, group) {
@@ -5545,6 +5644,26 @@ function spCard(t1, t2, isKO, recorded, matchDate, isToday, matchTime, matchCtx)
     }
   }
 
+  // MD3 出线情景标签
+  let qualBadge = '';
+  if (matchCtx && matchCtx.md===3 && matchCtx.group && !recorded) {
+    const st = getGroupStandingsFull(matchCtx.group);
+    function getQual(teamName) {
+      const pos = st.findIndex(s=>s.name===teamName);
+      const s = st.find(s=>s.name===teamName);
+      if(!s) return null;
+      if(s.pts>=6) return {label:zh?'✅ 已确定出线':en?'✅ Through':'✅ Classificado', color:'#22c55e'};
+      if(s.pts<=0 && s.mp>=2) return {label:zh?'❌ 基本出局':en?'❌ Likely out':'❌ Fora', color:'var(--red)'};
+      if(s.pts>=3) return {label:zh?'⚡ 赢球保险':en?'⚡ Win = safe':'⚡ Vencer = seguro', color:'var(--accent)'};
+      return {label:zh?'🔥 背水一战':en?'🔥 Must win':'🔥 Precisa ganhar', color:'#f97316'};
+    }
+    const q1=getQual(t1.name), q2=getQual(t2.name);
+    if(q1||q2) {
+      const b1=q1?`<span style="display:inline-block;padding:1px 6px;border-radius:99px;background:rgba(0,0,0,.06);border:1px solid ${q1.color};color:${q1.color};font-size:8px;font-weight:700;">${TN(t1.name)} ${q1.label}</span>`:'';
+      const b2=q2?`<span style="display:inline-block;padding:1px 6px;border-radius:99px;background:rgba(0,0,0,.06);border:1px solid ${q2.color};color:${q2.color};font-size:8px;font-weight:700;">${TN(t2.name)} ${q2.label}</span>`:'';
+      qualBadge=`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">${b1}${b2}</div>`;
+    }
+  }
   // 缺阵标记徽章
   const absLvl = playerAbsences[t1.name]||0, absLvl2 = playerAbsences[t2.name]||0;
   const absLabels = zh ? ['','轻伤','主力缺阵','核心缺阵'] : ['','Injury','Key out','Star out'];
@@ -5617,7 +5736,7 @@ function spCard(t1, t2, isKO, recorded, matchDate, isToday, matchTime, matchCtx)
       <div style="display:flex;gap:4px;align-items:center;">${dateStr} ${srcTag}</div>
       <div style="display:flex;gap:4px;flex-wrap:wrap;">${confBadge}${valueBadge}</div>
     </div>
-    ${absBadgeHtml}
+    ${qualBadge}${absBadgeHtml}
     <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;margin:4px 0;">
       <div style="text-align:right;">
         <div style="font-size:12px;font-weight:700;">${getFlag(t1.name)} ${TN(t1.name)}</div>
@@ -5689,6 +5808,8 @@ function renderSASummary() {
   const strongLbl = zh?`🔥 强推 <b>${strong}</b>`:en?`🔥 Strong picks <b>${strong}</b>`:` 🔥 Fortes <b>${strong}</b>`;
   const leanLbl = zh?`👍 看好 <b>${lean}</b>`:en?`👍 Lean <b>${lean}</b>`:` 👍 Tendência <b>${lean}</b>`;
   const mkLbl = mkCount>0?(zh?`📊 赔率已加载 <b>${mkCount}</b>`:en?`📊 Odds loaded <b>${mkCount}</b>`:`📊 Odds <b>${mkCount}</b>`):'';
+  const calibG = getCalibBaseTotal(false).toFixed(2);
+  const calibLbl = zh?`xG基准 ${calibG}`:en?`xG base ${calibG}`:`xG base ${calibG}`;
 
   banner.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 12px;background:linear-gradient(90deg,rgba(37,99,235,.08),rgba(239,68,68,.06));border:1px solid var(--accent);border-radius:8px;font-size:10px;margin-bottom:10px;align-items:center;">
     <span style="font-weight:800;color:var(--accent);">${zh?'⚡ 精选推荐':en?"⚡ Today's Picks":'⚡ Seleção'}</span>
@@ -5697,6 +5818,7 @@ function renderSASummary() {
     <span style="color:var(--accent);">${strongLbl}</span>
     <span style="color:var(--text2);">${leanLbl}</span>
     ${mkLbl?`<span style="color:#d97706;">${mkLbl}</span>`:''}
+    <span style="color:var(--text3);font-size:9px;">${calibLbl}</span>
   </div>`;
 }
 
