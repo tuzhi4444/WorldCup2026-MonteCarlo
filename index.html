@@ -5302,44 +5302,87 @@ function predictScore(t1, t2, isKO) {
   const e2 = calcAdjELO(t2) + (HOST_SET.has(t2.name)?55:0);
   const diff = e1 - e2;
 
-  // 用标准ELO公式算胜率——diff=400 → 90.9%（旧线性法只给+20%，严重低估强队）
-  const rp1 = 1 / (1 + Math.pow(10, -diff / 400));
+  // 标准ELO胜率（纯模型基础值）
+  const rp1_model = 1 / (1 + Math.pow(10, -diff / 400));
+
+  // ── 实时市场赔率融合 ─────────────────────────────────────────────────────
+  // 从 ESPN/DraftKings 实时赔率中获取隐含概率，65%权重融入预测
+  let rp1 = rp1_model;
+  let hasMkt = false;
+  let mktH = null, mktD = null, mktA = null;
+
+  const mkRaw  = liveMatchOdds[t1.name + '|' + t2.name];
+  const mkFlip = liveMatchOdds[t2.name + '|' + t1.name];
+  const mk = mkRaw || mkFlip;
+  const flipped = !mkRaw && !!mkFlip;
+
+  if (mk && mk.h && mk.a) {
+    // 去水，还原真实隐含概率
+    const rawH = flipped ? 1/mk.a : 1/mk.h;
+    const rawD = 1 / mk.d;
+    const rawA = flipped ? 1/mk.h : 1/mk.a;
+    const vig  = rawH + rawD + rawA;
+    mktH = rawH / vig;   // 主队真实隐含胜率
+    mktD = rawD / vig;
+    mktA = rawA / vig;
+
+    // 市场"纯胜率"（去掉平局后的比例，用于驱动xG分配）
+    const mkRp1 = mktH / (mktH + mktA);
+
+    // 融合：65% 市场 + 35% ELO模型
+    // 市场已整合了伤停/状态/情报等大量信息，权重给高
+    rp1 = 0.35 * rp1_model + 0.65 * mkRp1;
+    hasMkt = true;
+  }
+
   const rp2 = 1 - rp1;
 
-  // 总进球基准：WC小组赛均值≈2.7，淘汰赛更保守≈2.3；差距越大弱队越保守
+  // 总进球基准（差距越大弱队越保守）
   const mismatch = Math.abs(diff) / 400;
   const baseTotal = (isKO ? 2.3 : 2.7) * Math.max(0.80, 1 - mismatch * 0.06);
 
-  // xG 直接按ELO胜率分配：λ1 = total × rp1，天然对齐Poisson胜负概率
+  // xG 按融合后胜率直接分配
   let l1 = baseTotal * rp1;
   let l2 = baseTotal * rp2;
 
-  // 因子微调：进攻/防守/门将品质 ±20%，压制因子影响避免喧宾夺主
+  // 因子微调：攻防/门将品质 ±20%（辅助权重，不喧宾夺主）
   const att1=(t1.attack||5)/5, def1=(t1.defense||5)/5, gk1=(t1.goalkeeper||5)/5, sp1=(t1.setpiece||5)/5;
   const att2=(t2.attack||5)/5, def2=(t2.defense||5)/5, gk2=(t2.goalkeeper||5)/5, sp2=(t2.setpiece||5)/5;
-
-  // 进攻质量 / 对方防守质量 的相对比（两队归一化，均值=1）
   const raw1 = Math.sqrt(att1 * sp1) / Math.sqrt(def2 * (gk2*0.6+0.4));
   const raw2 = Math.sqrt(att2 * sp2) / Math.sqrt(def1 * (gk1*0.6+0.4));
   const avgRaw = (raw1 + raw2) / 2 || 1;
   const fm1 = Math.min(Math.max(0.80 + (raw1/avgRaw - 1) * 0.40, 0.80), 1.20);
   const fm2 = Math.min(Math.max(0.80 + (raw2/avgRaw - 1) * 0.40, 0.80), 1.20);
-
-  const form1=calcRecentForm(t1.name), form2=calcRecentForm(t2.name);
+  const form1 = calcRecentForm(t1.name), form2 = calcRecentForm(t2.name);
 
   l1 = Math.min(Math.max(l1 * fm1 * form1, 0.15), 3.5);
   l2 = Math.min(Math.max(l2 * fm2 * form2, 0.15), 3.5);
 
+  // Poisson 比分分布
   let pW=0, pD=0, pL=0;
-  const scores=[];
-  for(let i=0;i<=7;i++) for(let j=0;j<=7;j++){
-    const p=poissonProb(l1,i)*poissonProb(l2,j);
-    if(i>j)pW+=p; else if(i===j)pD+=p; else pL+=p;
-    scores.push({s1:i,s2:j,p});
+  const scores = [];
+  for (let i=0; i<=7; i++) for (let j=0; j<=7; j++) {
+    const p = poissonProb(l1,i) * poissonProb(l2,j);
+    if (i>j) pW+=p; else if (i===j) pD+=p; else pL+=p;
+    scores.push({s1:i, s2:j, p});
   }
-  scores.sort((a,b)=>b.p-a.p);
-  return {pW,pD,pL,top:scores.slice(0,5),l1,l2};
+  scores.sort((a,b) => b.p - a.p);
+
+  // 返回模型原始胜率（用于价值对比）
+  const pW_model = (function(){
+    let pw=0; const bt=baseTotal*(isKO?1:1);
+    const ll1=bt*rp1_model*fm1*form1, ll2=bt*(1-rp1_model)*fm2*form2;
+    for(let i=0;i<=7;i++) for(let j=0;j<=7;j++) if(i>j) pw+=poissonProb(ll1,i)*poissonProb(ll2,j);
+    return pw;
+  })();
+
+  return {pW, pD, pL, top: scores.slice(0,5), l1, l2,
+          hasMkt, mktH, mktD, mktA,
+          pW_model,  // 纯ELO模型胜率（未融合市场）
+          rp1_model  // 原始ELO概率（调试用）
+         };
 }
+
 
 /* ── Check prediction accuracy ── */
 function checkPredictionHit(pred, recorded) {
@@ -5355,51 +5398,74 @@ function checkPredictionHit(pred, recorded) {
 
 /* ── Match prediction card ── */
 function spCard(t1, t2, isKO, recorded, matchDate, isToday) {
-  const pred = predictScore(t1, t2, isKO);
+  const pred = predictScore(t1, t2, isKO);  // 已内置市场赔率融合
   const best = pred.top[0];
   const pw=(pred.pW*100).toFixed(1), pd=(pred.pD*100).toFixed(1), pl=(pred.pL*100).toFixed(1);
   const maxPct = Math.max(pred.pW,pred.pD,pred.pL);
   const favColor = pred.pW===maxPct?'var(--accent)':pred.pL===maxPct?'var(--red)':'var(--text2)';
   const zh = currentLang==='zh', en = currentLang==='en';
 
-  // ── Market odds integration ──────────────────────────────────────────────
-  // Look up ESPN real-time odds (populated by fetchUpcomingOddsESPN)
-  const mk = liveMatchOdds[t1.name+'|'+t2.name] || liveMatchOdds[t2.name+'|'+t1.name];
-  const mkFlipped = !!(liveMatchOdds[t2.name+'|'+t1.name] && !liveMatchOdds[t1.name+'|'+t2.name]);
+  // ── 市场赔率信息栏（来自 pred，不再重复查 liveMatchOdds）─────────────────
   let marketBlock = '';
   let valueBadge = '';
-  if (mk && !recorded) {
-    // Convert decimal odds → implied prob (remove vig)
-    const rawH = 1/mk.h, rawD = 1/mk.d, rawA = 1/mk.a;
-    const vig = rawH+rawD+rawA;
-    const mkH = mkFlipped ? rawA/vig : rawH/vig;  // swap if lookup was reversed
-    const mkD = rawD/vig;
-    const mkA = mkFlipped ? rawH/vig : rawA/vig;
-    const mkHOdds = mkFlipped ? mk.a : mk.h;
-    const mkAOdds = mkFlipped ? mk.h : mk.a;
+  if (pred.hasMkt && !recorded) {
+    // 获取原始赔率（用于展示）
+    const mk = liveMatchOdds[t1.name+'|'+t2.name] || liveMatchOdds[t2.name+'|'+t1.name];
+    const flipped = !liveMatchOdds[t1.name+'|'+t2.name] && !!liveMatchOdds[t2.name+'|'+t1.name];
+    const mkHOdds = mk ? (flipped ? mk.a : mk.h) : null;
+    const mkAOdds = mk ? (flipped ? mk.h : mk.a) : null;
+    const mkDOdds = mk ? mk.d : null;
 
-    // Value detection: model vs market (threshold ≥10%)
-    const valH = pred.pW - mkH, valA = pred.pL - mkA;
-    const hasVal = Math.abs(valH)>=0.10 || Math.abs(valA)>=0.10;
-    const valTeam = Math.abs(valH)>=Math.abs(valA) ? (valH>0?TN(t1.name):TN(t2.name)) : (valA>0?TN(t2.name):TN(t1.name));
-    const valDiff = Math.max(Math.abs(valH),Math.abs(valA));
+    // 价值对比：纯ELO模型 vs 市场隐含（融合后的预测已包含市场，此处对比原始差异）
+    const valH = pred.pW_model - pred.mktH;
+    const valA = (1-pred.pW_model-0.2) - pred.mktA;  // rough model loss prob vs market
+    const valDiff = Math.max(Math.abs(valH), Math.abs(valA));
+    const hasVal = valDiff >= 0.08;
     if (hasVal) {
-      const sign = (valH>=0.10||valA>=0.10)?'+':'';
-      valueBadge = `<span style="display:inline-block;padding:2px 7px;border-radius:99px;background:rgba(251,191,36,.15);border:1px solid #f59e0b;color:#d97706;font-size:9px;font-weight:800;">💰 ${zh?'价值盘':en?'Value Bet':'Valor'} ${valTeam} ${sign}${(valDiff*100).toFixed(0)}%</span>`;
+      const biggerVal = Math.abs(valH) >= Math.abs(valA);
+      const valPositive = biggerVal ? valH > 0 : valA > 0;
+      const valTeam = biggerVal ? (valH>0?TN(t1.name):TN(t2.name)) : (valA>0?TN(t2.name):TN(t1.name));
+      const sign = valPositive ? '+' : '';
+      valueBadge = `<span style="display:inline-block;padding:2px 7px;border-radius:99px;background:rgba(251,191,36,.15);border:1px solid #f59e0b;color:#d97706;font-size:9px;font-weight:800;">💰 ${zh?'模型高估':en?'Model Edge':'Diferença'} ${valTeam} ${sign}${(valDiff*100).toFixed(0)}%</span>`;
     }
 
-    const mH=(mkH*100).toFixed(0), mD=(mkD*100).toFixed(0), mA=(mkA*100).toFixed(0);
-    marketBlock = `<div style="margin:5px 0 0;padding:6px 8px;border-radius:7px;background:rgba(251,191,36,.07);border:1px solid rgba(251,191,36,.3);">
-      <div style="font-size:8px;color:#d97706;font-weight:700;margin-bottom:3px;">📊 ${zh?'市场赔率 (ESPN/DK)':en?'Market Odds (ESPN/DK)':'Odds de Mercado'} · ${zh?'隐含概率':en?'Implied':'Implícito'}</div>
-      <div style="display:flex;justify-content:space-between;font-size:9px;">
-        <span style="color:var(--accent);">${getFlag(t1.name)} <b>${mkHOdds.toFixed(2)}</b> <span style="color:var(--text2);">(${mH}%)</span></span>
-        <span style="color:var(--text2);"><b>${mk.d.toFixed(2)}</b> (${mD}%)</span>
-        <span style="color:var(--red);">${getFlag(t2.name)} <b>${mkAOdds.toFixed(2)}</b> <span style="color:var(--text2);">(${mA}%)</span></span>
+    const mH=(pred.mktH*100).toFixed(0), mD=(pred.mktD*100).toFixed(0), mA=(pred.mktA*100).toFixed(0);
+    const mkHStr = mkHOdds ? mkHOdds.toFixed(2) : '—';
+    const mkDStr = mkDOdds ? mkDOdds.toFixed(2) : '—';
+    const mkAStr = mkAOdds ? mkAOdds.toFixed(2) : '—';
+
+    // 模型原始胜率 vs 融合后胜率对比
+    const modelPct = (pred.pW_model*100).toFixed(0);
+    const finalPct = pw;
+
+    marketBlock = `<div style="margin:5px 0 0;padding:6px 8px;border-radius:7px;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.25);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <span style="font-size:8px;color:#d97706;font-weight:700;">📊 ${zh?'市场赔率 (ESPN/DK)':en?'Market (ESPN/DK)':'Mercado (ESPN/DK)'}</span>
+        <span style="font-size:8px;color:var(--text2);">${zh?`ELO模型 ${modelPct}% → 融合 ${finalPct}%`:en?`Model ${modelPct}% → Blended ${finalPct}%`:`Modelo ${modelPct}% → Mesclado ${finalPct}%`}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:9px;align-items:center;">
+        <div style="text-align:left;">
+          <span style="color:var(--accent);font-weight:700;">${getFlag(t1.name)} ${mkHStr}</span>
+          <span style="color:var(--text2);font-size:8px;"> (${mH}%)</span>
+        </div>
+        <div style="text-align:center;">
+          <span style="color:var(--text2);">${zh?'平':'D'} ${mkDStr}</span>
+          <span style="color:var(--text2);font-size:8px;"> (${mD}%)</span>
+        </div>
+        <div style="text-align:right;">
+          <span style="color:var(--red);font-weight:700;">${mkAStr} ${getFlag(t2.name)}</span>
+          <span style="color:var(--text2);font-size:8px;"> (${mA}%)</span>
+        </div>
       </div>
     </div>`;
   }
 
-  // ── Confidence badge (only for future matches without result) ────────────
+  // ── 来源标签：有市场赔率则显示融合标志 ────────────────────────────────
+  const srcTag = pred.hasMkt
+    ? `<span style="font-size:8px;padding:1px 5px;border-radius:3px;background:rgba(251,191,36,.15);color:#d97706;font-weight:700;">🔗 ${zh?'ELO+市场融合':en?'ELO+Market':'ELO+Mercado'}</span>`
+    : `<span style="font-size:8px;padding:1px 5px;border-radius:3px;background:var(--bg3);color:var(--text2);">ELO ${zh?'模型':'Model'}</span>`;
+
+  // ── 置信度徽章 ─────────────────────────────────────────────────────────
   let confBadge = '';
   if (!recorded) {
     if (pred.pW >= 0.65) {
@@ -5420,10 +5486,10 @@ function spCard(t1, t2, isKO, recorded, matchDate, isToday) {
     }
   }
 
-  // ── Probability bar ─────────────────────────────────────────────────────
+  // ── 概率条 ──────────────────────────────────────────────────────────────
   const barW=Math.round(pred.pW*100), barD=Math.round(pred.pD*100), barL=100-barW-barD;
 
-  // ── Top scorelines ──────────────────────────────────────────────────────
+  // ── 高概率比分列表 ───────────────────────────────────────────────────────
   const scoreChips = pred.top.map((s,i)=>{
     const isRec = recorded&&s.s1===recorded.score1&&s.s2===recorded.score2;
     return `<span style="display:inline-flex;align-items:center;gap:2px;padding:2px 6px;border-radius:8px;
@@ -5434,7 +5500,7 @@ function spCard(t1, t2, isKO, recorded, matchDate, isToday) {
     </span>`;
   }).join('');
 
-  // ── Recorded result ────────────────────────────────────────────────────
+  // ── 已录入结果 ─────────────────────────────────────────────────────────
   let recBlock = '';
   if (recorded) {
     const hit = checkPredictionHit(pred, recorded);
@@ -5453,7 +5519,7 @@ function spCard(t1, t2, isKO, recorded, matchDate, isToday) {
 
   return `<div style="${cardBg};border:${cardBorder};border-radius:10px;padding:10px 12px;margin-bottom:8px;">
     <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:4px;margin-bottom:2px;">
-      ${dateStr}
+      <div style="display:flex;gap:4px;align-items:center;">${dateStr} ${srcTag}</div>
       <div style="display:flex;gap:4px;flex-wrap:wrap;">${confBadge}${valueBadge}</div>
     </div>
     <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;margin:4px 0;">
