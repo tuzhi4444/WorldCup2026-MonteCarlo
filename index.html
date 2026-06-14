@@ -720,7 +720,7 @@ body {
     </div></div>
     <div id="saContent"></div>
   </div>
-  <div class="panel" style="margin-top:12px;">
+  <div class="panel" style="margin-top:12px;display:none;" id="historyPanel">
     <div class="panel-header"><h3 data-i18n="panel_history">📈 模拟历史对比</h3><div><button class="btn btn-sm" onclick="saveSnapshot()" data-i18n="snapshot">📸 快照</button><button class="btn btn-sm" onclick="clearHistory()" style="margin-left:4px;" data-i18n="clear">清空</button></div></div>
     <div id="historyContent"><div class="empty-state">运行模拟后保存快照，对比调参前后变化</div></div>
   </div>
@@ -5252,7 +5252,8 @@ function startScoreAutoRefresh() {
 // ─── SCORE PREDICTION ───
 let saMode = 'group';
 let saGroupFilter = 'ALL';
-let saFutureOnly = false;
+let saFutureOnly = false;   // kept for compatibility
+let saTimeFilter = 'UPCOMING'; // 'ALL' | 'TODAY' | 'UPCOMING'
 
 function saSwitch(mode, btn) {
   saMode = mode;
@@ -5270,6 +5271,15 @@ function saToggleFuture() {
   const btn = document.getElementById('saFutureBtn');
   if (btn) { btn.classList.toggle('active', saFutureOnly); btn.textContent = saFutureOnly ? T('only_future')+' ✓' : T('only_future'); }
   renderScoreAnalysis();
+}
+function saSetTime(f) {
+  saTimeFilter = f;
+  document.querySelectorAll('.sa-tf-btn').forEach(b => b.classList.toggle('active', b.dataset.tf===f));
+  renderScoreAnalysis();
+}
+function _todayMMDD() {
+  const d = new Date();
+  return String(d.getMonth()+1).padStart(2,'0') + '/' + String(d.getDate()).padStart(2,'0');
 }
 
 /* ── Improved prediction model ── */
@@ -5342,12 +5352,34 @@ function checkPredictionHit(pred, recorded) {
 }
 
 /* ── Match prediction card ── */
-function spCard(t1, t2, isKO, recorded, matchDate) {
+function spCard(t1, t2, isKO, recorded, matchDate, isToday) {
   const pred = predictScore(t1, t2, isKO);
   const best = pred.top[0];
   const pw=(pred.pW*100).toFixed(1), pd=(pred.pD*100).toFixed(1), pl=(pred.pL*100).toFixed(1);
   const maxPct = Math.max(pred.pW,pred.pD,pred.pL);
   const favColor = pred.pW===maxPct?'var(--accent)':pred.pL===maxPct?'var(--red)':'var(--text2)';
+
+  // Confidence badge (only for future/today matches without recorded result)
+  let confBadge = '';
+  if (!recorded) {
+    const zh = currentLang==='zh', en = currentLang==='en';
+    if (pred.pW >= 0.65) {
+      const label = zh?`强推 ${TN(t1.name)}`:en?`Back ${TN(t1.name)}`:`Favorito ${TN(t1.name)}`;
+      confBadge = `<span style="display:inline-block;padding:2px 7px;border-radius:99px;background:rgba(37,99,235,.15);border:1px solid var(--accent);color:var(--accent);font-size:9px;font-weight:800;margin-bottom:4px;">🔥 ${label}</span>`;
+    } else if (pred.pL >= 0.65) {
+      const label = zh?`强推 ${TN(t2.name)}`:en?`Back ${TN(t2.name)}`:`Favorito ${TN(t2.name)}`;
+      confBadge = `<span style="display:inline-block;padding:2px 7px;border-radius:99px;background:rgba(239,68,68,.12);border:1px solid var(--red);color:var(--red);font-size:9px;font-weight:800;margin-bottom:4px;">🔥 ${label}</span>`;
+    } else if (pred.pW >= 0.52) {
+      const label = zh?`看好 ${TN(t1.name)}`:en?`Lean ${TN(t1.name)}`:`Tendência ${TN(t1.name)}`;
+      confBadge = `<span style="display:inline-block;padding:2px 7px;border-radius:99px;background:rgba(37,99,235,.08);border:1px solid var(--border);color:var(--accent);font-size:9px;font-weight:700;margin-bottom:4px;">👍 ${label}</span>`;
+    } else if (pred.pL >= 0.52) {
+      const label = zh?`看好 ${TN(t2.name)}`:en?`Lean ${TN(t2.name)}`:`Tendência ${TN(t2.name)}`;
+      confBadge = `<span style="display:inline-block;padding:2px 7px;border-radius:99px;background:rgba(239,68,68,.08);border:1px solid var(--border);color:var(--red);font-size:9px;font-weight:700;margin-bottom:4px;">👍 ${label}</span>`;
+    } else {
+      const label = zh?'胜负难料':en?'Toss-up':'Equilíbrio';
+      confBadge = `<span style="display:inline-block;padding:2px 7px;border-radius:99px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-size:9px;font-weight:600;margin-bottom:4px;">⚖️ ${label}</span>`;
+    }
+  }
 
   // Probability bar segments
   const barW=Math.round(pred.pW*100), barD=Math.round(pred.pD*100), barL=100-barW-barD;
@@ -5377,9 +5409,14 @@ function spCard(t1, t2, isKO, recorded, matchDate) {
   }
 
   const dateStr = matchDate ? `<span style="font-size:9px;color:var(--text3);">${matchDate}</span>` : '';
+  const cardBorder = isToday && !recorded ? '2px solid var(--red)' : '1px solid var(--border)';
+  const cardBg = isToday && !recorded ? 'background:rgba(239,68,68,.04)' : 'background:var(--bg2)';
 
-  return `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;">
-    ${dateStr}
+  return `<div style="${cardBg};border:${cardBorder};border-radius:10px;padding:10px 12px;margin-bottom:8px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+      ${dateStr}
+      ${confBadge}
+    </div>
     <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;margin:4px 0;">
       <div style="text-align:right;">
         <div style="font-size:12px;font-weight:700;">${getFlag(t1.name)} ${TN(t1.name)}</div>
@@ -5419,8 +5456,9 @@ function renderSAGroup(el) {
   const ALL_GROUPS = ['A','B','C','D','E','F','G','H','I','J','K','L'];
   const schedGroup = MATCH_SCHEDULE.filter(m => m.group !== 'KO' && m.home !== 'TBD' && m.away !== 'TBD');
   if (!schedGroup.length) { el.innerHTML=`<div class="empty-state">${T('run_first')}</div>`; return; }
+  const today = _todayMMDD();
 
-  // Accuracy stats
+  // Accuracy stats (only finished matches)
   let total=0, resultHits=0, exactHits=0;
   schedGroup.forEach(m => {
     const t1=teams.find(t=>t.name===m.home), t2=teams.find(t=>t.name===m.away);
@@ -5434,52 +5472,84 @@ function renderSAGroup(el) {
     if(hit.exactHit) exactHits++;
   });
 
+  // Time filter bar
+  const tfLabels = currentLang==='en'
+    ? {TODAY:'Today',UPCOMING:'Upcoming',ALL:'All'}
+    : currentLang==='pt'
+    ? {TODAY:'Hoje',UPCOMING:'Próximos',ALL:'Todos'}
+    : {TODAY:'今日',UPCOMING:'待赛',ALL:'全部'};
+  let timeFilterHtml = `<div style="display:flex;gap:4px;margin-bottom:8px;">`;
+  ['TODAY','UPCOMING','ALL'].forEach(f=>{
+    timeFilterHtml += `<button class="btn btn-sm sa-tf-btn${saTimeFilter===f?' active':''}" data-tf="${f}" onclick="saSetTime('${f}')" style="font-size:10px;padding:3px 10px;">${tfLabels[f]}</button>`;
+  });
+  timeFilterHtml += `</div>`;
+
   // Group filter chips
   let filterHtml = `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;">
     <button class="btn btn-sm sa-gf-btn${saGroupFilter==='ALL'?' active':''}" data-g="ALL" onclick="saSetGroup('ALL')" style="font-size:9px;padding:2px 8px;">${T('all')}</button>`;
   ALL_GROUPS.forEach(g => {
     filterHtml += `<button class="btn btn-sm sa-gf-btn${saGroupFilter===g?' active':''}" data-g="${g}" onclick="saSetGroup('${g}')" style="font-size:9px;padding:2px 8px;">${currentLang==='zh'?g+T('group_suffix'):T('group_suffix')+g}</button>`;
   });
-  filterHtml += `<button class="btn btn-sm${saFutureOnly?' active':''}" id="saFutureBtn" onclick="saToggleFuture()" style="font-size:9px;padding:2px 8px;margin-left:4px;">${saFutureOnly?T('only_future')+' ✓':T('only_future')}</button></div>`;
+  filterHtml += `</div>`;
 
   // Accuracy banner
   let accBanner = '';
   if (total > 0) {
     const rPct=(resultHits/total*100).toFixed(0), ePct=(exactHits/total*100).toFixed(0);
-    const _pl=T('matches_played_lbl'),_ra=currentLang==='en'?`Result accuracy ${rPct}%`:currentLang==='pt'?`Precisão ${rPct}%`:`胜负准确率 ${rPct}%`;
-    const _ea=currentLang==='en'?`Exact score ${ePct}% (${exactHits})`:currentLang==='pt'?`Placar exato ${ePct}% (${exactHits})`:`精准比分 ${ePct}%（${exactHits}场）`;
-    accBanner = `<div style="display:flex;gap:8px;margin-bottom:10px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:10px;">
-      <span style="color:var(--text2);">${_pl} <b>${total}</b></span>
-      <span style="color:var(--accent);font-weight:700;">${_ra}</span>
-      <span style="color:#a855f7;font-weight:700;">${_ea}</span>
+    const rCol = resultHits/total>=0.6?'#22c55e':resultHits/total>=0.45?'var(--accent)':'var(--red)';
+    const _ra=currentLang==='en'?`Win/Loss accuracy: <b style="color:${rCol}">${rPct}%</b>`:currentLang==='pt'?`Precisão: <b style="color:${rCol}">${rPct}%</b>`:`胜负准确率 <b style="color:${rCol}">${rPct}%</b>`;
+    const _ea=currentLang==='en'?`Exact: <b style="color:#a855f7">${ePct}%</b> (${exactHits})`:currentLang==='pt'?`Exato: <b style="color:#a855f7">${ePct}%</b> (${exactHits})`:`精准比分 <b style="color:#a855f7">${ePct}%</b>（${exactHits}场）`;
+    accBanner = `<div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:10px;padding:8px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:11px;align-items:center;">
+      <span style="color:var(--text2);">${currentLang==='en'?'Graded':'已验证'} <b>${total}</b> ${currentLang==='en'?'matches':currentLang==='pt'?'jogos':'场'}</span>
+      <span>${_ra}</span>
+      <span>${_ea}</span>
     </div>`;
   }
 
-  // 按日期排序，同日期内按小组字母排序
+  // Filter by group
   const activeG = saGroupFilter==='ALL' ? ALL_GROUPS : [saGroupFilter];
-  const filtered = schedGroup
-    .filter(m => activeG.includes(m.group))
-    .sort((a, b) => {
-      const da = (a.date||'99/99'), db = (b.date||'99/99');
-      return da < db ? -1 : da > db ? 1 : a.group < b.group ? -1 : 1;
-    });
+  let filtered = schedGroup.filter(m => activeG.includes(m.group));
 
-  // 按日期分组显示
-  let html = filterHtml + accBanner;
+  // Apply time filter
+  filtered = filtered.filter(m => {
+    const d = m.date||'99/99';
+    const rec = matchResults.find(r=>(r.t1===m.home&&r.t2===m.away)||(r.t1===m.away&&r.t2===m.home));
+    if (saTimeFilter==='TODAY') return d===today;
+    if (saTimeFilter==='UPCOMING') return d>=today && !rec;
+    return true; // ALL
+  });
+
+  // Sort: upcoming (ascending) first, then past (newest first)
+  filtered.sort((a,b)=>{
+    const da=a.date||'99/99', db=b.date||'99/99';
+    const aFut=da>=today, bFut=db>=today;
+    if(aFut&&!bFut) return -1;
+    if(!aFut&&bFut) return 1;
+    if(aFut&&bFut) return da<db?-1:da>db?1:0;
+    return da>db?-1:da<db?1:0;
+  });
+
+  // Render cards grouped by date
+  let html = timeFilterHtml + filterHtml + accBanner;
   let lastDate = '';
   filtered.forEach(m => {
     const t1=teams.find(t=>t.name===m.home), t2=teams.find(t=>t.name===m.away);
     if(!t1||!t2) return;
     const rec=matchResults.find(r=>(r.t1===t1.name&&r.t2===t2.name)||(r.t1===t2.name&&r.t2===t1.name));
-    if(saFutureOnly && rec) return;
     const recorded=rec?{score1:rec.t1===t1.name?rec.score1:rec.score2,score2:rec.t1===t1.name?rec.score2:rec.score1}:null;
-    const _grpTag=currentLang==='zh'?m.group+T('group_suffix'):T('grp_prefix')+m.group;
-    const dateLabel = m.date ? `2026/${m.date} · ${_grpTag}` : _grpTag;
-    if(m.date && m.date !== lastDate) {
-      html += `<div style="font-size:10px;font-weight:800;color:var(--text2);letter-spacing:.5px;margin:10px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border);">📅 2026/${m.date}</div>`;
-      lastDate = m.date;
+    const d = m.date||'';
+    const isToday=d===today, isFut=d>today;
+    if(d && d !== lastDate) {
+      const dayLabel = isToday
+        ? (currentLang==='en'?'🔴 TODAY':currentLang==='pt'?'🔴 HOJE':'🔴 今日赛事')
+        : isFut ? `📅 2026/${d}` : `✅ 2026/${d}`;
+      const dayStyle = isToday
+        ? 'font-size:11px;font-weight:900;color:var(--red);letter-spacing:.8px;margin:10px 0 6px;padding:5px 10px;background:rgba(239,68,68,.08);border-radius:6px;border-left:3px solid var(--red);'
+        : 'font-size:10px;font-weight:800;color:var(--text2);letter-spacing:.5px;margin:10px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border);';
+      html += `<div style="${dayStyle}">${dayLabel}</div>`;
+      lastDate = d;
     }
-    html += spCard(t1, t2, false, recorded, currentLang==='zh'?`小组${m.group}`:`${T('group_suffix')}${m.group}`);
+    html += spCard(t1, t2, false, recorded, currentLang==='zh'?`小组${m.group}`:`${T('group_suffix')}${m.group}`, isToday);
   });
 
   el.innerHTML = html || `<div class="empty-state">${currentLang==='en'?'No matches found':currentLang==='pt'?'Nenhum jogo encontrado':'暂无符合条件的场次'}</div>`;
@@ -5788,6 +5858,7 @@ window.renderScoreAnalysis=renderScoreAnalysis;
 window.saSwitch=saSwitch;
 window.saSetGroup=saSetGroup;
 window.saToggleFuture=saToggleFuture;
+window.saSetTime=saSetTime;
 window.renderOdds=renderOdds;
 window.renderEvents=renderEvents;
 window.showOddsModal=showOddsModal;
