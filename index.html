@@ -4819,13 +4819,14 @@ const VENUE_TZ={
   '\u8fbe\u62c9\u65af':-5,'\u4f11\u65af\u987f':-5,'\u582a\u8428\u65af\u57ce':-5,
   '\u58a8\u897f\u54e5\u57ce':-6,'\u8499\u7279\u96f7':-6,'\u74dc\u8fbe\u62c9\u54c8\u62c9':-6,
 };
-// timeStr is local venue time (e.g. "21:00"); utcH may exceed 24 if game runs into next UTC day
+// timeStr is EDT (UTC-4) \u2014 all MATCH_SCHEDULE times stored as Eastern Daylight Time
+// Portugal WEST = UTC+1 = EDT+5; China CST = UTC+8 = EDT+12
 function showDualTime(dateStr,timeStr,city){
   if(!timeStr)return timeStr||'';
-  const off=(city!=null&&VENUE_TZ[city]!=null)?VENUE_TZ[city]:-5;
   const[hhStr,mmStr]=timeStr.split(':');
-  const utcH=parseInt(hhStr)-off; // total UTC hours from local midnight, may exceed 24
-  const ptH=utcH+1, cnH=utcH+8;  // Portugal WEST=UTC+1, China CST=UTC+8
+  const edtH=parseInt(hhStr);
+  const utcH=edtH+4;          // EDT \u2192 UTC
+  const ptH=utcH+1, cnH=utcH+8; // UTC \u2192 Portugal WEST / China CST
   const z2=n=>String(n).padStart(2,'0');
   const ptSfx=ptH>=48?'+2':ptH>=24?'+1':ptH<0?'-1':'';
   const cnSfx=cnH>=48?'+2':cnH>=24?'+1':cnH<0?'-1':'';
@@ -5717,15 +5718,18 @@ function spCard(t1, t2, isKO, recorded, matchDate, isToday, matchTime, matchCtx)
     </div>`;
   }
 
-  // 开球时间：美东(ET) → 北京(+12h)
+  // 开球时间：美东EDT(UTC-4) → 葡萄牙WEST(+5h) → 北京CST(+12h)
   let timeStr = '';
   if (matchTime && !recorded) {
     const [hh, mm] = matchTime.split(':').map(Number);
-    const bjH = (hh + 12) % 24;
-    const bjStr = String(bjH).padStart(2,'0') + ':' + String(mm).padStart(2,'0');
-    const localLabel = zh ? `ET ${matchTime}` : `ET ${matchTime}`;
-    const bjLabel = zh ? `北京 ${bjStr}` : `BJ ${bjStr}`;
-    timeStr = `<span style="font-size:8px;color:var(--text3);margin-left:4px;">⏰ ${localLabel} · ${bjLabel}</span>`;
+    const z2 = n => String(n).padStart(2,'0');
+    const mmStr = z2(mm);
+    const ptRaw = hh + 5,  bjRaw = hh + 12;
+    const ptH = ptRaw % 24, bjH = bjRaw % 24;
+    const ptSfx = ptRaw >= 24 ? '+1' : '', bjSfx = bjRaw >= 24 ? '+1' : '';
+    const ptStr = `${z2(ptH)}:${mmStr}${ptSfx}`;
+    const bjStr = `${z2(bjH)}:${mmStr}${bjSfx}`;
+    timeStr = `<span style="font-size:8px;color:var(--text3);margin-left:4px;">⏰ ET ${matchTime} · 🇵🇹 ${ptStr} · 🇨🇳 ${bjStr}</span>`;
   }
   const dateStr = matchDate ? `<span style="font-size:9px;color:var(--text3);">${matchDate}</span>${timeStr}` : '';
   const cardBorder = isToday && !recorded ? '2px solid var(--red)' : '1px solid var(--border)';
