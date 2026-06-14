@@ -5548,7 +5548,6 @@ function spCard(t1, t2, isKO, recorded, matchDate, isToday, matchTime, matchCtx)
   let koBlock = '';
   if (isKO && !recorded) {
     const throughProb = pred.pW + pred.pD * 0.5;
-    const zh=currentLang==='zh',en=currentLang==='en';
     koBlock = `<div style="margin-top:5px;padding:5px 8px;border-radius:6px;background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.2);font-size:9px;">
       <span style="color:#a855f7;font-weight:700;">${zh?'⚽ 综合晋级率':en?'⚽ Advance prob.':'⚽ Prob. classificação'}</span>
       <span style="font-size:10px;font-weight:900;color:#a855f7;margin:0 6px;">${(throughProb*100).toFixed(1)}%</span>
