@@ -5661,7 +5661,7 @@ function renderSASummary() {
   const mkLbl = mkCount>0?(zh?`📊 赔率已加载 <b>${mkCount}</b>`:en?`📊 Odds loaded <b>${mkCount}</b>`:`📊 Odds <b>${mkCount}</b>`):'';
 
   banner.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 12px;background:linear-gradient(90deg,rgba(37,99,235,.08),rgba(239,68,68,.06));border:1px solid var(--accent);border-radius:8px;font-size:10px;margin-bottom:10px;align-items:center;">
-    <span style="font-weight:800;color:var(--accent);">${zh?'⚡ 精选推荐':en?'⚡ Today's Picks':'⚡ Seleção'}</span>
+    <span style="font-weight:800;color:var(--accent);">${zh?'⚡ 精选推荐':en?"⚡ Today's Picks":'⚡ Seleção'}</span>
     <span style="color:var(--red);font-weight:700;">${todayLbl}</span>
     <span style="color:var(--text2);">${upLbl}</span>
     <span style="color:var(--accent);">${strongLbl}</span>
