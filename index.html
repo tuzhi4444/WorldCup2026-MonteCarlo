@@ -410,13 +410,13 @@ body {
 
 <!-- ═══ TABS ═══ -->
 <div class="tab-bar" id="tabBar">
-  <button class="tab active" onclick="switchTab('championship',this)">🏆 冠军概率</button>
+  <button class="tab active" onclick="switchTab('history',this)">🎯 比分预测</button>
+  <button class="tab" onclick="switchTab('schedule',this)">📅 赛程</button>
+  <button class="tab" onclick="switchTab('championship',this)">🏆 冠军概率</button>
   <button class="tab" onclick="switchTab('groups',this)">🏟 小组赛</button>
   <button class="tab" onclick="switchTab('bracket',this)">🏆 淘汰赛</button>
   <button class="tab" onclick="switchTab('teams',this)">📊 球队数据</button>
   <button class="tab" onclick="switchTab('analysis',this)">🔬 分析</button>
-  <button class="tab" onclick="switchTab('schedule',this)">📅 赛程</button>
-  <button class="tab" onclick="switchTab('history',this)">🎯 比分预测</button>
   <button class="tab" onclick="switchTab('squads',this)">📋 球队名单</button>
 </div>
 
@@ -424,7 +424,7 @@ body {
 <div class="main">
 
 <!-- ─── TAB: CHAMPIONSHIP ─── -->
-<div class="tab-content active" id="tab-championship">
+<div class="tab-content" id="tab-championship">
   <div class="panel">
     <div class="panel-header">
       <h3 id="champPanelH3">🏆 夺冠概率</h3>
@@ -712,12 +712,13 @@ body {
 </div>
 
 <!-- ─── TAB: PREDICT + HISTORY ─── -->
-<div class="tab-content" id="tab-history">
+<div class="tab-content active" id="tab-history">
   <div class="panel">
     <div class="panel-header"><h3 id="scorePredH3">🎯 比分预测</h3><div style="display:flex;gap:6px;">
       <button class="btn btn-sm sa-tab-btn active" id="groupStageBtn" onclick="saSwitch('group',this)">小组赛</button>
       <button class="btn btn-sm sa-tab-btn" id="knockoutBtn" onclick="saSwitch('ko',this)">淘汰赛</button>
     </div></div>
+    <div id="saSummaryBanner"></div>
     <div id="saContent"></div>
   </div>
   <div class="panel" style="margin-top:12px;display:none;" id="historyPanel">
@@ -1251,7 +1252,7 @@ function applyLangDOM(){
   }
   // Tabs — correct order: championship, groups, bracket, teams, analysis, schedule, history, squads
   const tabs=document.querySelectorAll('.tab');
-  const tabKeys={0:'tab_champ',1:'tab_groups',2:'tab_bracket',3:'tab_teams',4:'tab_analysis',5:'tab_schedule',6:'tab_history',7:'tab_squads'};
+  const tabKeys={0:'tab_history',1:'tab_schedule',2:'tab_champ',3:'tab_groups',4:'tab_bracket',5:'tab_teams',6:'tab_analysis',7:'tab_squads'};
   tabs.forEach((t,i)=>{if(tabKeys[i])t.textContent=T(tabKeys[i]);});
   // Status badge
   const sd=document.getElementById('simStatus');
@@ -2471,7 +2472,7 @@ function switchTab(name,btn) {
     }
     renderRadar();
   }
-  if(name==='history'){renderScoreAnalysis();}
+  if(name==='history'){renderScoreAnalysis();if(!_predAutoFetched){_predAutoFetched=true;setTimeout(fetchLiveScores,300);setTimeout(fetchUpcomingOddsESPN,700);}}
   if(name==='squads'){renderSquads();}
   if(name==='analysis'){
     // populate H2H selects
@@ -2486,6 +2487,7 @@ function switchTab(name,btn) {
   if(name!=='schedule'){_stopCountdown();}
 }
 let _schedAutoFetched=false;
+let _predAutoFetched=false;
 
 // ─── NOTIFY ───
 function notify(msg, type='info') {
@@ -5358,33 +5360,70 @@ function spCard(t1, t2, isKO, recorded, matchDate, isToday) {
   const pw=(pred.pW*100).toFixed(1), pd=(pred.pD*100).toFixed(1), pl=(pred.pL*100).toFixed(1);
   const maxPct = Math.max(pred.pW,pred.pD,pred.pL);
   const favColor = pred.pW===maxPct?'var(--accent)':pred.pL===maxPct?'var(--red)':'var(--text2)';
+  const zh = currentLang==='zh', en = currentLang==='en';
 
-  // Confidence badge (only for future/today matches without recorded result)
+  // ── Market odds integration ──────────────────────────────────────────────
+  // Look up ESPN real-time odds (populated by fetchUpcomingOddsESPN)
+  const mk = liveMatchOdds[t1.name+'|'+t2.name] || liveMatchOdds[t2.name+'|'+t1.name];
+  const mkFlipped = !!(liveMatchOdds[t2.name+'|'+t1.name] && !liveMatchOdds[t1.name+'|'+t2.name]);
+  let marketBlock = '';
+  let valueBadge = '';
+  if (mk && !recorded) {
+    // Convert decimal odds → implied prob (remove vig)
+    const rawH = 1/mk.h, rawD = 1/mk.d, rawA = 1/mk.a;
+    const vig = rawH+rawD+rawA;
+    const mkH = mkFlipped ? rawA/vig : rawH/vig;  // swap if lookup was reversed
+    const mkD = rawD/vig;
+    const mkA = mkFlipped ? rawH/vig : rawA/vig;
+    const mkHOdds = mkFlipped ? mk.a : mk.h;
+    const mkAOdds = mkFlipped ? mk.h : mk.a;
+
+    // Value detection: model vs market (threshold ≥10%)
+    const valH = pred.pW - mkH, valA = pred.pL - mkA;
+    const hasVal = Math.abs(valH)>=0.10 || Math.abs(valA)>=0.10;
+    const valTeam = Math.abs(valH)>=Math.abs(valA) ? (valH>0?TN(t1.name):TN(t2.name)) : (valA>0?TN(t2.name):TN(t1.name));
+    const valDiff = Math.max(Math.abs(valH),Math.abs(valA));
+    if (hasVal) {
+      const sign = (valH>=0.10||valA>=0.10)?'+':'';
+      valueBadge = `<span style="display:inline-block;padding:2px 7px;border-radius:99px;background:rgba(251,191,36,.15);border:1px solid #f59e0b;color:#d97706;font-size:9px;font-weight:800;">💰 ${zh?'价值盘':en?'Value Bet':'Valor'} ${valTeam} ${sign}${(valDiff*100).toFixed(0)}%</span>`;
+    }
+
+    const mH=(mkH*100).toFixed(0), mD=(mkD*100).toFixed(0), mA=(mkA*100).toFixed(0);
+    marketBlock = `<div style="margin:5px 0 0;padding:6px 8px;border-radius:7px;background:rgba(251,191,36,.07);border:1px solid rgba(251,191,36,.3);">
+      <div style="font-size:8px;color:#d97706;font-weight:700;margin-bottom:3px;">📊 ${zh?'市场赔率 (ESPN/DK)':en?'Market Odds (ESPN/DK)':'Odds de Mercado'} · ${zh?'隐含概率':en?'Implied':'Implícito'}</div>
+      <div style="display:flex;justify-content:space-between;font-size:9px;">
+        <span style="color:var(--accent);">${getFlag(t1.name)} <b>${mkHOdds.toFixed(2)}</b> <span style="color:var(--text2);">(${mH}%)</span></span>
+        <span style="color:var(--text2);"><b>${mk.d.toFixed(2)}</b> (${mD}%)</span>
+        <span style="color:var(--red);">${getFlag(t2.name)} <b>${mkAOdds.toFixed(2)}</b> <span style="color:var(--text2);">(${mA}%)</span></span>
+      </div>
+    </div>`;
+  }
+
+  // ── Confidence badge (only for future matches without result) ────────────
   let confBadge = '';
   if (!recorded) {
-    const zh = currentLang==='zh', en = currentLang==='en';
     if (pred.pW >= 0.65) {
       const label = zh?`强推 ${TN(t1.name)}`:en?`Back ${TN(t1.name)}`:`Favorito ${TN(t1.name)}`;
-      confBadge = `<span style="display:inline-block;padding:2px 7px;border-radius:99px;background:rgba(37,99,235,.15);border:1px solid var(--accent);color:var(--accent);font-size:9px;font-weight:800;margin-bottom:4px;">🔥 ${label}</span>`;
+      confBadge = `<span style="display:inline-block;padding:2px 7px;border-radius:99px;background:rgba(37,99,235,.15);border:1px solid var(--accent);color:var(--accent);font-size:9px;font-weight:800;">🔥 ${label}</span>`;
     } else if (pred.pL >= 0.65) {
       const label = zh?`强推 ${TN(t2.name)}`:en?`Back ${TN(t2.name)}`:`Favorito ${TN(t2.name)}`;
-      confBadge = `<span style="display:inline-block;padding:2px 7px;border-radius:99px;background:rgba(239,68,68,.12);border:1px solid var(--red);color:var(--red);font-size:9px;font-weight:800;margin-bottom:4px;">🔥 ${label}</span>`;
+      confBadge = `<span style="display:inline-block;padding:2px 7px;border-radius:99px;background:rgba(239,68,68,.12);border:1px solid var(--red);color:var(--red);font-size:9px;font-weight:800;">🔥 ${label}</span>`;
     } else if (pred.pW >= 0.52) {
       const label = zh?`看好 ${TN(t1.name)}`:en?`Lean ${TN(t1.name)}`:`Tendência ${TN(t1.name)}`;
-      confBadge = `<span style="display:inline-block;padding:2px 7px;border-radius:99px;background:rgba(37,99,235,.08);border:1px solid var(--border);color:var(--accent);font-size:9px;font-weight:700;margin-bottom:4px;">👍 ${label}</span>`;
+      confBadge = `<span style="display:inline-block;padding:2px 7px;border-radius:99px;background:rgba(37,99,235,.08);border:1px solid var(--border);color:var(--accent);font-size:9px;font-weight:700;">👍 ${label}</span>`;
     } else if (pred.pL >= 0.52) {
       const label = zh?`看好 ${TN(t2.name)}`:en?`Lean ${TN(t2.name)}`:`Tendência ${TN(t2.name)}`;
-      confBadge = `<span style="display:inline-block;padding:2px 7px;border-radius:99px;background:rgba(239,68,68,.08);border:1px solid var(--border);color:var(--red);font-size:9px;font-weight:700;margin-bottom:4px;">👍 ${label}</span>`;
+      confBadge = `<span style="display:inline-block;padding:2px 7px;border-radius:99px;background:rgba(239,68,68,.08);border:1px solid var(--border);color:var(--red);font-size:9px;font-weight:700;">👍 ${label}</span>`;
     } else {
       const label = zh?'胜负难料':en?'Toss-up':'Equilíbrio';
-      confBadge = `<span style="display:inline-block;padding:2px 7px;border-radius:99px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-size:9px;font-weight:600;margin-bottom:4px;">⚖️ ${label}</span>`;
+      confBadge = `<span style="display:inline-block;padding:2px 7px;border-radius:99px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-size:9px;font-weight:600;">⚖️ ${label}</span>`;
     }
   }
 
-  // Probability bar segments
+  // ── Probability bar ─────────────────────────────────────────────────────
   const barW=Math.round(pred.pW*100), barD=Math.round(pred.pD*100), barL=100-barW-barD;
 
-  // Top 5 scorelines
+  // ── Top scorelines ──────────────────────────────────────────────────────
   const scoreChips = pred.top.map((s,i)=>{
     const isRec = recorded&&s.s1===recorded.score1&&s.s2===recorded.score2;
     return `<span style="display:inline-flex;align-items:center;gap:2px;padding:2px 6px;border-radius:8px;
@@ -5395,7 +5434,7 @@ function spCard(t1, t2, isKO, recorded, matchDate, isToday) {
     </span>`;
   }).join('');
 
-  // Recorded result
+  // ── Recorded result ────────────────────────────────────────────────────
   let recBlock = '';
   if (recorded) {
     const hit = checkPredictionHit(pred, recorded);
@@ -5413,9 +5452,9 @@ function spCard(t1, t2, isKO, recorded, matchDate, isToday) {
   const cardBg = isToday && !recorded ? 'background:rgba(239,68,68,.04)' : 'background:var(--bg2)';
 
   return `<div style="${cardBg};border:${cardBorder};border-radius:10px;padding:10px 12px;margin-bottom:8px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+    <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:4px;margin-bottom:2px;">
       ${dateStr}
-      ${confBadge}
+      <div style="display:flex;gap:4px;flex-wrap:wrap;">${confBadge}${valueBadge}</div>
     </div>
     <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;margin:4px 0;">
       <div style="text-align:right;">
@@ -5442,6 +5481,7 @@ function spCard(t1, t2, isKO, recorded, matchDate, isToday) {
       <span style="color:var(--red,#ef4444);font-weight:600;">${pl}% ${T('loss_stat')}</span>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:3px;">${scoreChips}</div>
+    ${marketBlock}
     ${recBlock}
   </div>`;
 }
@@ -5449,7 +5489,51 @@ function spCard(t1, t2, isKO, recorded, matchDate, isToday) {
 function renderScoreAnalysis() {
   const el = document.getElementById('saContent');
   if (!el) return;
+  renderSASummary();
   saMode === 'group' ? renderSAGroup(el) : renderSAKO(el);
+}
+
+function renderSASummary() {
+  const banner = document.getElementById('saSummaryBanner');
+  if (!banner) return;
+  const zh = currentLang==='zh', en = currentLang==='en';
+  const today = _todayMMDD();
+  const schedGroup = MATCH_SCHEDULE.filter(m => m.group !== 'KO' && m.home !== 'TBD' && m.away !== 'TBD');
+  const todayMatches = schedGroup.filter(m => m.date===today);
+  const upcomingMatches = schedGroup.filter(m => {
+    const rec = matchResults.find(r=>(r.t1===m.home&&r.t2===m.away)||(r.t1===m.away&&r.t2===m.home));
+    return m.date>=today && !rec;
+  });
+
+  // Count confidence on upcoming matches
+  let strong=0, lean=0;
+  upcomingMatches.slice(0,20).forEach(m => {
+    const t1=teams.find(t=>t.name===m.home), t2=teams.find(t=>t.name===m.away);
+    if(!t1||!t2) return;
+    const pred=predictScore(t1,t2,false);
+    if(pred.pW>=0.65||pred.pL>=0.65) strong++;
+    else if(pred.pW>=0.52||pred.pL>=0.52) lean++;
+  });
+
+  // Count market odds available
+  const mkCount = upcomingMatches.filter(m=>liveMatchOdds[m.home+'|'+m.away]||liveMatchOdds[m.away+'|'+m.home]).length;
+
+  if (todayMatches.length===0 && upcomingMatches.length===0) { banner.innerHTML=''; return; }
+
+  const todayLbl = zh?`今日 <b>${todayMatches.length}</b> 场`:en?`Today <b>${todayMatches.length}</b> matches`:`Hoje <b>${todayMatches.length}</b> jogos`;
+  const upLbl = zh?`待赛 <b>${upcomingMatches.length}</b> 场`:en?`Upcoming <b>${upcomingMatches.length}</b>`:` <b>${upcomingMatches.length}</b> próximos`;
+  const strongLbl = zh?`🔥 强推 <b>${strong}</b>`:en?`🔥 Strong picks <b>${strong}</b>`:` 🔥 Fortes <b>${strong}</b>`;
+  const leanLbl = zh?`👍 看好 <b>${lean}</b>`:en?`👍 Lean <b>${lean}</b>`:` 👍 Tendência <b>${lean}</b>`;
+  const mkLbl = mkCount>0?(zh?`📊 赔率已加载 <b>${mkCount}</b>`:en?`📊 Odds loaded <b>${mkCount}</b>`:`📊 Odds <b>${mkCount}</b>`):'';
+
+  banner.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 12px;background:linear-gradient(90deg,rgba(37,99,235,.08),rgba(239,68,68,.06));border:1px solid var(--accent);border-radius:8px;font-size:10px;margin-bottom:10px;align-items:center;">
+    <span style="font-weight:800;color:var(--accent);">${zh?'⚡ 精选推荐':en?'⚡ Today's Picks':'⚡ Seleção'}</span>
+    <span style="color:var(--red);font-weight:700;">${todayLbl}</span>
+    <span style="color:var(--text2);">${upLbl}</span>
+    <span style="color:var(--accent);">${strongLbl}</span>
+    <span style="color:var(--text2);">${leanLbl}</span>
+    ${mkLbl?`<span style="color:#d97706;">${mkLbl}</span>`:''}
+  </div>`;
 }
 
 function renderSAGroup(el) {
@@ -5684,13 +5768,13 @@ function showTeam(name) {
   document.getElementById('teamModal').classList.add('active');
 }
 function closeModal(){document.getElementById('teamModal').classList.remove('active');}
-function quickEdit(name){closeModal();document.getElementById('editorTeam').value=name;renderEditor();switchTab('teams',document.querySelectorAll('.tab')[3]);}
+function quickEdit(name){closeModal();document.getElementById('editorTeam').value=name;renderEditor();switchTab('teams',document.querySelector(".tab[onclick*=\"'teams'\"]"));}
 function quickRadar(name){
   closeModal();
   for(let i=1;i<=3;i++){const sel=document.getElementById('radarT'+i);if(sel&&!sel.value){sel.value=name;break;}}
-  renderRadar();switchTab('teams',document.querySelectorAll('.tab')[3]);
+  renderRadar();switchTab('teams',document.querySelector(".tab[onclick*=\"'teams'\"]"));
 }
-function quickPredict(name){closeModal();document.getElementById('matchT1').value=name;predictMatch();switchTab('analysis',document.querySelectorAll('.tab')[4]);}
+function quickPredict(name){closeModal();document.getElementById('matchT1').value=name;predictMatch();switchTab('analysis',document.querySelector(".tab[onclick*=\"'analysis'\"]"));}
 
 // ─── SCENARIOS ───
 function applyScenario() {
@@ -5771,6 +5855,9 @@ function init() {
   // Auto-start score refresh if keys are present
   if(scoreApiKeys.odds || scoreApiKeys.football) startScoreAutoRefresh();
   renderScoreAnalysis();
+  // Auto-fetch odds for prediction tab on first load
+  setTimeout(fetchLiveScores, 600);
+  setTimeout(fetchUpcomingOddsESPN, 1200);
 }
 // ─── EXPORT FOR ONCLICK HANDLERS ───
 window.runSim=runSim;
