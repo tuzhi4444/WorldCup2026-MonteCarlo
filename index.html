@@ -4765,7 +4765,11 @@ function renderSchedule() {
     if(schedDateFilter!=='ALL'&&(m.date<dr.from||m.date>dr.to)) return false;
     return true;
   });
-  filtered.sort((a,b)=>a.date.localeCompare(b.date)||a.id-b.id);
+  filtered.sort((a,b)=>{
+    const da=a.date+(a.time?'T'+a.time:'T00:00');
+    const db=b.date+(b.time?'T'+b.time:'T00:00');
+    return da.localeCompare(db)||a.id-b.id;
+  });
   filtered.forEach(m=>{
     const result=matchResults.find(r=>(r.t1===m.home&&r.t2===m.away)||(r.t1===m.away&&r.t2===m.home));
     const isCompleted=!!result;
@@ -4775,10 +4779,21 @@ function renderSchedule() {
     const isToday=m.date===now.toISOString().slice(0,10);
     const needsResult=isPast&&!isCompleted&&m.home!=='TBD'&&m.away!=='TBD'&&!isKO;
     const tz=showDualTime(m.date,m.time,m.city);
+    // Compute PT primary date (advances when EDT time + 5h crosses midnight)
+    let ptPrimaryDate = m.date.slice(5); // default: EDT date
+    if(m.time){
+      const edtHH=parseInt(m.time.split(':')[0]);
+      const ptRaw=edtHH+4+1; // EDT→UTC→PT
+      if(ptRaw>=24){
+        const y=parseInt(m.date.slice(0,4)),mo=parseInt(m.date.slice(5,7)),d=parseInt(m.date.slice(8,10));
+        const dt=new Date(y,mo-1,d); dt.setDate(dt.getDate()+1);
+        ptPrimaryDate=String(dt.getMonth()+1).padStart(2,'0')+'/'+String(dt.getDate()).padStart(2,'0');
+      }
+    }
     const borderStyle=needsResult?'border-left:3px solid var(--orange,#f97316);':isKO?'border-left:3px solid var(--gold);':'';
     html+=`<div class="sched-card${isCompleted?' completed':''}" style="${borderStyle}">
       <div style="display:flex;flex-direction:column;min-width:52px;">
-        <span class="sc-date">${m.date.slice(5)}</span>
+        <span class="sc-date">${ptPrimaryDate} 🇵🇹</span>
         <span style="font-size:8px;color:var(--text3);">${tz}</span>
       </div>
       <span class="sc-group">${isKO?m.md:(currentLang==='zh'?m.group+'\u7ec4 R':('Grp '+m.group+' R'))+m.md}</span>
@@ -4826,11 +4841,19 @@ function showDualTime(dateStr,timeStr,city){
   const[hhStr,mmStr]=timeStr.split(':');
   const edtH=parseInt(hhStr);
   const utcH=edtH+4;          // EDT \u2192 UTC
-  const ptH=utcH+1, cnH=utcH+8; // UTC \u2192 Portugal WEST / China CST
+  const ptRaw=utcH+1, cnRaw=utcH+8; // UTC \u2192 Portugal WEST / China CST
   const z2=n=>String(n).padStart(2,'0');
-  const ptSfx=ptH>=48?'+2':ptH>=24?'+1':ptH<0?'-1':'';
-  const cnSfx=cnH>=48?'+2':cnH>=24?'+1':cnH<0?'-1':'';
-  return z2(ptH%24)+':'+mmStr+ptSfx+' \ud83c\uddf5\ud83c\uddf9 / '+z2(cnH%24)+':'+mmStr+cnSfx+' \ud83c\udde8\ud83c\uddf3';
+  function addDays(ds,days){
+    // ds format: "2026-06/15"
+    const y=parseInt(ds.slice(0,4)),mo=parseInt(ds.slice(5,7)),d=parseInt(ds.slice(8,10));
+    const dt=new Date(y,mo-1,d); dt.setDate(dt.getDate()+days);
+    return z2(dt.getMonth()+1)+'/'+z2(dt.getDate());
+  }
+  const ptDays=ptRaw>=48?2:ptRaw>=24?1:0;
+  const cnDays=cnRaw>=48?2:cnRaw>=24?1:0;
+  const ptDatePfx=(ptDays>0&&dateStr)?addDays(dateStr,ptDays)+' ':'';
+  const cnDatePfx=(cnDays>0&&dateStr)?addDays(dateStr,cnDays)+' ':'';
+  return ptDatePfx+z2(ptRaw%24)+':'+mmStr+' \ud83c\uddf5\ud83c\uddf9 / '+cnDatePfx+z2(cnRaw%24)+':'+mmStr+' \ud83c\udde8\ud83c\uddf3';
 }
 
 function updateEntryGroup() {
@@ -5724,11 +5747,21 @@ function spCard(t1, t2, isKO, recorded, matchDate, isToday, matchTime, matchCtx)
     const [hh, mm] = matchTime.split(':').map(Number);
     const z2 = n => String(n).padStart(2,'0');
     const mmStr = z2(mm);
-    const ptRaw = hh + 5,  bjRaw = hh + 12;
+    const ptRaw = hh + 5, bjRaw = hh + 12;
     const ptH = ptRaw % 24, bjH = bjRaw % 24;
-    const ptSfx = ptRaw >= 24 ? '+1' : '', bjSfx = bjRaw >= 24 ? '+1' : '';
-    const ptStr = `${z2(ptH)}:${mmStr}${ptSfx}`;
-    const bjStr = `${z2(bjH)}:${mmStr}${bjSfx}`;
+    function nextDateLabel(baseDateStr, days) {
+      if(!baseDateStr || days===0) return '';
+      const y=parseInt(baseDateStr.slice(0,4)),mo=parseInt(baseDateStr.slice(5,7)),d=parseInt(baseDateStr.slice(8,10));
+      const dt=new Date(y,mo-1,d); dt.setDate(dt.getDate()+days);
+      return z2(dt.getMonth()+1)+'/'+z2(dt.getDate())+' ';
+    }
+    const baseDate = (matchCtx&&matchCtx.date) ? matchCtx.date : '';
+    const ptDays = ptRaw>=48?2:ptRaw>=24?1:0;
+    const bjDays = bjRaw>=48?2:bjRaw>=24?1:0;
+    const ptDatePfx = nextDateLabel(baseDate, ptDays);
+    const bjDatePfx = nextDateLabel(baseDate, bjDays);
+    const ptStr = `${ptDatePfx}${z2(ptH)}:${mmStr}`;
+    const bjStr = `${bjDatePfx}${z2(bjH)}:${mmStr}`;
     timeStr = `<span style="font-size:8px;color:var(--text3);margin-left:4px;">⏰ ET ${matchTime} · 🇵🇹 ${ptStr} · 🇨🇳 ${bjStr}</span>`;
   }
   const dateStr = matchDate ? `<span style="font-size:9px;color:var(--text3);">${matchDate}</span>${timeStr}` : '';
@@ -5831,6 +5864,8 @@ function renderSAGroup(el) {
   const schedGroup = MATCH_SCHEDULE.filter(m => m.group !== 'KO' && m.home !== 'TBD' && m.away !== 'TBD');
   if (!schedGroup.length) { el.innerHTML=`<div class="empty-state">${T('run_first')}</div>`; return; }
   const today = _todayMMDD();
+  // Full date string for current day, matching m.date format "2026-MM/DD"
+  const todayFull = '2026-' + today;
 
   // Accuracy stats (only finished matches)
   let total=0, resultHits=0, exactHits=0, top1Hits=0;
@@ -5916,14 +5951,15 @@ function renderSAGroup(el) {
     return true; // ALL
   });
 
-  // Sort: upcoming (ascending) first, then past (newest first)
+  // Sort by date+time chronologically; today's matches first (asc), then future (asc), then past (desc)
   filtered.sort((a,b)=>{
-    const da=a.date||'99/99', db=b.date||'99/99';
-    const aFut=da>=today, bFut=db>=today;
+    const da=a.date||'9999', db=b.date||'9999';
+    const ta=a.time||'00:00', tb=b.time||'00:00';
+    const aFut=da>=todayFull, bFut=db>=todayFull;
     if(aFut&&!bFut) return -1;
     if(!aFut&&bFut) return 1;
-    if(aFut&&bFut) return da<db?-1:da>db?1:0;
-    return da>db?-1:da<db?1:0;
+    if(aFut&&bFut) return da!==db ? da.localeCompare(db) : ta.localeCompare(tb);
+    return da!==db ? db.localeCompare(da) : tb.localeCompare(ta);
   });
 
   // Render cards grouped by date
@@ -5946,7 +5982,7 @@ function renderSAGroup(el) {
       html += `<div style="${dayStyle}">${dayLabel}</div>`;
       lastDate = d;
     }
-    html += spCard(t1, t2, false, recorded, currentLang==='zh'?`小组${m.group}`:`${T('group_suffix')}${m.group}`, isToday, m.time, {md:m.md, group:m.group});
+    html += spCard(t1, t2, false, recorded, currentLang==='zh'?`小组${m.group}`:`${T('group_suffix')}${m.group}`, isToday, m.time, {md:m.md, group:m.group, date:m.date});
   });
 
   el.innerHTML = html || `<div class="empty-state">${currentLang==='en'?'No matches found':currentLang==='pt'?'Nenhum jogo encontrado':'暂无符合条件的场次'}</div>`;
@@ -6033,7 +6069,7 @@ function renderSAKO(el) {
       const rec=matchResults.find(r=>(r.t1===t1.name&&r.t2===t2.name)||(r.t1===t2.name&&r.t2===t1.name));
       if(saFutureOnly&&rec) return;
       const recorded=rec?{score1:rec.t1===t1.name?rec.score1:rec.score2,score2:rec.t1===t1.name?rec.score2:rec.score1}:null;
-      sectionHtml+=spCard(t1,t2,true,recorded,m.date||'',false,m.time);
+      sectionHtml+=spCard(t1,t2,true,recorded,m.date||'',false,m.time,{date:m.date});
     });
     if(!sectionHtml&&!tbdCount) return;
     html+=`<div style="font-size:10px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border);">${label}</div>`;
