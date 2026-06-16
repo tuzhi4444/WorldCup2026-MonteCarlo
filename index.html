@@ -2476,7 +2476,7 @@ function switchTab(name,btn) {
     }
     renderRadar();
   }
-  if(name==='history'){renderScoreAnalysis();if(!_predAutoFetched){_predAutoFetched=true;setTimeout(fetchLiveScores,300);setTimeout(fetchUpcomingOddsESPN,700);}}
+  if(name==='history'){renderScoreAnalysis();if(!_predAutoFetched){_predAutoFetched=true;setTimeout(fetchLiveScores,300);setTimeout(fetchUpcomingOddsESPN,700);setTimeout(fetchMatchHandicaps,1200);}}
   if(name==='squads'){renderSquads();}
   if(name==='analysis'){
     // populate H2H selects
@@ -2781,8 +2781,68 @@ const TEAM_EN_TO_ZH = {
 // ─── LIVE ODDS STATE ───
 let liveOddsData = null;  // raw fetched odds
 let liveMatchOdds = {};   // key: "home|away" → {h,d,a} decimal odds, ts: timestamp
+let liveMatchHandicaps = {};  // key: "home|away" → [{line, homeOdds, awayOdds, bookmaker}]
+let liveHandicapUpdated = null;
 let liveOddsUpdated = null; // timestamp of last fetch
-let oddsApiKey = localStorage.getItem('wc2026_odds_api_key') || '';
+let oddsApiKey = localStorage.getItem('wc2026_odds_api_key') || '08f4cf0c0c1f4858ffc0ed35ea524d51';
+
+// ─── FETCH MATCH HANDICAP ODDS (Asian Handicap / spreads) ───────────────────
+async function fetchMatchHandicaps() {
+  const key = oddsApiKey;
+  if (!key) return;
+  const sportKey = 'soccer_fifa_world_cup';
+  const url = `https://api.the-odds-api.com/v4/sports/${sportKey}/odds/?apiKey=${key}&regions=eu,uk,us,au&markets=spreads,h2h&oddsFormat=decimal`;
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) return;
+    const events = await resp.json();
+    if (!Array.isArray(events)) return;
+    const newHcap = {};
+    const newH2h = {};
+    events.forEach(ev => {
+      // Match team names to our internal names
+      const enHome = ev.home_team, enAway = ev.away_team;
+      const zhHome = TEAM_EN_TO_ZH[enHome] || enHome;
+      const zhAway = TEAM_EN_TO_ZH[enAway] || enAway;
+      const key2 = zhHome + '|' + zhAway;
+      const spreadsPerBm = [], h2hPerBm = [];
+      (ev.bookmakers || []).forEach(bm => {
+        (bm.markets || []).forEach(mkt => {
+          if (mkt.key === 'spreads') {
+            (mkt.outcomes || []).forEach(o => {
+              const isHome = o.name === enHome || TEAM_EN_TO_ZH[o.name] === zhHome;
+              if (isHome) {
+                spreadsPerBm.push({ line: o.point, homeOdds: o.price, bookmaker: bm.title });
+              }
+            });
+          }
+          if (mkt.key === 'h2h') {
+            const hO = mkt.outcomes?.find(o => o.name === enHome || TEAM_EN_TO_ZH[o.name] === zhHome);
+            const dO = mkt.outcomes?.find(o => o.name === 'Draw');
+            const aO = mkt.outcomes?.find(o => o.name === enAway || TEAM_EN_TO_ZH[o.name] === zhAway);
+            if (hO && aO) h2hPerBm.push({ h: hO.price, d: dO?.price || 3.5, a: aO.price, bookmaker: bm.title });
+          }
+        });
+      });
+      if (spreadsPerBm.length) newHcap[key2] = spreadsPerBm;
+      if (h2hPerBm.length) newH2h[key2] = h2hPerBm;
+    });
+    // Merge h2h into liveMatchOdds (The Odds API data overwrites ESPN)
+    Object.entries(newH2h).forEach(([k, arr]) => {
+      const avg = (fn) => arr.reduce((s,x) => s + fn(x), 0) / arr.length;
+      liveMatchOdds[k] = { h: avg(x=>x.h), d: avg(x=>x.d), a: avg(x=>x.a), ts: Date.now(), bms: [...new Set(arr.map(x=>x.bookmaker))] };
+    });
+    liveMatchHandicaps = newHcap;
+    liveHandicapUpdated = new Date();
+    const total = Object.keys(newHcap).length;
+    const bms = [...new Set(Object.values(newHcap).flat().map(x=>x.bookmaker))];
+    console.log(`[Handicap] ${total} matches · ${bms.length} bookmakers: ${bms.join(', ')}`);
+    return { total, bms };
+  } catch(e) {
+    console.warn('[Handicap] fetch error:', e);
+    return null;
+  }
+}
 
 function saveApiKey(v) {
   oddsApiKey = v.trim();
@@ -5581,7 +5641,7 @@ function predictScore(t1, t2, isKO) {
     halfDn: _hcapStats(hcapFairLine - 0.5),    // 低半球（无让平）
   };
 
-  return {pW, pD, pL, top: scores.slice(0,5), l1, l2,
+  return {pW, pD, pL, top: scores.slice(0,5), _scores: scores, l1, l2,
           hasMkt, mktH, mktD, mktA,
           pW_model, rp1_model, hcap
          };
@@ -5744,8 +5804,9 @@ function spCard(t1, t2, isKO, recorded, matchDate, isToday, matchTime, matchCtx)
   if (!recorded && pred.hcap) {
     const h = pred.hcap;
     const pct = v => (v*100).toFixed(0)+'%';
+    const pct1 = v => (v*100).toFixed(1)+'%';
     const lineFmt = line => {
-      if (line === 0) return zh ? '主-0 (平局盘)' : en ? 'Pick\'em' : 'Empate';
+      if (line === 0) return zh ? '平局盘' : en ? 'Pick\'em' : 'Empate';
       if (line > 0)  return zh ? `主-${line}` : en ? `Home -${line}` : `Casa -${line}`;
       return zh ? `客-${Math.abs(line)}` : en ? `Away -${Math.abs(line)}` : `Fora -${Math.abs(line)}`;
     };
@@ -5766,10 +5827,69 @@ function spCard(t1, t2, isKO, recorded, matchDate, isToday, matchTime, matchCtx)
       `<span style="color:#22c55e;">${pct(hd.cover)}</span>` +
       ` / <span style="color:var(--red,#ef4444);">${pct(hd.fail)}</span>` +
       `</span>`;
+
+    // Market handicap lines from The Odds API
+    const mktKey = t1.name + '|' + t2.name;
+    const mktLines = liveMatchHandicaps[mktKey] || [];
+    let mktBlock = '';
+    if (mktLines.length) {
+      // Group by line, collect bookmakers and average odds
+      const byLine = {};
+      mktLines.forEach(x => {
+        const k = x.line;
+        if (!byLine[k]) byLine[k] = { odds: [], bms: [] };
+        byLine[k].odds.push(x.homeOdds);
+        byLine[k].bms.push(x.bookmaker);
+      });
+      // Sort lines desc (strongest home handicap first = most negative home line)
+      const sortedLines = Object.keys(byLine).map(Number).sort((a,b)=>b-a);
+      const chips = sortedLines.map(line => {
+        const { odds, bms } = byLine[line];
+        const avgOdds = odds.reduce((s,v)=>s+v,0)/odds.length;
+        // implied prob from market (remove vig: just 1/odds as proxy)
+        const mktImplied = 1 / avgOdds;
+        // model prob for this line from hcap stats
+        const modelStats = pred.hcap ? (() => {
+          let cover=0, push=0, fail=0;
+          (pred._scores||[]).forEach(s => {
+            const gd = s.s1 - s.s2;
+            if(gd > line) cover+=s.p; else if(gd === line) push+=s.p; else fail+=s.p;
+          });
+          return {cover, push, fail};
+        })() : null;
+        const modelCover = modelStats ? modelStats.cover : null;
+        // Edge: model vs market
+        const edge = modelCover !== null ? (modelCover - mktImplied) : null;
+        const edgeStr = edge !== null
+          ? (edge > 0.04 ? `<span style="color:#22c55e;font-weight:700;">+${(edge*100).toFixed(0)}%▲</span>`
+           : edge < -0.04 ? `<span style="color:var(--red,#ef4444);">-${(Math.abs(edge)*100).toFixed(0)}%▼</span>`
+           : `<span style="color:var(--text3);">~平</span>`)
+          : '';
+        const lineLbl = lineFmt(line);
+        const bmAbbr = [...new Set(bms)].map(b => b.replace('Pinnacle','Pin').replace('Bet365','365').replace('DraftKings','DK').replace('BetMGM','MGM').replace('FanDuel','FD').replace('Unibet','Uni').replace('William Hill','WH')).slice(0,3).join('/');
+        return `<div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.05);">
+          <span style="font-weight:700;min-width:52px;color:var(--accent);">${lineLbl}</span>
+          <span style="color:#f59e0b;font-size:10px;">@${avgOdds.toFixed(2)}</span>
+          <span style="color:var(--text3);font-size:9px;">市场隐含 ${pct1(mktImplied)}</span>
+          ${modelCover!==null?`<span style="color:var(--text2);font-size:9px;">模型 ${pct1(modelCover)}</span>`:''}
+          ${edgeStr}
+          <span style="color:var(--text3);font-size:8px;margin-left:auto;">${bmAbbr}</span>
+        </div>`;
+      }).join('');
+      const bmsAll = [...new Set(mktLines.map(x=>x.bookmaker))];
+      mktBlock = `<div style="margin-top:5px;padding:4px 6px;border-radius:5px;background:rgba(251,191,36,.05);border:1px solid rgba(251,191,36,.2);">
+        <div style="font-size:8px;color:#f59e0b;font-weight:700;margin-bottom:3px;">${zh?'📡 市场盘口':en?'📡 Market Lines':'📡 Linhas de Mercado'} · ${bmsAll.length}家博彩</div>
+        ${chips}
+      </div>`;
+    } else if (liveHandicapUpdated) {
+      mktBlock = `<div style="font-size:8px;color:var(--text3);margin-top:3px;">📡 ${zh?'暂无该场次亚盘数据（赛前通常T-3天上线）':en?'No AH market data yet (usually listed 3 days before)':'Sem dados AH ainda'}</div>`;
+    }
+
     hcapBlock = `<div style="margin:5px 0 0;padding:6px 8px;border-radius:7px;background:rgba(14,165,233,.06);border:1px solid rgba(14,165,233,.2);font-size:10px;line-height:1.7;">
       <div style="font-size:9px;color:#38bdf8;font-weight:700;margin-bottom:2px;">${zh?'🎯 让球建议':en?'🎯 Asian Handicap':'🎯 Handicap Asiático'}</div>
       <div>${wholeRow}</div>
       <div style="margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;">${halfRow}</div>
+      ${mktBlock}
     </div>`;
   }
 
