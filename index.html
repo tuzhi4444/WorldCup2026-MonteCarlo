@@ -5951,10 +5951,14 @@ function renderSAGroup(el) {
     return true; // ALL
   });
 
-  // Sort by date+time chronologically; today's matches first (asc), then future (asc), then past (desc)
+  // Sort: ALL → pure chronological asc (past first, today, future last)
+  //       UPCOMING/TODAY → upcoming first (asc), then past most-recent first (desc)
   filtered.sort((a,b)=>{
     const da=a.date||'9999', db=b.date||'9999';
     const ta=a.time||'00:00', tb=b.time||'00:00';
+    if(saTimeFilter==='ALL') {
+      return da!==db ? da.localeCompare(db) : ta.localeCompare(tb);
+    }
     const aFut=da>=todayFull, bFut=db>=todayFull;
     if(aFut&&!bFut) return -1;
     if(!aFut&&bFut) return 1;
@@ -5971,11 +5975,12 @@ function renderSAGroup(el) {
     const rec=matchResults.find(r=>(r.t1===t1.name&&r.t2===t2.name)||(r.t1===t2.name&&r.t2===t1.name));
     const recorded=rec?{score1:rec.t1===t1.name?rec.score1:rec.score2,score2:rec.t1===t1.name?rec.score2:rec.score1}:null;
     const d = m.date||'';
-    const isToday=d===today, isFut=d>today;
+    const isToday=d===todayFull, isFut=d>todayFull;
     if(d && d !== lastDate) {
+      const dLabel = d.slice(5); // "06/15" from "2026-06/15"
       const dayLabel = isToday
         ? (currentLang==='en'?'🔴 TODAY':currentLang==='pt'?'🔴 HOJE':'🔴 今日赛事')
-        : isFut ? `📅 2026/${d}` : `✅ 2026/${d}`;
+        : isFut ? `📅 ${dLabel}` : `✅ ${dLabel}`;
       const dayStyle = isToday
         ? 'font-size:11px;font-weight:900;color:var(--red);letter-spacing:.8px;margin:10px 0 6px;padding:5px 10px;background:rgba(239,68,68,.08);border-radius:6px;border-left:3px solid var(--red);'
         : 'font-size:10px;font-weight:800;color:var(--text2);letter-spacing:.5px;margin:10px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border);';
