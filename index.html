@@ -5791,9 +5791,19 @@ function spCard(t1, t2, isKO, recorded, matchDate, isToday, matchTime, matchCtx)
     const rs1=recorded.score1,rs2=recorded.score2;
     const correct = hit.exactHit?T('exact_hit'):hit.resultHit?T('result_hit'):T('result_miss');
     const correctColor = hit.exactHit?'#a855f7':hit.resultHit?'#16a34a':'var(--red)';
+    let hcapResultStr = '';
+    if (pred.hcap) {
+      const actualGD = rs1 - rs2;
+      const line = pred.hcap.line;
+      const lineFmtR = line===0?(zh?'平局盘':en?'Pick\'em':'Empate'):line>0?(zh?`主-${line}`:en?`Home -${line}`:`Casa -${line}`):(zh?`客-${Math.abs(line)}`:en?`Away -${Math.abs(line)}`:`Fora -${Math.abs(line)}`);
+      const hRes = actualGD>line?(zh?'✅覆盖':en?'✅Cover':'✅Cover'):actualGD===line?(zh?'🔄让平':en?'🔄Push':'🔄Push'):(zh?'❌未覆':en?'❌Fail':'❌Fail');
+      const hCol = actualGD>line?'#22c55e':actualGD===line?'#f59e0b':'var(--red,#ef4444)';
+      hcapResultStr = `<span style="font-size:9px;color:${hCol};margin-left:4px;">${lineFmtR} ${hRes}</span>`;
+    }
     recBlock = `<div style="display:flex;align-items:center;gap:6px;margin-top:4px;padding:4px 8px;border-radius:6px;background:${hit.exactHit?'rgba(168,85,247,.1)':hit.resultHit?'rgba(34,197,94,.1)':'rgba(239,68,68,.08)'};">
       <span style="font-weight:800;font-size:13px;">${rs1} - ${rs2}</span>
       <span style="font-size:9px;font-weight:700;color:${correctColor};">${correct}</span>
+      ${hcapResultStr}
     </div>`;
   }
 
@@ -5926,6 +5936,7 @@ function renderSAGroup(el) {
 
   // Accuracy stats (only finished matches)
   let total=0, resultHits=0, exactHits=0, top1Hits=0;
+  let hcapTotal=0, hcapCovers=0, hcapPushes=0;
   schedGroup.forEach(m => {
     const t1=teams.find(t=>t.name===m.home), t2=teams.find(t=>t.name===m.away);
     if(!t1||!t2) return;
@@ -5933,10 +5944,18 @@ function renderSAGroup(el) {
     if(!rec) return;
     total++;
     const recorded={score1:rec.t1===t1.name?rec.score1:rec.score2,score2:rec.t1===t1.name?rec.score2:rec.score1};
-    const hit=checkPredictionHit(predictScore(t1,t2,false),recorded);
+    const pred=predictScore(t1,t2,false);
+    const hit=checkPredictionHit(pred,recorded);
     if(hit.resultHit) resultHits++;
     if(hit.exactHit) exactHits++;
     if(hit.top1Hit) top1Hits++;
+    if(pred.hcap) {
+      hcapTotal++;
+      const actualGD = recorded.score1 - recorded.score2;
+      const line = pred.hcap.line;
+      if(actualGD > line) hcapCovers++;
+      else if(actualGD === line) hcapPushes++;
+    }
   });
 
   // Build playedData for trend chart
@@ -5982,10 +6001,17 @@ function renderSAGroup(el) {
     const _ra=currentLang==='en'?`Result acc: <b style="color:${rCol}">${rPct}%</b>`:currentLang==='pt'?`Resultado: <b style="color:${rCol}">${rPct}%</b>`:`胜负准确率 <b style="color:${rCol}">${rPct}%</b>`;
     const _t1=currentLang==='en'?`Top-1: <b style="color:${t1col}">${t1pct}%</b> · Top-5: <b style="color:#a855f7">${ePct}%</b>`:currentLang==='pt'?`Top-1: <b style="color:${t1col}">${t1pct}%</b> · Top-5: <b style="color:#a855f7">${ePct}%</b>`:`精准命中 Top-1 <b style="color:${t1col}">${t1pct}%</b> · 扩展 Top-5 <b style="color:#a855f7">${ePct}%</b>`;
     const _calG=(getCalibBaseTotal(false)).toFixed(2);
+    const hcapCovPct = hcapTotal>0 ? (hcapCovers/hcapTotal*100).toFixed(0) : '–';
+    const hcapPushPct = hcapTotal>0 && hcapPushes>0 ? `·让平${(hcapPushes/hcapTotal*100).toFixed(0)}%` : '';
+    const hcapCol = hcapTotal>0 && hcapCovers/hcapTotal>=0.5?'#22c55e':hcapCovers/hcapTotal>=0.4?'var(--accent)':'var(--red,#ef4444)';
+    const _hcap = currentLang==='en'
+      ? `AH Cover: <b style="color:${hcapCol}">${hcapCovPct}%</b>${hcapPushes>0?` · Push ${(hcapPushes/hcapTotal*100).toFixed(0)}%`:''}`
+      : `让球覆盖 <b style="color:${hcapCol}">${hcapCovPct}%</b>${hcapPushPct}`;
     accBanner = `<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;padding:8px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:11px;align-items:center;">
       <span style="color:var(--text2);">${currentLang==='en'?'Graded':'已验证'} <b>${total}</b> ${currentLang==='en'?'matches':currentLang==='pt'?'jogos':'场'}</span>
       <span>${_ra}</span>
       <span>${_t1}</span>
+      ${hcapTotal>0?`<span>${_hcap}</span>`:''}
       <span style="color:var(--text3);font-size:9px;">xG基准 ${_calG}</span>
     </div>`;
     if (total >= 3) {
