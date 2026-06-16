@@ -5818,14 +5818,15 @@ function spCard(t1, t2, isKO, recorded, matchDate, isToday, matchTime, matchCtx)
         (wh.push > 0.005 ? ` · <span style="color:#f59e0b;">${zh?'让平':'Push'} ${pct(wh.push)}</span>` : '') +
         ` · <span style="color:var(--red,#ef4444);">${zh?'未覆':'Fail'} ${pct(wh.fail)}</span>`
       : '';
+    const cvr = zh?'覆':en?'Cov':'Cob', fl = zh?'未覆':en?'Fail':'Fail';
     const halfRow =
       `<span style="color:#94a3b8;font-size:9px;">${lineFmt(h.line+0.5)}: ` +
-      `<span style="color:#22c55e;">${pct(hu.cover)}</span>` +
-      ` / <span style="color:var(--red,#ef4444);">${pct(hu.fail)}</span>` +
+      `<span style="color:#22c55e;">${cvr} ${pct(hu.cover)}</span>` +
+      ` / <span style="color:var(--red,#ef4444);">${fl} ${pct(hu.fail)}</span>` +
       `</span>　` +
       `<span style="color:#94a3b8;font-size:9px;">${lineFmt(h.line-0.5)}: ` +
-      `<span style="color:#22c55e;">${pct(hd.cover)}</span>` +
-      ` / <span style="color:var(--red,#ef4444);">${pct(hd.fail)}</span>` +
+      `<span style="color:#22c55e;">${cvr} ${pct(hd.cover)}</span>` +
+      ` / <span style="color:var(--red,#ef4444);">${fl} ${pct(hd.fail)}</span>` +
       `</span>`;
 
     // Market handicap lines from The Odds API
