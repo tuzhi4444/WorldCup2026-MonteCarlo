@@ -5559,10 +5559,31 @@ function predictScore(t1, t2, isKO) {
     return pw;
   })();
 
+  // ── 让球分析 ────────────────────────────────────────────────────────────────
+  // 基于完整比分分布计算亚盘覆盖概率
+  const expGD = l1 - l2;
+  // 建议让球线：对准到最近的0.5档
+  const hcapFairLine = Math.round(expGD * 2) / 2;
+  function _hcapStats(line) {
+    let cover=0, push=0, fail=0;
+    scores.forEach(s => {
+      const gd = s.s1 - s.s2;
+      if(gd > line) cover+=s.p; else if(gd === line) push+=s.p; else fail+=s.p;
+    });
+    return {cover, push, fail};
+  }
+  // 展示3档：整球线、半球线、另一侧半球线
+  const hcap = {
+    line: hcapFairLine,
+    expGD,
+    whole: _hcapStats(hcapFairLine),           // 整球（有让平）
+    halfUp: _hcapStats(hcapFairLine + 0.5),    // 高半球（无让平）
+    halfDn: _hcapStats(hcapFairLine - 0.5),    // 低半球（无让平）
+  };
+
   return {pW, pD, pL, top: scores.slice(0,5), l1, l2,
           hasMkt, mktH, mktD, mktA,
-          pW_model,  // 纯ELO模型胜率（未融合市场）
-          rp1_model  // 原始ELO概率（调试用）
+          pW_model, rp1_model, hcap
          };
 }
 
@@ -5718,6 +5739,40 @@ function spCard(t1, t2, isKO, recorded, matchDate, isToday, matchTime, matchCtx)
     </span>`;
   }).join('');
 
+  // 让球预测单元
+  let hcapBlock = '';
+  if (!recorded && pred.hcap) {
+    const h = pred.hcap;
+    const pct = v => (v*100).toFixed(0)+'%';
+    const lineFmt = line => {
+      if (line === 0) return zh ? '主-0 (平局盘)' : en ? 'Pick\'em' : 'Empate';
+      if (line > 0)  return zh ? `主-${line}` : en ? `Home -${line}` : `Casa -${line}`;
+      return zh ? `客-${Math.abs(line)}` : en ? `Away -${Math.abs(line)}` : `Fora -${Math.abs(line)}`;
+    };
+    // whole ball line (has push), half-ball lines (no push)
+    const wh = h.whole, hu = h.halfUp, hd = h.halfDn;
+    const wholeRow = h.line % 1 === 0
+      ? `<span style="font-weight:700;color:var(--accent);">${lineFmt(h.line)}</span>　` +
+        `<span style="color:#22c55e;">${zh?'覆盖':'Cover'} ${pct(wh.cover)}</span>` +
+        (wh.push > 0.005 ? ` · <span style="color:#f59e0b;">${zh?'让平':'Push'} ${pct(wh.push)}</span>` : '') +
+        ` · <span style="color:var(--red,#ef4444);">${zh?'未覆':'Fail'} ${pct(wh.fail)}</span>`
+      : '';
+    const halfRow =
+      `<span style="color:#94a3b8;font-size:9px;">${lineFmt(h.line+0.5)}: ` +
+      `<span style="color:#22c55e;">${pct(hu.cover)}</span>` +
+      ` / <span style="color:var(--red,#ef4444);">${pct(hu.fail)}</span>` +
+      `</span>　` +
+      `<span style="color:#94a3b8;font-size:9px;">${lineFmt(h.line-0.5)}: ` +
+      `<span style="color:#22c55e;">${pct(hd.cover)}</span>` +
+      ` / <span style="color:var(--red,#ef4444);">${pct(hd.fail)}</span>` +
+      `</span>`;
+    hcapBlock = `<div style="margin:5px 0 0;padding:6px 8px;border-radius:7px;background:rgba(14,165,233,.06);border:1px solid rgba(14,165,233,.2);font-size:10px;line-height:1.7;">
+      <div style="font-size:9px;color:#38bdf8;font-weight:700;margin-bottom:2px;">${zh?'🎯 让球建议':en?'🎯 Asian Handicap':'🎯 Handicap Asiático'}</div>
+      <div>${wholeRow}</div>
+      <div style="margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;">${halfRow}</div>
+    </div>`;
+  }
+
   // KO 晋级概率（含加时/点球）
   let koBlock = '';
   if (isKO && !recorded) {
@@ -5802,6 +5857,7 @@ function spCard(t1, t2, isKO, recorded, matchDate, isToday, matchTime, matchCtx)
     <div style="display:flex;flex-wrap:wrap;gap:3px;">${scoreChips}</div>
     ${absToggle}
     ${marketBlock}
+    ${hcapBlock}
     ${koBlock}
     ${recBlock}
   </div>`;
