@@ -5942,12 +5942,12 @@ function renderSAGroup(el) {
   const activeG = saGroupFilter==='ALL' ? ALL_GROUPS : [saGroupFilter];
   let filtered = schedGroup.filter(m => activeG.includes(m.group));
 
-  // Apply time filter
+  // Apply time filter (compare using full "2026-MM/DD" format)
   filtered = filtered.filter(m => {
-    const d = m.date||'99/99';
+    const d = m.date||'9999';
     const rec = matchResults.find(r=>(r.t1===m.home&&r.t2===m.away)||(r.t1===m.away&&r.t2===m.home));
-    if (saTimeFilter==='TODAY') return d===today;
-    if (saTimeFilter==='UPCOMING') return d>=today && !rec;
+    if (saTimeFilter==='TODAY') return d===todayFull;
+    if (saTimeFilter==='UPCOMING') return d>=todayFull && !rec;
     return true; // ALL
   });
 
