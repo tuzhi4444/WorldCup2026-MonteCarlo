@@ -5923,13 +5923,11 @@ function renderSAGroup(el) {
     const t1pct=(top1Hits/total*100).toFixed(0);
     const t1col=top1Hits/total>=0.2?'#22c55e':top1Hits/total>=0.12?'var(--accent)':'var(--red)';
     const _ra=currentLang==='en'?`Result acc: <b style="color:${rCol}">${rPct}%</b>`:currentLang==='pt'?`Resultado: <b style="color:${rCol}">${rPct}%</b>`:`胜负准确率 <b style="color:${rCol}">${rPct}%</b>`;
-    const _ea=currentLang==='en'?`Top-5 exact: <b style="color:#a855f7">${ePct}%</b>`:currentLang==='pt'?`Top-5 exato: <b style="color:#a855f7">${ePct}%</b>`:`前5比分命中 <b style="color:#a855f7">${ePct}%</b>`;
-    const _t1=currentLang==='en'?`Top-1 exact: <b style="color:${t1col}">${t1pct}%</b>`:currentLang==='pt'?`Top-1 exato: <b style="color:${t1col}">${t1pct}%</b>`:`最佳比分命中 <b style="color:${t1col}">${t1pct}%</b>`;
+    const _t1=currentLang==='en'?`Top-1: <b style="color:${t1col}">${t1pct}%</b> · Top-5: <b style="color:#a855f7">${ePct}%</b>`:currentLang==='pt'?`Top-1: <b style="color:${t1col}">${t1pct}%</b> · Top-5: <b style="color:#a855f7">${ePct}%</b>`:`精准命中 Top-1 <b style="color:${t1col}">${t1pct}%</b> · 扩展 Top-5 <b style="color:#a855f7">${ePct}%</b>`;
     const _calG=(getCalibBaseTotal(false)).toFixed(2);
     accBanner = `<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;padding:8px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:11px;align-items:center;">
       <span style="color:var(--text2);">${currentLang==='en'?'Graded':'已验证'} <b>${total}</b> ${currentLang==='en'?'matches':currentLang==='pt'?'jogos':'场'}</span>
       <span>${_ra}</span>
-      <span>${_ea}</span>
       <span>${_t1}</span>
       <span style="color:var(--text3);font-size:9px;">xG基准 ${_calG}</span>
     </div>`;
