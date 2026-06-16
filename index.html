@@ -5473,14 +5473,60 @@ function _todayMMDD() {
 
 /* ── Improved prediction model ── */
 function calcRecentForm(teamName) {
-  // Last 3 recorded matches → win multiplier 1.0–1.12
+  // Last 3 WC matches: win+5%, draw±0, loss-5% (max ±15%)
   const recent = [...matchResults].filter(m => m.t1===teamName||m.t2===teamName).slice(-3);
-  let w=0;
+  let score = 0;
   recent.forEach(m => {
-    const home=m.t1===teamName, gs=home?m.score1:m.score2, gc=home?m.score2:m.score1;
-    if(gs>gc) w++;
+    const home = m.t1===teamName;
+    const gs = home ? m.score1 : m.score2, gc = home ? m.score2 : m.score1;
+    if (gs > gc) score += 1;
+    else if (gs < gc) score -= 1;
+    // draw = 0
   });
-  return 1 + w*0.025;
+  return 1 + score * 0.05;  // range 0.85–1.15
+}
+
+// Rest days between a team's previous WC match and the upcoming one
+function calcRestDaysFactor(teamName, matchDateStr) {
+  if (!matchDateStr) return 1.0;
+  // matchDateStr format: "2026-06/18"
+  const parseMatchDate = ds => {
+    if (!ds) return null;
+    // "2026-06/18" → year=2026, mm=06, dd=18
+    const y = parseInt(ds.slice(0,4)), rest = ds.slice(5); // "06/18"
+    const [mm, dd] = rest.split('/').map(Number);
+    return new Date(y, mm-1, dd);
+  };
+  const upcoming = parseMatchDate(matchDateStr);
+  if (!upcoming) return 1.0;
+  // Find team's previous match date from MATCH_SCHEDULE (recorded matches only)
+  let prevDate = null;
+  MATCH_SCHEDULE.forEach(m => {
+    if (m.home !== teamName && m.away !== teamName) return;
+    if (!m.date || m.date >= matchDateStr) return;
+    const rec = matchResults.find(r=>(r.t1===m.home&&r.t2===m.away)||(r.t1===m.away&&r.t2===m.home));
+    if (!rec) return;
+    const d = parseMatchDate(m.date);
+    if (!prevDate || d > prevDate) prevDate = d;
+  });
+  if (!prevDate) return 1.0;
+  const days = Math.round((upcoming - prevDate) / 86400000);
+  if (days <= 3) return 0.94;   // fatigue: very short rest
+  if (days === 4) return 0.97;  // some fatigue
+  if (days >= 8) return 0.98;   // slight rust after long break
+  return 1.0;  // 5-7 days = optimal
+}
+
+// Altitude penalty for non-acclimatized teams playing in high-altitude venues
+const VENUE_ALTITUDE = { '墨西哥城':2240, '瓜达拉哈拉':1566, '蒙特雷':538 };
+// Teams with high-altitude experience (CONMEBOL highlands + Mexico)
+const HIGH_ALT_TEAMS = new Set(['墨西哥','哥伦比亚','厄瓜多尔','秘鲁','玻利维亚','巴拉圭','委内瑞拉']);
+function calcAltitudeFactor(venueCity, teamName) {
+  const alt = VENUE_ALTITUDE[venueCity] || 0;
+  if (alt < 1000) return 1.0;
+  if (HIGH_ALT_TEAMS.has(teamName)) return 1.0;  // acclimatized
+  // ~3% penalty per 1000m above 1000m for non-acclimatized teams
+  return 1 - (alt - 1000) / 1000 * 0.03;  // Mexico City → 0.964
 }
 
 function calcMD3Motivation(teamName, group) {
@@ -5581,8 +5627,20 @@ function predictScore(t1, t2, isKO) {
   const fm2 = Math.min(Math.max(0.85 + (raw2/avgRaw - 1) * 0.30, 0.85), 1.15);
   const form1 = calcRecentForm(t1.name), form2 = calcRecentForm(t2.name);
 
-  l1 = Math.min(Math.max(l1 * fm1 * form1, 0.15), 3.5);
-  l2 = Math.min(Math.max(l2 * fm2 * form2, 0.15), 3.5);
+  // 休息天数因子
+  const matchDate = ctx.date || null;
+  const rest1 = calcRestDaysFactor(t1.name, matchDate);
+  const rest2 = calcRestDaysFactor(t2.name, matchDate);
+
+  // 海拔因子（从赛程查venue城市）
+  const matchEntry = MATCH_SCHEDULE.find(m =>
+    (m.home===t1.name&&m.away===t2.name)||(m.home===t2.name&&m.away===t1.name));
+  const venueCity = matchEntry ? (matchEntry.city||'') : '';
+  const alt1 = calcAltitudeFactor(venueCity, t1.name);
+  const alt2 = calcAltitudeFactor(venueCity, t2.name);
+
+  l1 = Math.min(Math.max(l1 * fm1 * form1 * rest1 * alt1, 0.15), 3.5);
+  l2 = Math.min(Math.max(l2 * fm2 * form2 * rest2 * alt2, 0.15), 3.5);
 
   // Poisson + Dixon-Coles 修正（ρ>0 → 压低0-0/1-1，抬高1-0/0-1）
   // 2022 WC实际: 0-0仅1.6%，1-0高达14%；ρ=+0.13 是DC原论文标准值
