@@ -5524,9 +5524,9 @@ function predictScore(t1, t2, isKO) {
   l1 = Math.min(Math.max(l1 * fm1 * form1, 0.15), 3.5);
   l2 = Math.min(Math.max(l2 * fm2 * form2, 0.15), 3.5);
 
-  // Poisson + Dixon-Coles 修正（ρ<0 → 膨胀0-0/1-1平局，修正纯泊松低估防守博弈）
-  // ρ=-0.10 是国际足球学术文献的标准参数
-  const DC_RHO = -0.10;
+  // Poisson + Dixon-Coles 修正（ρ>0 → 压低0-0/1-1，抬高1-0/0-1）
+  // 2022 WC实际: 0-0仅1.6%，1-0高达14%；ρ=+0.13 是DC原论文标准值
+  const DC_RHO = 0.13;
   let pW=0, pD=0, pL=0;
   const _raw = [];
   let _sum = 0;
