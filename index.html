@@ -5627,20 +5627,44 @@ function predictScore(t1, t2, isKO) {
   const fm2 = Math.min(Math.max(0.85 + (raw2/avgRaw - 1) * 0.30, 0.85), 1.15);
   const form1 = calcRecentForm(t1.name), form2 = calcRecentForm(t2.name);
 
-  // 休息天数因子
+  // 休息天数因子（权重压缩：效果上限±3%，等样本足够再放大）
   const matchDate = ctx.date || null;
-  const rest1 = calcRestDaysFactor(t1.name, matchDate);
-  const rest2 = calcRestDaysFactor(t2.name, matchDate);
+  const rest1Raw = calcRestDaysFactor(t1.name, matchDate);
+  const rest2Raw = calcRestDaysFactor(t2.name, matchDate);
+  const rest1 = 1 + (rest1Raw - 1) * 0.4;
+  const rest2 = 1 + (rest2Raw - 1) * 0.4;
 
-  // 海拔因子（从赛程查venue城市）
+  // 海拔因子（权重压缩50%）
   const matchEntry = MATCH_SCHEDULE.find(m =>
     (m.home===t1.name&&m.away===t2.name)||(m.home===t2.name&&m.away===t1.name));
   const venueCity = matchEntry ? (matchEntry.city||'') : '';
-  const alt1 = calcAltitudeFactor(venueCity, t1.name);
-  const alt2 = calcAltitudeFactor(venueCity, t2.name);
+  const alt1Raw = calcAltitudeFactor(venueCity, t1.name);
+  const alt2Raw = calcAltitudeFactor(venueCity, t2.name);
+  const alt1 = 1 + (alt1Raw - 1) * 0.5;
+  const alt2 = 1 + (alt2Raw - 1) * 0.5;
 
   l1 = Math.min(Math.max(l1 * fm1 * form1 * rest1 * alt1, 0.15), 3.5);
   l2 = Math.min(Math.max(l2 * fm2 * form2 * rest2 * alt2, 0.15), 3.5);
+
+  // ── 亚盘赔率修正 xG（最强信号：直接编码庄家预期净胜球）────────────────────
+  // 亚盘线 X → 庄家预期主队净胜 X 球 → 修正 l1-l2
+  // 与模型 GD 各50%融合，避免完全依赖单一来源
+  const hcapKey = t1.name + '|' + t2.name;
+  const hcapKeyFlip = t2.name + '|' + t1.name;
+  const hcapLines = liveMatchHandicaps[hcapKey] || (liveMatchHandicaps[hcapKeyFlip] ? liveMatchHandicaps[hcapKeyFlip].map(x=>({...x,line:-x.line})) : null);
+  if (hcapLines && hcapLines.length) {
+    // 取所有庄家亚盘线的中位数作为市场预期 GD
+    const sorted = [...hcapLines].sort((a,b)=>a.line-b.line);
+    const mid = sorted[Math.floor(sorted.length/2)].line;
+    const modelGD = l1 - l2;
+    const mktGD = -mid;  // AH line convention: positive = home gives, so GD = -line
+    const blendedGD = modelGD * 0.5 + mktGD * 0.5;
+    const total = l1 + l2;
+    const newL1 = total / 2 + blendedGD / 2;
+    const newL2 = total / 2 - blendedGD / 2;
+    l1 = Math.min(Math.max(newL1, 0.15), 3.5);
+    l2 = Math.min(Math.max(newL2, 0.15), 3.5);
+  }
 
   // Poisson + Dixon-Coles 修正（ρ>0 → 压低0-0/1-1，抬高1-0/0-1）
   // 2022 WC实际: 0-0仅1.6%，1-0高达14%；ρ=+0.13 是DC原论文标准值
