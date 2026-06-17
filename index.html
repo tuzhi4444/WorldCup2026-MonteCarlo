@@ -5562,9 +5562,30 @@ function getCalibBaseTotal(isKO) {
   const played = matchResults.filter(r => typeof r.score1==='number' && typeof r.score2==='number');
   if (played.length < 6) return prior;
   const avgGoals = played.reduce((s,r) => s + r.score1 + r.score2, 0) / played.length;
-  // 贝叶斯混合：随样本增加逐渐向实际数据靠拢（最多50%权重）
-  const w = Math.min(0.50, played.length / 48);
+  // 贝叶斯混合：随样本增加逐渐向实际数据靠拢（最多75%权重，48场后完全信任实际数据）
+  const w = Math.min(0.75, played.length / 48);
   return prior * (1 - w) + avgGoals * w;
+}
+
+/* 根据实际WC2026比分分布动态估算Dixon-Coles ρ */
+function calibrateDCRho() {
+  const played = matchResults.filter(r => typeof r.score1==='number' && typeof r.score2==='number');
+  if (played.length < 10) return 0.13;  // 样本不足用论文默认值
+  const n = played.length;
+  const r00 = played.filter(r=>r.score1===0&&r.score2===0).length / n;
+  const r10 = played.filter(r=>r.score1===1&&r.score2===0).length / n;
+  const r01 = played.filter(r=>r.score1===0&&r.score2===1).length / n;
+  const r11 = played.filter(r=>r.score1===1&&r.score2===1).length / n;
+  const avgG = played.reduce((s,r)=>s+r.score1+r.score2,0)/n;
+  const l = avgG / 2;  // rough avg lambda
+  // Poisson expected rates without DC correction
+  const p00 = Math.exp(-2*l), p10 = l*Math.exp(-2*l), p01 = l*Math.exp(-2*l), p11 = l*l*Math.exp(-2*l);
+  // DC: actual vs expected → infer ρ
+  // τ(0,0) = 1 - l²ρ, so ρ ≈ (1 - r00/p00) / l²
+  const rhoEst = p00 > 0.001 ? (1 - r00/p00) / (l*l) : 0.13;
+  // Blend estimated ρ with paper default (trust data more as n grows)
+  const trust = Math.min(0.6, (n - 10) / 30);
+  return Math.min(0.25, Math.max(0.05, 0.13 * (1-trust) + rhoEst * trust));
 }
 
 
@@ -5609,9 +5630,8 @@ function predictScore(t1, t2, isKO) {
     // 市场"纯胜率"（去掉平局后的比例，用于驱动xG分配）
     const mkRp1 = mktH / (mktH + mktA);
 
-    // 融合：65% 市场 + 35% ELO模型
-    // 市场已整合了伤停/状态/情报等大量信息，权重给高
-    rp1 = 0.35 * rp1_model + 0.65 * mkRp1;
+    // 融合：70% 市场 + 30% ELO模型（市场整合了伤停/状态等大量信息）
+    rp1 = 0.30 * rp1_model + 0.70 * mkRp1;
     hasMkt = true;
   }
 
@@ -5668,7 +5688,7 @@ function predictScore(t1, t2, isKO) {
     const mid = sorted[Math.floor(sorted.length/2)].line;
     const modelGD = l1 - l2;
     const mktGD = -mid;  // AH line convention: positive = home gives, so GD = -line
-    const blendedGD = modelGD * 0.5 + mktGD * 0.5;
+    const blendedGD = modelGD * 0.35 + mktGD * 0.65;  // 亚盘信号更可靠，提高权重
     const total = l1 + l2;
     const newL1 = total / 2 + blendedGD / 2;
     const newL2 = total / 2 - blendedGD / 2;
@@ -5676,9 +5696,8 @@ function predictScore(t1, t2, isKO) {
     l2 = Math.min(Math.max(newL2, 0.15), 3.5);
   }
 
-  // Poisson + Dixon-Coles 修正（ρ>0 → 压低0-0/1-1，抬高1-0/0-1）
-  // 2022 WC实际: 0-0仅1.6%，1-0高达14%；ρ=+0.13 是DC原论文标准值
-  const DC_RHO = 0.13;
+  // Poisson + Dixon-Coles 修正：ρ从WC2026实际比分动态估算
+  const DC_RHO = calibrateDCRho();
   let pW=0, pD=0, pL=0;
   const _raw = [];
   let _sum = 0;
