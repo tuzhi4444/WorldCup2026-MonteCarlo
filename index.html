@@ -5472,18 +5472,28 @@ function _todayMMDD() {
 }
 
 /* ── Improved prediction model ── */
-function calcRecentForm(teamName) {
-  // Last 3 WC matches: win+5%, draw±0, loss-5% (max ±15%)
-  const recent = [...matchResults].filter(m => m.t1===teamName||m.t2===teamName).slice(-3);
+function calcRecentForm(teamName, beforeDate) {
+  // Last 3 WC matches BEFORE beforeDate: win+5%, draw±0, loss-5% (max ±15%)
+  // beforeDate format "2026-MM/DD" — prevents data leakage in backtesting
+  let results = [...matchResults].filter(m => m.t1===teamName || m.t2===teamName);
+  if (beforeDate) {
+    // Only use results from matches scheduled before this date
+    results = results.filter(r => {
+      const entry = MATCH_SCHEDULE.find(m =>
+        (m.t1===r.t1&&m.t2===r.t2)||(m.home===r.t1&&m.away===r.t2)||
+        (m.home===r.t2&&m.away===r.t1));
+      return entry ? (entry.date||'9999') < beforeDate : true;
+    });
+  }
+  const recent = results.slice(-3);
   let score = 0;
   recent.forEach(m => {
     const home = m.t1===teamName;
     const gs = home ? m.score1 : m.score2, gc = home ? m.score2 : m.score1;
     if (gs > gc) score += 1;
     else if (gs < gc) score -= 1;
-    // draw = 0
   });
-  return 1 + score * 0.05;  // range 0.85–1.15
+  return 1 + score * 0.05;
 }
 
 // Rest days between a team's previous WC match and the upcoming one
@@ -5625,7 +5635,7 @@ function predictScore(t1, t2, isKO) {
   const avgRaw = (raw1 + raw2) / 2 || 1;
   const fm1 = Math.min(Math.max(0.85 + (raw1/avgRaw - 1) * 0.30, 0.85), 1.15);
   const fm2 = Math.min(Math.max(0.85 + (raw2/avgRaw - 1) * 0.30, 0.85), 1.15);
-  const form1 = calcRecentForm(t1.name), form2 = calcRecentForm(t2.name);
+  const form1 = calcRecentForm(t1.name, ctx.date), form2 = calcRecentForm(t2.name, ctx.date);
 
   // 休息天数因子（权重压缩：效果上限±3%，等样本足够再放大）
   const matchDate = ctx.date || null;
@@ -6147,7 +6157,7 @@ function renderSAGroup(el) {
     if(!rec) return;
     total++;
     const recorded={score1:rec.t1===t1.name?rec.score1:rec.score2,score2:rec.t1===t1.name?rec.score2:rec.score1};
-    const pred=predictScore(t1,t2,false);
+    const pred=predictScore(t1,t2,false,{date:m.date,md:m.md,group:m.group});
     const hit=checkPredictionHit(pred,recorded);
     if(hit.resultHit) resultHits++;
     if(hit.exactHit) exactHits++;
