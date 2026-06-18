@@ -5811,7 +5811,7 @@ function predictScore(t1, t2, isKO) {
     halfDn: _hcapStats(hcapFairLine - 0.5),    // 低半球（无让平）
   };
 
-  return {pW, pD, pL, top: scores.slice(0,7), _scores: scores, l1, l2,
+  return {pW, pD, pL, top: scores.slice(0,5), _scores: scores, l1, l2,
           hasMkt, mktH, mktD, mktA,
           pW_model, rp1_model, hcap
          };
@@ -6290,7 +6290,7 @@ function renderSAGroup(el) {
     const t1pct=(top1Hits/total*100).toFixed(0);
     const t1col=top1Hits/total>=0.2?'#22c55e':top1Hits/total>=0.12?'var(--accent)':'var(--red)';
     const _ra=currentLang==='en'?`Result acc: <b style="color:${rCol}">${rPct}%</b>`:currentLang==='pt'?`Resultado: <b style="color:${rCol}">${rPct}%</b>`:`胜负准确率 <b style="color:${rCol}">${rPct}%</b>`;
-    const _t1=currentLang==='en'?`Top-1: <b style="color:${t1col}">${t1pct}%</b> · Top-7: <b style="color:#a855f7">${ePct}%</b>`:currentLang==='pt'?`Top-1: <b style="color:${t1col}">${t1pct}%</b> · Top-7: <b style="color:#a855f7">${ePct}%</b>`:`精准命中 Top-1 <b style="color:${t1col}">${t1pct}%</b> · 扩展 Top-7 <b style="color:#a855f7">${ePct}%</b>`;
+    const _t1=currentLang==='en'?`Top-1: <b style="color:${t1col}">${t1pct}%</b> · Top-5: <b style="color:#a855f7">${ePct}%</b>`:currentLang==='pt'?`Top-1: <b style="color:${t1col}">${t1pct}%</b> · Top-5: <b style="color:#a855f7">${ePct}%</b>`:`精准命中 Top-1 <b style="color:${t1col}">${t1pct}%</b> · 扩展 Top-5 <b style="color:#a855f7">${ePct}%</b>`;
     const _calG=(getCalibBaseTotal(false)).toFixed(2);
     const hcapCovPct = hcapTotal>0 ? (hcapCovers/hcapTotal*100).toFixed(0) : '–';
     const hcapPushPct = hcapTotal>0 && hcapPushes>0 ? `·让平${(hcapPushes/hcapTotal*100).toFixed(0)}%` : '';
