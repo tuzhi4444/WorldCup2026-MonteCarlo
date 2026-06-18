@@ -1562,34 +1562,35 @@ const GROUP_TEAM_ORDER = {
   L:['英格兰','克罗地亚','加纳','巴拿马'],
 };
 // 各场比赛实际场馆 (按分组赛6场顺序: MD1M1,MD1M2,MD2M1,MD2M2,MD3M1,MD3M2)
+// 已对照 Wikipedia 官方赛程逐场核实 (2026-06-18)
 const GROUP_MATCH_VENUES = {
-  A:[VENUES[11],VENUES[13],VENUES[5], VENUES[13],VENUES[11],VENUES[12]],
-  B:[VENUES[15],VENUES[8], VENUES[1], VENUES[14],VENUES[14],VENUES[9]],
-  C:[VENUES[0], VENUES[7], VENUES[7], VENUES[6], VENUES[10],VENUES[5]],
-  D:[VENUES[1], VENUES[14],VENUES[9], VENUES[8], VENUES[1], VENUES[8]],
-  E:[VENUES[4], VENUES[6], VENUES[15],VENUES[3], VENUES[0], VENUES[6]],
-  F:[VENUES[2], VENUES[12],VENUES[4], VENUES[12],VENUES[2], VENUES[3]],
-  G:[VENUES[9], VENUES[1], VENUES[1], VENUES[14],VENUES[9], VENUES[14]],
-  H:[VENUES[5], VENUES[10],VENUES[5], VENUES[10],VENUES[4], VENUES[13]],
-  I:[VENUES[0], VENUES[7], VENUES[6], VENUES[0], VENUES[7], VENUES[15]],
-  J:[VENUES[3], VENUES[8], VENUES[2], VENUES[8], VENUES[3], VENUES[2]],
-  K:[VENUES[4], VENUES[11],VENUES[4], VENUES[13],VENUES[10],VENUES[5]],
-  L:[VENUES[2], VENUES[15],VENUES[7], VENUES[15],VENUES[0], VENUES[6]],
+  A:[VENUES[11],VENUES[13],VENUES[13],VENUES[5], VENUES[11],VENUES[12]], // MD2 原对调→修正: 墨西哥vs韩国=瓜达拉哈拉, 南非vs捷克=亚特兰大
+  B:[VENUES[15],VENUES[8], VENUES[14],VENUES[1], VENUES[14],VENUES[9]],  // MD2 原对调→修正: 加拿大vs卡塔尔=温哥华, 波黑vs瑞士=英格尔伍德
+  C:[VENUES[0], VENUES[7], VENUES[6], VENUES[7], VENUES[10],VENUES[5]],  // MD2 原对调→修正: 巴西vs海地=费城, 摩洛哥vs苏格兰=波士顿
+  D:[VENUES[1], VENUES[14],VENUES[9], VENUES[8], VENUES[1], VENUES[8]],  // 不变
+  E:[VENUES[4], VENUES[6], VENUES[15],VENUES[3], VENUES[0], VENUES[6]],  // 不变 ✓
+  F:[VENUES[2], VENUES[12],VENUES[4], VENUES[12],VENUES[3], VENUES[2]],  // MD3 原对调→修正: 荷vs突=堪萨斯城, 日vs瑞=达拉斯
+  G:[VENUES[9], VENUES[1], VENUES[1],  VENUES[14],VENUES[14],VENUES[9]],// MD3 原对调→修正: 比vs新=温哥华, 埃及vs伊朗=西雅图
+  H:[VENUES[5], VENUES[10],VENUES[5], VENUES[10],VENUES[13],VENUES[4]],  // MD3 原对调→修正: 西vs乌=瓜达拉哈拉, 佛vs沙=休斯顿
+  I:[VENUES[0], VENUES[7], VENUES[6], VENUES[0], VENUES[7], VENUES[15]], // 不变 ✓
+  J:[VENUES[3], VENUES[8], VENUES[2], VENUES[8], VENUES[2], VENUES[3]],  // MD3 原对调→修正: 阿根廷vs约旦=达拉斯, 阿尔及利亚vs奥地利=堪萨斯城
+  K:[VENUES[4], VENUES[11],VENUES[4], VENUES[13],VENUES[10],VENUES[5]],  // 不变 ✓
+  L:[VENUES[2], VENUES[15],VENUES[7], VENUES[15],VENUES[0], VENUES[6]],  // 不变 ✓
 };
 // 各场比赛开球时间 (美东时间 EDT)
 const GROUP_MATCH_TIMES = {
-  A:['15:00','21:00','12:00','21:00','21:00','21:00'],
-  B:['15:00','15:00','15:00','21:00','21:00','15:00'],
-  C:['18:00','21:00','18:00','21:00','18:00','18:00'],
-  D:['21:00','21:00','15:00','21:00','22:00','22:00'],
-  E:['13:00','19:00','16:00','20:00','16:00','16:00'],
-  F:['16:00','21:00','13:00','21:00','19:00','19:00'],
-  G:['15:00','21:00','15:00','21:00','23:00','23:00'],
-  H:['12:00','18:00','12:00','18:00','20:00','20:00'],
-  I:['15:00','18:00','17:00','20:00','15:00','15:00'],
-  J:['21:00','21:00','13:00','23:00','22:00','22:00'],
-  K:['13:00','22:00','13:00','22:00','19:00','19:00'],
-  L:['16:00','19:00','16:00','19:00','17:00','17:00'],
+  A:['15:00','22:00','21:00','12:00','21:00','21:00'], // [1]21→22(8pm UTC-6); MD2对调
+  B:['15:00','15:00','18:00','15:00','15:00','15:00'], // MD2对调+时间修正; [4]21→15
+  C:['18:00','21:00','20:30','18:00','18:00','18:00'], // MD2对调; [2]18→20:30(巴西vs海地实际8:30pm EDT)
+  D:['21:00','21:00','15:00','21:00','22:00','22:00'], // 不变
+  E:['13:00','19:00','16:00','20:00','16:00','16:00'], // 不变 ✓
+  F:['16:00','22:00','13:00','21:00','19:00','19:00'], // [1]21→22(8pm UTC-6=10pm EDT)
+  G:['15:00','21:00','15:00','21:00','23:00','23:00'], // 不变 ✓
+  H:['12:00','18:00','12:00','18:00','20:00','20:00'], // 不变 ✓
+  I:['15:00','18:00','17:00','20:00','15:00','15:00'], // 不变 ✓
+  J:['21:00','21:00','13:00','23:00','22:00','22:00'], // 不变 ✓
+  K:['13:00','22:00','13:00','22:00','19:30','19:30'], // [4][5]19→19:30(7:30pm EDT)
+  L:['16:00','19:00','16:00','19:00','17:00','17:00'], // 不变 ✓
 };
 // 比赛时间 (当地)
 const TIMES = ['13:00','16:00','19:00','21:00'];
