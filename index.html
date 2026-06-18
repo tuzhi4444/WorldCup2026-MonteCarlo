@@ -2783,6 +2783,7 @@ const TEAM_EN_TO_ZH = {
 let liveOddsData = null;  // raw fetched odds
 let liveMatchOdds = {};   // key: "home|away" → {h,d,a} decimal odds, ts: timestamp
 let liveMatchHandicaps = {};  // key: "home|away" → [{line, homeOdds, awayOdds, bookmaker}]
+let liveMatchTotals = {};     // key: "home|away" → [{total, overOdds, underOdds, bookmaker}]
 let liveHandicapUpdated = null;
 let liveOddsUpdated = null; // timestamp of last fetch
 let oddsApiKey = localStorage.getItem('wc2026_odds_api_key') || '08f4cf0c0c1f4858ffc0ed35ea524d51';
@@ -2792,7 +2793,7 @@ async function fetchMatchHandicaps() {
   const key = oddsApiKey;
   if (!key) return;
   const sportKey = 'soccer_fifa_world_cup';
-  const url = `https://api.the-odds-api.com/v4/sports/${sportKey}/odds/?apiKey=${key}&regions=eu,uk,us,au&markets=spreads,h2h&oddsFormat=decimal`;
+  const url = `https://api.the-odds-api.com/v4/sports/${sportKey}/odds/?apiKey=${key}&regions=eu,uk,us,au&markets=spreads,h2h,totals&oddsFormat=decimal`;
   try {
     const resp = await fetch(url);
     if (!resp.ok) return;
@@ -2800,13 +2801,14 @@ async function fetchMatchHandicaps() {
     if (!Array.isArray(events)) return;
     const newHcap = {};
     const newH2h = {};
+    const newTotals = {};
     events.forEach(ev => {
       // Match team names to our internal names
       const enHome = ev.home_team, enAway = ev.away_team;
       const zhHome = TEAM_EN_TO_ZH[enHome] || enHome;
       const zhAway = TEAM_EN_TO_ZH[enAway] || enAway;
       const key2 = zhHome + '|' + zhAway;
-      const spreadsPerBm = [], h2hPerBm = [];
+      const spreadsPerBm = [], h2hPerBm = [], totalsPerBm = [];
       (ev.bookmakers || []).forEach(bm => {
         (bm.markets || []).forEach(mkt => {
           if (mkt.key === 'spreads') {
@@ -2823,10 +2825,18 @@ async function fetchMatchHandicaps() {
             const aO = mkt.outcomes?.find(o => o.name === enAway || TEAM_EN_TO_ZH[o.name] === zhAway);
             if (hO && aO) h2hPerBm.push({ h: hO.price, d: dO?.price || 3.5, a: aO.price, bookmaker: bm.title });
           }
+          if (mkt.key === 'totals') {
+            const overO  = mkt.outcomes?.find(o => o.name === 'Over');
+            const underO = mkt.outcomes?.find(o => o.name === 'Under');
+            if (overO && underO && overO.description) {
+              totalsPerBm.push({ total: parseFloat(overO.description), overOdds: overO.price, underOdds: underO.price, bookmaker: bm.title });
+            }
+          }
         });
       });
       if (spreadsPerBm.length) newHcap[key2] = spreadsPerBm;
       if (h2hPerBm.length) newH2h[key2] = h2hPerBm;
+      if (totalsPerBm.length) newTotals[key2] = totalsPerBm;
     });
     // Merge h2h into liveMatchOdds (The Odds API data overwrites ESPN)
     Object.entries(newH2h).forEach(([k, arr]) => {
@@ -2834,6 +2844,7 @@ async function fetchMatchHandicaps() {
       liveMatchOdds[k] = { h: avg(x=>x.h), d: avg(x=>x.d), a: avg(x=>x.a), ts: Date.now(), bms: [...new Set(arr.map(x=>x.bookmaker))] };
     });
     liveMatchHandicaps = newHcap;
+    liveMatchTotals = newTotals;
     liveHandicapUpdated = new Date();
     const total = Object.keys(newHcap).length;
     const bms = [...new Set(Object.values(newHcap).flat().map(x=>x.bookmaker))];
@@ -5638,6 +5649,26 @@ function calibrateDCRho() {
 }
 
 
+/* 从大小球赔率反推预期总进球数 λ_total
+   原理：找使得 P(Poisson(λ) >= ceil(line)) = overProb 的 λ（二分法）
+*/
+function impliedTotalFromOU(line, overOdds, underOdds) {
+  const rawOver  = 1 / overOdds;
+  const rawUnder = 1 / underOdds;
+  const vig = rawOver + rawUnder;
+  const overProb = rawOver / vig;  // 去水后的超盘概率
+
+  const threshold = Math.ceil(line);  // 超过几球算大（2.5线→3球）
+  let lo = 0.1, hi = 12;
+  for (let iter = 0; iter < 40; iter++) {
+    const mid = (lo + hi) / 2;
+    let pUnder = 0;
+    for (let k = 0; k < threshold; k++) pUnder += poissonProb(mid, k);
+    if (1 - pUnder < overProb) lo = mid; else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
 function predictScore(t1, t2, isKO) {
   const HOST_SET = new Set(['美国','加拿大','墨西哥']);
   const e1_base = calcAdjELO(t1) + (HOST_SET.has(t1.name)?55:0);
@@ -5724,6 +5755,23 @@ function predictScore(t1, t2, isKO) {
 
   l1 = Math.min(Math.max(l1 * fm1 * form1 * rest1 * alt1, 0.15), 3.5);
   l2 = Math.min(Math.max(l2 * fm2 * form2 * rest2 * alt2, 0.15), 3.5);
+
+  // ── 大小球赔率校准总进球数 l1+l2 ──────────────────────────────────────────
+  // O/U 盘口直接编码庄家对每场比赛预期总进球的判断，比全局平均更准确
+  const ouKey = t1.name+'|'+t2.name;
+  const ouData = liveMatchTotals[ouKey] || liveMatchTotals[t2.name+'|'+t1.name];
+  if (ouData && ouData.length) {
+    // 取各庄家中位数线的平均隐含总进球
+    const sortedOU = [...ouData].sort((a,b) => a.total - b.total);
+    const midOU = sortedOU[Math.floor(sortedOU.length / 2)];
+    const mktTotal = impliedTotalFromOU(midOU.total, midOU.overOdds, midOU.underOdds);
+    const currentTotal = l1 + l2;
+    // 60% 市场大小球 + 40% 模型校准值，保持 l1/l2 比例不变
+    const blendedTotal = mktTotal * 0.60 + currentTotal * 0.40;
+    const scale = blendedTotal / currentTotal;
+    l1 *= scale;
+    l2 *= scale;
+  }
 
   // ── 亚盘赔率修正 xG（最强信号：直接编码庄家预期净胜球）────────────────────
   // 亚盘线 X → 庄家预期主队净胜 X 球 → 修正 l1-l2
