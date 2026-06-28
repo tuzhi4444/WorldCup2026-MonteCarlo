@@ -5300,6 +5300,7 @@ async function fetchAllTournamentScores() {
   }
   if(btn){btn.disabled=false;btn.textContent=T('fetch_all_btn');}
   if(changed>0){
+    if (!bracketEditMode) bracketCustomSlots = null;
     saveData();updateAll();
     const _syncOk=currentLang==='en'?`✅ ESPN sync complete · ${total} matches · ${changed} updated`:currentLang==='pt'?`✅ Sincronização ESPN concluída · ${total} jogos · ${changed} atualizados`:`✅ ESPN 全量同步完成·共 ${total} 场·更新 ${changed} 场`;
     const _syncNotify=currentLang==='en'?`All results synced, ${changed} new — recommend re-running simulation`:currentLang==='pt'?`Resultados sincronizados, ${changed} novos — recomenda-se re-simulação`:`已同步全部赛果，${changed} 场有新数据，建议重新运行模拟`;
@@ -5431,6 +5432,7 @@ async function fetchLiveScores() {
   const timeStr = new Date().toLocaleTimeString(_tsLoc, {hour:'2-digit', minute:'2-digit', second:'2-digit'});
   const _srcLbl=currentLang==='en'?'Source':currentLang==='pt'?'Fonte':'来源';
   if (result.changed > 0) {
+    if (!bracketEditMode) bracketCustomSlots = null;
     saveData(); updateAll(); renderScoreAnalysis();
     setScoreStatus(`✅ ${_srcLbl}: ${result.source} · ${result.changed} ${currentLang==='en'?'new/updated':currentLang==='pt'?'novos':'新增/更新'} · ${timeStr}`, 'ok');
     const _liveNotify=currentLang==='en'?`Live scores updated: ${result.changed} new results | Recommend re-running simulation`:currentLang==='pt'?`Resultados ao vivo: ${result.changed} novos | Recomenda-se re-simulação`:`实时比分已更新：${result.changed} 场新赛果 | 建议重新运行模拟`;
