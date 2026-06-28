@@ -5235,30 +5235,40 @@ async function fetchScoresESPN(daysBack) {
 
 // Fill in real team names for knockout fixtures (replacing 'TBD') once ESPN reports
 // the actual matchup. We never guess pairings ourselves — only ESPN's confirmed
-// fixture data is used, matched to our hardcoded date/venue slots by date + kickoff order.
+// fixture data is used, matched to our hardcoded slots by closest true UTC kickoff
+// time (MATCH_SCHEDULE times are stored as EDT/UTC-4), so a late-evening ET kickoff
+// that lands on the next UTC calendar day is still matched correctly.
 async function fetchKnockoutFixturesESPN() {
-  const koSlots = MATCH_SCHEDULE.filter(m => m.group === 'KO');
-  const byDate = {};
-  koSlots.forEach(m => { (byDate[m.date] = byDate[m.date] || []).push(m); });
-  Object.values(byDate).forEach(arr => arr.sort((a,b) => (a.time||'').localeCompare(b.time||'')));
+  const koSlots = MATCH_SCHEDULE.filter(m => m.group === 'KO' && m.home === 'TBD');
+  if (!koSlots.length) return 0;
+  koSlots.forEach(m => {
+    const [y, mo, da] = m.date.split('-').map(Number);
+    const [hh, mm] = (m.time||'00:00').split(':').map(Number);
+    m._utcMs = Date.UTC(y, mo-1, da, (hh||0)+4, mm||0);
+  });
 
-  const start = new Date('2026-06-28T00:00:00');
-  const end = new Date('2026-07-19T00:00:00');
+  const start = new Date('2026-06-28T00:00:00Z');
+  const end = new Date('2026-07-19T00:00:00Z');
+  const THRESH_MS = 6*60*60*1000;
   let filled = 0;
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate()+1)) {
-    const localDate = d.toISOString().slice(0,10);
-    const slots = byDate[localDate];
-    if (!slots || !slots.some(s => s.home === 'TBD')) continue;
-    const dateStr = localDate.replace(/-/g,'');
+  for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate()+1)) {
+    if (!koSlots.some(s => s.home === 'TBD')) break;
+    const dateStr = d.toISOString().slice(0,10).replace(/-/g,'');
     try {
       const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=${dateStr}&limit=100`);
       if (!r.ok) continue;
       const data = await r.json();
-      const events = (data.events||[]).slice().sort((e1,e2) => new Date(e1.date) - new Date(e2.date));
-      let si = 0;
+      const events = (data.events||[]);
       for (const ev of events) {
-        while (si < slots.length && slots[si].home !== 'TBD') si++;
-        if (si >= slots.length) break;
+        const evMs = new Date(ev.date).getTime();
+        if (isNaN(evMs)) continue;
+        let best = null, bestDiff = Infinity;
+        for (const s of koSlots) {
+          if (s.home !== 'TBD') continue;
+          const diff = Math.abs(s._utcMs - evMs);
+          if (diff < bestDiff) { bestDiff = diff; best = s; }
+        }
+        if (!best || bestDiff > THRESH_MS) continue;
         const comp = (ev.competitions||[])[0]; if (!comp) continue;
         const home = comp.competitors?.find(c=>c.homeAway==='home');
         const away = comp.competitors?.find(c=>c.homeAway==='away');
@@ -5266,7 +5276,7 @@ async function fetchKnockoutFixturesESPN() {
         const h = TEAM_EN_TO_ZH[home.team?.displayName]||TEAM_EN_TO_ZH[home.team?.name]||home.team?.displayName;
         const a = TEAM_EN_TO_ZH[away.team?.displayName]||TEAM_EN_TO_ZH[away.team?.name]||away.team?.displayName;
         if (!h||!a) continue;
-        slots[si].home = h; slots[si].away = a; filled++; si++;
+        best.home = h; best.away = a; filled++;
       }
     } catch(e) { /* skip this day */ }
   }
