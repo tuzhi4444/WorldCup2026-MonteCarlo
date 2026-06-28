@@ -3551,6 +3551,15 @@ function renderBracket(){
     for(let i=0;i<prev.length;i+=2){
       const a=prev[i],b=prev[i+1];
       if(!a||!b||a.name==='?'||b.name==='?'){res.push(a||b||{name:'?',adv:.5,champ:0});continue;}
+      // If this exact matchup has already been played and recorded with a clear
+      // winner, show the real outcome instead of a probability guess — a draw
+      // (penalty shootout) has no recorded winner, so fall back to simulation.
+      const rec=matchResults.find(r=>(r.t1===a.name&&r.t2===b.name)||(r.t1===b.name&&r.t2===a.name));
+      if(rec && rec.score1!==rec.score2){
+        const aWon=(rec.t1===a.name)===(rec.score1>rec.score2);
+        res.push({...(aWon?a:b),adv:1});
+        continue;
+      }
       const ta=teams.find(x=>x.name===a.name)||a,tb=teams.find(x=>x.name===b.name)||b;
       const p=getMatchProb(ta,tb),wp=p.pA/(p.pA+p.pB);
       res.push({...(wp>=.5?a:b),adv:Math.max(wp,1-wp)});
