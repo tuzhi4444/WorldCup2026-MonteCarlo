@@ -5558,6 +5558,23 @@ function _todayMMDD() {
   return String(d.getMonth()+1).padStart(2,'0') + '/' + String(d.getDate()).padStart(2,'0');
 }
 
+// Default the prediction tab to whichever stage still has matches to show,
+// so finishing the group stage doesn't leave the page looking empty.
+function autoPickSATab() {
+  const todayFull = '2026-' + _todayMMDD();
+  const groupPending = MATCH_SCHEDULE.some(m => {
+    if (m.group === 'KO' || m.home === 'TBD' || m.away === 'TBD') return false;
+    const rec = matchResults.find(r => (r.t1===m.home&&r.t2===m.away)||(r.t1===m.away&&r.t2===m.home));
+    return m.date === todayFull || (m.date >= todayFull && !rec);
+  });
+  if (groupPending) return;
+  saMode = 'ko';
+  saTimeFilter = 'ALL';
+  const gBtn = document.getElementById('groupStageBtn'), kBtn = document.getElementById('knockoutBtn');
+  if (gBtn) gBtn.classList.remove('active');
+  if (kBtn) kBtn.classList.add('active');
+}
+
 /* ── Improved prediction model ── */
 function calcRecentForm(teamName, beforeDate) {
   // Last 3 WC matches BEFORE beforeDate: win+5%, draw±0, loss-5% (max ±15%)
@@ -6429,7 +6446,7 @@ function renderSAGroup(el) {
       <span style="color:var(--text3);font-size:9px;">xG基准 ${_calG}</span>
     </div>`;
     if (total >= 3) {
-      accBanner += `<div style="margin-bottom:10px;"><canvas id="accTrendChart" height="55" style="max-width:100%;"></canvas></div>`;
+      accBanner += `<div style="margin-bottom:10px;height:110px;"><canvas id="accTrendChart" style="max-width:100%;"></canvas></div>`;
     }
   }
 
@@ -6736,6 +6753,7 @@ function init() {
   }
   // Auto-start score refresh if keys are present
   if(scoreApiKeys.odds || scoreApiKeys.football) startScoreAutoRefresh();
+  autoPickSATab();
   renderScoreAnalysis();
   // Auto-fetch odds for prediction tab on first load
   setTimeout(fetchLiveScores, 600);
