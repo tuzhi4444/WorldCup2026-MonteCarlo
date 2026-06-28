@@ -1680,7 +1680,7 @@ const MATCH_SCHEDULE = (function(){
     {d:'07/19',t:'21:00',n:'🏆 决赛',  v:V[0]},
   ];
   KO_SCHED.forEach((ko,i)=>{
-    sched.push({id:100+i, date:'2026-'+ko.d, time:ko.t,
+    sched.push({id:100+i, date:'2026-'+ko.d.replace('/','-'), time:ko.t,
       group:'KO', md:ko.n, venue:ko.v.name, city:ko.v.city,
       country:ko.v.country, home:'TBD', away:'TBD'});
   });
@@ -5233,6 +5233,56 @@ async function fetchScoresESPN(daysBack) {
   return { source: 'ESPN（免费·无需Key）', count: total, changed };
 }
 
+// Fill in real team names for knockout fixtures (replacing 'TBD') once ESPN reports
+// the actual matchup. We never guess pairings ourselves — only ESPN's confirmed
+// fixture data is used, matched to our hardcoded slots by closest true UTC kickoff
+// time (MATCH_SCHEDULE times are stored as EDT/UTC-4), so a late-evening ET kickoff
+// that lands on the next UTC calendar day is still matched correctly.
+async function fetchKnockoutFixturesESPN() {
+  const koSlots = MATCH_SCHEDULE.filter(m => m.group === 'KO' && m.home === 'TBD');
+  if (!koSlots.length) return 0;
+  koSlots.forEach(m => {
+    const [y, mo, da] = m.date.split('-').map(Number);
+    const [hh, mm] = (m.time||'00:00').split(':').map(Number);
+    m._utcMs = Date.UTC(y, mo-1, da, (hh||0)+4, mm||0);
+  });
+
+  const start = new Date('2026-06-28T00:00:00Z');
+  const end = new Date('2026-07-19T00:00:00Z');
+  const THRESH_MS = 6*60*60*1000;
+  let filled = 0;
+  for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate()+1)) {
+    if (!koSlots.some(s => s.home === 'TBD')) break;
+    const dateStr = d.toISOString().slice(0,10).replace(/-/g,'');
+    try {
+      const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=${dateStr}&limit=100`);
+      if (!r.ok) continue;
+      const data = await r.json();
+      const events = (data.events||[]);
+      for (const ev of events) {
+        const evMs = new Date(ev.date).getTime();
+        if (isNaN(evMs)) continue;
+        let best = null, bestDiff = Infinity;
+        for (const s of koSlots) {
+          if (s.home !== 'TBD') continue;
+          const diff = Math.abs(s._utcMs - evMs);
+          if (diff < bestDiff) { bestDiff = diff; best = s; }
+        }
+        if (!best || bestDiff > THRESH_MS) continue;
+        const comp = (ev.competitions||[])[0]; if (!comp) continue;
+        const home = comp.competitors?.find(c=>c.homeAway==='home');
+        const away = comp.competitors?.find(c=>c.homeAway==='away');
+        if (!home||!away) continue;
+        const h = TEAM_EN_TO_ZH[home.team?.displayName]||TEAM_EN_TO_ZH[home.team?.name]||home.team?.displayName;
+        const a = TEAM_EN_TO_ZH[away.team?.displayName]||TEAM_EN_TO_ZH[away.team?.name]||away.team?.displayName;
+        if (!h||!a) continue;
+        best.home = h; best.away = a; filled++;
+      }
+    } catch(e) { /* skip this day */ }
+  }
+  return filled;
+}
+
 // Fetch upcoming match odds for next N days from ESPN (no key needed)
 async function fetchUpcomingOddsESPN(daysAhead) {
   const n = daysAhead || 7;
@@ -5298,11 +5348,17 @@ async function fetchAllTournamentScores() {
       });
     } catch(e){}
   }
+  let koFilled = 0;
+  try { koFilled = await fetchKnockoutFixturesESPN(); } catch(e) {}
   if(btn){btn.disabled=false;btn.textContent=T('fetch_all_btn');}
-  if(changed>0){
+  if(changed>0 || koFilled>0){
+    if (!bracketEditMode) bracketCustomSlots = null;
     saveData();updateAll();
+    const resimmed = triggerAutoResim();
     const _syncOk=currentLang==='en'?`✅ ESPN sync complete · ${total} matches · ${changed} updated`:currentLang==='pt'?`✅ Sincronização ESPN concluída · ${total} jogos · ${changed} atualizados`:`✅ ESPN 全量同步完成·共 ${total} 场·更新 ${changed} 场`;
-    const _syncNotify=currentLang==='en'?`All results synced, ${changed} new — recommend re-running simulation`:currentLang==='pt'?`Resultados sincronizados, ${changed} novos — recomenda-se re-simulação`:`已同步全部赛果，${changed} 场有新数据，建议重新运行模拟`;
+    const _syncNotify=resimmed
+      ? (currentLang==='en'?`All results synced, ${changed} new | Auto re-simulating…`:currentLang==='pt'?`Resultados sincronizados, ${changed} novos | A re-simular…`:`已同步全部赛果，${changed} 场有新数据 | 正在自动重新模拟…`)
+      : (currentLang==='en'?`All results synced, ${changed} new`:currentLang==='pt'?`Resultados sincronizados, ${changed} novos`:`已同步全部赛果，${changed} 场有新数据`);
     setScoreStatus(_syncOk,'ok');notify(_syncNotify,'success');
   } else {
     const _syncNone=currentLang==='en'?`✅ ESPN sync complete · ${total} matches · no new data`:currentLang==='pt'?`✅ Sincronização ESPN concluída · ${total} jogos · sem novos dados`:`✅ ESPN 全量同步完成·共 ${total} 场·无新数据`;
@@ -5420,7 +5476,11 @@ async function fetchLiveScores() {
 
   if (btn) { btn.disabled = false; btn.textContent = T('live_scores'); }
 
+  let koFilled = 0;
+  try { koFilled = await fetchKnockoutFixturesESPN(); } catch(e) { /* keep TBD on failure */ }
+
   if (!result) {
+    if (koFilled > 0) { saveData(); updateAll(); triggerAutoResim(); }
     const _netErr=currentLang==='en'?'Network error, please try again':currentLang==='pt'?'Erro de rede, tente novamente':'网络错误，请稍后重试';
     const _fetchFail=currentLang==='en'?`❌ Fetch failed — ${lastErr||_netErr}`:currentLang==='pt'?`❌ Falha — ${lastErr||_netErr}`:`❌ 获取失败 — ${lastErr||_netErr}`;
     setScoreStatus(_fetchFail, 'err');
@@ -5430,10 +5490,14 @@ async function fetchLiveScores() {
   const _tsLoc=currentLang==='en'?'en-GB':currentLang==='pt'?'pt-PT':'zh-CN';
   const timeStr = new Date().toLocaleTimeString(_tsLoc, {hour:'2-digit', minute:'2-digit', second:'2-digit'});
   const _srcLbl=currentLang==='en'?'Source':currentLang==='pt'?'Fonte':'来源';
-  if (result.changed > 0) {
+  if (result.changed > 0 || koFilled > 0) {
+    if (!bracketEditMode) bracketCustomSlots = null;
     saveData(); updateAll(); renderScoreAnalysis();
+    const resimmed = triggerAutoResim();
     setScoreStatus(`✅ ${_srcLbl}: ${result.source} · ${result.changed} ${currentLang==='en'?'new/updated':currentLang==='pt'?'novos':'新增/更新'} · ${timeStr}`, 'ok');
-    const _liveNotify=currentLang==='en'?`Live scores updated: ${result.changed} new results | Recommend re-running simulation`:currentLang==='pt'?`Resultados ao vivo: ${result.changed} novos | Recomenda-se re-simulação`:`实时比分已更新：${result.changed} 场新赛果 | 建议重新运行模拟`;
+    const _liveNotify=resimmed
+      ? (currentLang==='en'?`Live scores updated: ${result.changed} new results | Auto re-simulating…`:currentLang==='pt'?`Resultados ao vivo: ${result.changed} novos | A re-simular automaticamente…`:`实时比分已更新：${result.changed} 场新赛果 | 正在自动重新模拟…`)
+      : (currentLang==='en'?`Live scores updated: ${result.changed} new results`:currentLang==='pt'?`Resultados ao vivo: ${result.changed} novos`:`实时比分已更新：${result.changed} 场新赛果`);
     notify(_liveNotify, 'success');
   } else {
     const _noNew=currentLang==='en'?'No new data':currentLang==='pt'?'Sem novos dados':'暂无新数据';
@@ -5441,6 +5505,17 @@ async function fetchLiveScores() {
   }
 
   startScoreAutoRefresh();
+}
+
+// Auto re-run the Monte Carlo simulation after new real results arrive, so championship
+// odds / bracket / score predictions stay in sync without the user clicking "运行模拟".
+// Skipped while a simulation is already running or the user is mid manual bracket edit.
+function triggerAutoResim() {
+  if (bracketEditMode) return false;
+  const btn = document.getElementById('runBtn');
+  if (btn && btn.disabled) return false;
+  runSim();
+  return true;
 }
 
 function startScoreAutoRefresh() {
