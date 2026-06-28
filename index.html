@@ -6315,13 +6315,23 @@ function renderSASummary() {
   const banner = document.getElementById('saSummaryBanner');
   if (!banner) return;
   const zh = currentLang==='zh', en = currentLang==='en';
-  const today = _todayMMDD();
-  const schedGroup = MATCH_SCHEDULE.filter(m => m.group !== 'KO' && m.home !== 'TBD' && m.away !== 'TBD');
-  const todayMatches = schedGroup.filter(m => m.date===today);
-  const upcomingMatches = schedGroup.filter(m => {
+  const todayFull = '2026-' + _todayMMDD();
+  let sched = MATCH_SCHEDULE.filter(m => m.group !== 'KO' && m.home !== 'TBD' && m.away !== 'TBD');
+  let todayMatches = sched.filter(m => m.date===todayFull);
+  let upcomingMatches = sched.filter(m => {
     const rec = matchResults.find(r=>(r.t1===m.home&&r.t2===m.away)||(r.t1===m.away&&r.t2===m.home));
-    return m.date>=today && !rec;
+    return m.date>=todayFull && !rec;
   });
+  if (todayMatches.length===0 && upcomingMatches.length===0) {
+    // Group stage has nothing left to show — fall back to confirmed knockout fixtures.
+    const koSched = MATCH_SCHEDULE.filter(m => m.group === 'KO' && m.home !== 'TBD' && m.away !== 'TBD');
+    const koToday = koSched.filter(m => m.date===todayFull);
+    const koUpcoming = koSched.filter(m => {
+      const rec = matchResults.find(r=>(r.t1===m.home&&r.t2===m.away)||(r.t1===m.away&&r.t2===m.home));
+      return m.date>=todayFull && !rec;
+    });
+    if (koToday.length || koUpcoming.length) { sched=koSched; todayMatches=koToday; upcomingMatches=koUpcoming; }
+  }
 
   // Count confidence on upcoming matches
   let strong=0, lean=0;
