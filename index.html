@@ -5578,6 +5578,29 @@ function _todayMMDD() {
   return String(d.getMonth()+1).padStart(2,'0') + '/' + String(d.getDate()).padStart(2,'0');
 }
 
+// MATCH_SCHEDULE stores kickoff as ET (UTC-4) wall-clock. Convert to an actual
+// UTC timestamp so chronological sorting is correct regardless of viewer timezone.
+function _toUtcMs(dateStr, timeStr) {
+  if (!dateStr) return Infinity;
+  const [y, mo, da] = dateStr.replace('/', '-').split('-').map(Number);
+  const [hh, mm] = (timeStr||'00:00').split(':').map(Number);
+  return Date.UTC(y, mo-1, da, (hh||0)+4, mm||0);
+}
+
+// Portugal (WEST, UTC+1 = ET+5h) calendar date for a match, used for day-bucket
+// grouping/headers so they roll over at Portugal midnight, not US Eastern midnight.
+function _toPTDateStr(dateStr, timeStr) {
+  if (!dateStr) return '';
+  const pt = new Date(_toUtcMs(dateStr, timeStr) + 3600000);
+  return pt.getUTCFullYear()+'-'+String(pt.getUTCMonth()+1).padStart(2,'0')+'-'+String(pt.getUTCDate()).padStart(2,'0');
+}
+
+// Portugal's current calendar date, independent of the viewing device's own timezone.
+function _todayPT() {
+  const d = new Date(Date.now() + 3600000);
+  return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
+}
+
 // Default the prediction tab to whichever stage still has matches to show,
 // so finishing the group stage doesn't leave the page looking empty.
 function autoPickSATab() {
@@ -6335,20 +6358,20 @@ function renderSASummary() {
   const banner = document.getElementById('saSummaryBanner');
   if (!banner) return;
   const zh = currentLang==='zh', en = currentLang==='en';
-  const todayFull = '2026-' + _todayMMDD();
+  const todayPT = _todayPT();
   let sched = MATCH_SCHEDULE.filter(m => m.group !== 'KO' && m.home !== 'TBD' && m.away !== 'TBD');
-  let todayMatches = sched.filter(m => m.date===todayFull);
+  let todayMatches = sched.filter(m => _toPTDateStr(m.date,m.time)===todayPT);
   let upcomingMatches = sched.filter(m => {
     const rec = matchResults.find(r=>(r.t1===m.home&&r.t2===m.away)||(r.t1===m.away&&r.t2===m.home));
-    return m.date>=todayFull && !rec;
+    return _toPTDateStr(m.date,m.time)>=todayPT && !rec;
   });
   if (todayMatches.length===0 && upcomingMatches.length===0) {
     // Group stage has nothing left to show — fall back to confirmed knockout fixtures.
     const koSched = MATCH_SCHEDULE.filter(m => m.group === 'KO' && m.home !== 'TBD' && m.away !== 'TBD');
-    const koToday = koSched.filter(m => m.date===todayFull);
+    const koToday = koSched.filter(m => _toPTDateStr(m.date,m.time)===todayPT);
     const koUpcoming = koSched.filter(m => {
       const rec = matchResults.find(r=>(r.t1===m.home&&r.t2===m.away)||(r.t1===m.away&&r.t2===m.home));
-      return m.date>=todayFull && !rec;
+      return _toPTDateStr(m.date,m.time)>=todayPT && !rec;
     });
     if (koToday.length || koUpcoming.length) { sched=koSched; todayMatches=koToday; upcomingMatches=koUpcoming; }
   }
@@ -6391,9 +6414,9 @@ function renderSAGroup(el) {
   const ALL_GROUPS = ['A','B','C','D','E','F','G','H','I','J','K','L'];
   const schedGroup = MATCH_SCHEDULE.filter(m => m.group !== 'KO' && m.home !== 'TBD' && m.away !== 'TBD');
   if (!schedGroup.length) { el.innerHTML=`<div class="empty-state">${T('run_first')}</div>`; return; }
-  const today = _todayMMDD();
-  // Full date string for current day, matching m.date format "2026-MM/DD"
-  const todayFull = '2026-' + today;
+  // Sorted/grouped by Portugal time (WEST, UTC+1) per user request — day
+  // boundaries below use Portugal's calendar date, not the stored ET date.
+  const todayPT = _todayPT();
 
   // Accuracy stats (only finished matches)
   let total=0, resultHits=0, exactHits=0, top1Hits=0;
@@ -6484,31 +6507,31 @@ function renderSAGroup(el) {
   const activeG = saGroupFilter==='ALL' ? ALL_GROUPS : [saGroupFilter];
   let filtered = schedGroup.filter(m => activeG.includes(m.group));
 
-  // Apply time filter (compare using full "2026-MM/DD" format)
+  // Apply time filter (compare using Portugal calendar date)
   filtered = filtered.filter(m => {
-    const d = m.date||'9999';
+    const dPT = _toPTDateStr(m.date, m.time);
     const rec = matchResults.find(r=>(r.t1===m.home&&r.t2===m.away)||(r.t1===m.away&&r.t2===m.home));
-    if (saTimeFilter==='TODAY') return d===todayFull;
-    if (saTimeFilter==='UPCOMING') return d>=todayFull && !rec;
+    if (saTimeFilter==='TODAY') return dPT===todayPT;
+    if (saTimeFilter==='UPCOMING') return dPT>=todayPT && !rec;
     return true; // ALL
   });
 
-  // Sort: ALL → pure chronological asc (past first, today, future last)
-  //       UPCOMING/TODAY → upcoming first (asc), then past most-recent first (desc)
+  // Sort by actual chronological order (UTC ms) — a constant timezone offset
+  // never changes match ordering, only where the Portugal-date headers fall.
+  // ALL → pure chronological asc; UPCOMING/TODAY → upcoming first (asc), then
+  // past most-recent first (desc).
+  const [ptY, ptMo, ptDa] = todayPT.split('-').map(Number);
+  const todayPTStartMs = Date.UTC(ptY, ptMo-1, ptDa) - 3600000; // PT midnight, expressed in UTC
   filtered.sort((a,b)=>{
-    const da=a.date||'9999', db=b.date||'9999';
-    const ta=a.time||'00:00', tb=b.time||'00:00';
-    if(saTimeFilter==='ALL') {
-      return da!==db ? da.localeCompare(db) : ta.localeCompare(tb);
-    }
-    const aFut=da>=todayFull, bFut=db>=todayFull;
-    if(aFut&&!bFut) return -1;
-    if(!aFut&&bFut) return 1;
-    if(aFut&&bFut) return da!==db ? da.localeCompare(db) : ta.localeCompare(tb);
-    return da!==db ? db.localeCompare(da) : tb.localeCompare(ta);
+    const ma=_toUtcMs(a.date,a.time), mb=_toUtcMs(b.date,b.time);
+    if(saTimeFilter==='ALL') return ma-mb;
+    const af=ma>=todayPTStartMs, bf=mb>=todayPTStartMs;
+    if(af&&!bf) return -1;
+    if(!af&&bf) return 1;
+    return af&&bf ? ma-mb : mb-ma;
   });
 
-  // Render cards grouped by date
+  // Render cards grouped by Portugal calendar date
   let html = timeFilterHtml + filterHtml + accBanner;
   let lastDate = '';
   filtered.forEach(m => {
@@ -6516,10 +6539,10 @@ function renderSAGroup(el) {
     if(!t1||!t2) return;
     const rec=matchResults.find(r=>(r.t1===t1.name&&r.t2===t2.name)||(r.t1===t2.name&&r.t2===t1.name));
     const recorded=rec?{score1:rec.t1===t1.name?rec.score1:rec.score2,score2:rec.t1===t1.name?rec.score2:rec.score1}:null;
-    const d = m.date||'';
-    const isToday=d===todayFull, isFut=d>todayFull;
-    if(d && d !== lastDate) {
-      const dLabel = d.slice(5); // "06/15" from "2026-06/15"
+    const dPT = _toPTDateStr(m.date, m.time);
+    const isToday=dPT===todayPT, isFut=dPT>todayPT;
+    if(dPT && dPT !== lastDate) {
+      const dLabel = dPT.slice(5).replace('-','/'); // "06/15" from "2026-06-15"
       const dayLabel = isToday
         ? (currentLang==='en'?'🔴 TODAY':currentLang==='pt'?'🔴 HOJE':'🔴 今日赛事')
         : isFut ? `📅 ${dLabel}` : `✅ ${dLabel}`;
@@ -6527,7 +6550,7 @@ function renderSAGroup(el) {
         ? 'font-size:11px;font-weight:900;color:var(--red);letter-spacing:.8px;margin:10px 0 6px;padding:5px 10px;background:rgba(239,68,68,.08);border-radius:6px;border-left:3px solid var(--red);'
         : 'font-size:10px;font-weight:800;color:var(--text2);letter-spacing:.5px;margin:10px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border);';
       html += `<div style="${dayStyle}">${dayLabel}</div>`;
-      lastDate = d;
+      lastDate = dPT;
     }
     html += spCard(t1, t2, false, recorded, currentLang==='zh'?`小组${m.group}`:`${T('group_suffix')}${m.group}`, isToday, m.time, {md:m.md, group:m.group, date:m.date});
   });
