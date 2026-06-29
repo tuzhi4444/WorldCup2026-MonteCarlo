@@ -5260,6 +5260,7 @@ async function fetchKnockoutFixturesESPN() {
   const end = new Date('2026-07-19T00:00:00Z');
   const THRESH_MS = 6*60*60*1000;
   let filled = 0;
+  const seenEventIds = new Set();
   for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate()+1)) {
     if (!koSlots.some(s => s.home === 'TBD')) break;
     const dateStr = d.toISOString().slice(0,10).replace(/-/g,'');
@@ -5269,15 +5270,12 @@ async function fetchKnockoutFixturesESPN() {
       const data = await r.json();
       const events = (data.events||[]);
       for (const ev of events) {
+        // ESPN's "dates" param sometimes returns the same fixture under more
+        // than one queried day — skip events we've already used so the same
+        // real match never gets assigned to two different bracket slots.
+        if (ev.id && seenEventIds.has(ev.id)) continue;
         const evMs = new Date(ev.date).getTime();
         if (isNaN(evMs)) continue;
-        let best = null, bestDiff = Infinity;
-        for (const s of koSlots) {
-          if (s.home !== 'TBD') continue;
-          const diff = Math.abs(s._utcMs - evMs);
-          if (diff < bestDiff) { bestDiff = diff; best = s; }
-        }
-        if (!best || bestDiff > THRESH_MS) continue;
         const comp = (ev.competitions||[])[0]; if (!comp) continue;
         const home = comp.competitors?.find(c=>c.homeAway==='home');
         const away = comp.competitors?.find(c=>c.homeAway==='away');
@@ -5285,7 +5283,20 @@ async function fetchKnockoutFixturesESPN() {
         const h = TEAM_EN_TO_ZH[home.team?.displayName]||TEAM_EN_TO_ZH[home.team?.name]||home.team?.displayName;
         const a = TEAM_EN_TO_ZH[away.team?.displayName]||TEAM_EN_TO_ZH[away.team?.name]||away.team?.displayName;
         if (!h||!a) continue;
+        // Same safety net by team name, in case ESPN ever omits/reuses an id.
+        if (koSlots.some(s => s.home!=='TBD' && ((s.home===h&&s.away===a)||(s.home===a&&s.away===h)))) {
+          if (ev.id) seenEventIds.add(ev.id);
+          continue;
+        }
+        let best = null, bestDiff = Infinity;
+        for (const s of koSlots) {
+          if (s.home !== 'TBD') continue;
+          const diff = Math.abs(s._utcMs - evMs);
+          if (diff < bestDiff) { bestDiff = diff; best = s; }
+        }
+        if (!best || bestDiff > THRESH_MS) continue;
         best.home = h; best.away = a; filled++;
+        if (ev.id) seenEventIds.add(ev.id);
       }
     } catch(e) { /* skip this day */ }
   }
