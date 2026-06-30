@@ -4800,7 +4800,7 @@ function filterSchedDate(d){schedDateFilter=d;renderSchedule();}
 window.filterSchedDate=filterSchedDate;
 
 const SCHED_DATE_RANGES=[
-  {key:'ALL',  label:'\u5168\u90e8',      from:'2026-06-01', to:'2026-07-31'},
+  {key:'ALL',  from:'2026-06-01', to:'2026-07-31'},
   {key:'MD1',  label:'MD1 6/11-17', from:'2026-06-11', to:'2026-06-17'},
   {key:'MD2',  label:'MD2 6/18-23', from:'2026-06-18', to:'2026-06-23'},
   {key:'MD3',  label:'MD3 6/24-27', from:'2026-06-24', to:'2026-06-27'},
@@ -4808,8 +4808,27 @@ const SCHED_DATE_RANGES=[
   {key:'R16',  label:'R16 7/4-7/7', from:'2026-07-04', to:'2026-07-07'},
   {key:'QF',   label:'QF 7/9-10',   from:'2026-07-09', to:'2026-07-10'},
   {key:'SF',   label:'SF 7/14-15',  from:'2026-07-14', to:'2026-07-15'},
-  {key:'FIN',  label:'\u51b3\u8d5b 7/19',   from:'2026-07-18', to:'2026-07-19'},
+  {key:'FIN',  from:'2026-07-18', to:'2026-07-19'},
 ];
+function schedDateRangeLabel(r){
+  if(r.key==='ALL') return T('all');
+  if(r.key==='FIN') return currentLang==='zh'?'\u51b3\u8d5b 7/19':currentLang==='pt'?'Final 7/19':'Final 7/19';
+  return r.label;
+}
+// Short knockout-round labels for compact schedule badges, keyed by the raw
+// zh round name stored in MATCH_SCHEDULE's md field for KO matches.
+const KO_ROUND_SHORT={
+  '1/16\u51b3\u8d5b':{zh:'1/16\u51b3\u8d5b',en:'R32',pt:'16avos'},
+  '1/8\u51b3\u8d5b': {zh:'1/8\u51b3\u8d5b', en:'R16',pt:'Oitavas'},
+  '1/4\u51b3\u8d5b': {zh:'1/4\u51b3\u8d5b', en:'QF', pt:'Quartas'},
+  '\u534a\u51b3\u8d5b':  {zh:'\u534a\u51b3\u8d5b',  en:'SF', pt:'Meias'},
+  '\u4e09\u56db\u540d\u51b3\u8d5b':{zh:'\u5b63\u519b\u8d5b',en:'3rd Place',pt:'3.\u00ba Lugar'},
+  '\ud83c\udfc6 \u51b3\u8d5b': {zh:'\ud83c\udfc6 \u51b3\u8d5b', en:'\ud83c\udfc6 Final',pt:'\ud83c\udfc6 Final'},
+};
+function koRoundShort(raw){
+  const t=KO_ROUND_SHORT[raw];
+  return t?(t[currentLang]||t.zh):raw;
+}
 
 function renderSchedule() {
   const grid=document.getElementById('scheduleGrid');
@@ -4817,12 +4836,12 @@ function renderSchedule() {
   const dateBtnContainer=document.getElementById('schedDateBtns');
   if(dateBtnContainer){
     dateBtnContainer.innerHTML=SCHED_DATE_RANGES.map(r=>
-      `<button class="btn btn-sm" onclick="filterSchedDate('${r.key}')" style="${schedDateFilter===r.key?'background:var(--accent);color:#fff;':''}">${r.label}</button>`
+      `<button class="btn btn-sm" onclick="filterSchedDate('${r.key}')" style="${schedDateFilter===r.key?'background:var(--accent);color:#fff;':''}">${schedDateRangeLabel(r)}</button>`
     ).join('');
   }
   if(btnContainer){
     btnContainer.innerHTML=['ALL','A','B','C','D','E','F','G','H','I','J','K','L','KO'].map(g=>
-      `<button class="btn btn-sm" onclick="filterSchedGroup('${g}')" style="${schedGroupFilter===g?'background:var(--accent);color:#fff;':''}">${g==='ALL'?T('all'):g==='KO'?T('ko'):currentLang==='zh'?g+'\u7ec4':'Grp '+g}</button>`
+      `<button class="btn btn-sm" onclick="filterSchedGroup('${g}')" style="${schedGroupFilter===g?'background:var(--accent);color:#fff;':''}">${g==='ALL'?T('all'):g==='KO'?T('ko'):currentLang==='zh'?g+T('group_suffix'):T('group_suffix')+g}</button>`
     ).join('');
   }
   // sync the "\u5168\u90e8" group button highlight
@@ -4883,7 +4902,7 @@ function renderSchedule() {
         <span class="sc-date">${ptPrimaryDate} 🇵🇹</span>
         <span style="font-size:8px;color:var(--text3);">${tz}</span>
       </div>
-      <span class="sc-group">${isKO?m.md:(currentLang==='zh'?m.group+'\u7ec4 R':('Grp '+m.group+' R'))+m.md}</span>
+      <span class="sc-group">${isKO?koRoundShort(m.md):(currentLang==='zh'?m.group+'\u7ec4 R':T('group_suffix')+m.group+' R')+m.md}</span>
       <div style="flex:1;">
         <div style="font-weight:600;font-size:11px;">${getFlag(m.home)} ${TN(m.home)} vs ${getFlag(m.away)} ${TN(m.away)}</div>
         <div style="font-size:8px;color:var(--text3);margin-top:1px;">${m.city||''}</div>
@@ -4891,7 +4910,7 @@ function renderSchedule() {
     if(isCompleted){
       html+=`<div style="text-align:center;"><span class="sc-score">${result.score1}-${result.score2}</span></div>`;
     } else if(needsResult){
-      html+=`<div style="text-align:center;"><span style="font-size:10px;color:var(--orange,#f97316);font-weight:700;cursor:pointer;" onclick="switchTab('matchEntry',this)" title="${currentLang==='zh'?'\u70b9\u51fb\u5f55\u5165\u7ed3\u679c':'Enter result'}">\u5f85\u5f55\u5165</span></div>`;
+      html+=`<div style="text-align:center;"><span style="font-size:10px;color:var(--orange,#f97316);font-weight:700;cursor:pointer;" onclick="switchTab('matchEntry',this)" title="${currentLang==='zh'?'\u70b9\u51fb\u5f55\u5165\u7ed3\u679c':currentLang==='pt'?'Clique para inserir o resultado':'Click to enter result'}">${currentLang==='zh'?'\u5f85\u5f55\u5165':currentLang==='pt'?'A inserir':'Pending'}</span></div>`;
     } else if(m.home!=='TBD'){
       const mts=new Date(m.date+'T'+(m.time||'00:00')+':00').getTime();
       const cdSpan=`<span data-mts="${mts}" style="font-size:9px;display:block;margin-top:2px"></span>`;
