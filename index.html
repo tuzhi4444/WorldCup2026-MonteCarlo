@@ -5661,7 +5661,8 @@ function autoPickSATab() {
   });
   if (groupPending) return;
   saMode = 'ko';
-  saTimeFilter = 'ALL';
+  // Keep default at UPCOMING (not ALL) so already-finished KO matches stay
+  // hidden here too, same as the group view.
   const gBtn = document.getElementById('groupStageBtn'), kBtn = document.getElementById('knockoutBtn');
   if (gBtn) gBtn.classList.remove('active');
   if (kBtn) kBtn.classList.add('active');
