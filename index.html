@@ -898,7 +898,7 @@ const L={
     odds_saved_notify:'赔率已保存，融合预测已更新',
     odds_filled_modal:'已填入基于模拟结果的参考赔率（含10%边际）',
     odds_filled_ref:'已填入参考赔率 | 你可以点击「输入赔率」按实际赔率修改',
-    ko_r32:'1/8决赛 (R32→16)',ko_r16:'1/4决赛 (16→8)',ko_sf:'半决赛',ko_3rd:'季军赛 & 决赛',
+    ko_r32:'1/16决赛 (32→16)',ko_r16:'1/8决赛 (16→8)',ko_qf:'1/4决赛 (8→4)',ko_sf:'半决赛',ko_3rd:'季军赛',ko_final:'🏆 决赛',
     snap_saved:'快照已保存',history_recent:'最近两次对比',
     prev_col:'上次',curr_col:'本次',delta_col:'变化',
     factor_scores_lbl:'因子评分',edit_factor_btn:'✏️ 编辑因子',radar_btn:'📊 雷达对比',predict_btn:'⚡ 预测比赛',
@@ -1032,7 +1032,7 @@ const L={
     odds_saved_notify:'Odds salvas, previsão combinada atualizada',
     odds_filled_modal:'Odds de referência preenchidas (margem de 10%)',
     odds_filled_ref:'Odds de referência preenchidas | Clique "Editar" para ajustar',
-    ko_r32:'16avos de Final (R32→16)',ko_r16:'Quartas de Final (16→8)',ko_sf:'Meias-Finais',ko_3rd:'3.º Lugar & Final',
+    ko_r32:'16avos de Final (32→16)',ko_r16:'Oitavas de Final (16→8)',ko_qf:'Quartas de Final (8→4)',ko_sf:'Meias-Finais',ko_3rd:'3.º Lugar',ko_final:'🏆 Final',
     snap_saved:'Snapshot guardado',history_recent:'Comparação dos Últimos Dois',
     prev_col:'Ant.',curr_col:'Atual',delta_col:'Δ',
     factor_scores_lbl:'Pontuações de Fatores',edit_factor_btn:'✏️ Editar Fatores',radar_btn:'📊 Radar',predict_btn:'⚡ Prever',
@@ -1175,7 +1175,7 @@ const L={
     odds_saved_notify:'Odds saved, blended prediction updated',
     odds_filled_modal:'Reference odds filled (10% margin from simulation)',
     odds_filled_ref:'Reference odds filled | Click "Edit" to adjust with actual odds',
-    ko_r32:'Round of 32 (R32→16)',ko_r16:'Quarter-Finals (16→8)',ko_sf:'Semi-Finals',ko_3rd:'Third Place & Final',
+    ko_r32:'Round of 32 (32→16)',ko_r16:'Round of 16 (16→8)',ko_qf:'Quarter-Finals (8→4)',ko_sf:'Semi-Finals',ko_3rd:'Third Place',ko_final:'🏆 Final',
     snap_saved:'Snapshot saved',history_recent:'Last Two Comparison',
     prev_col:'Prev.',curr_col:'Curr.',delta_col:'Δ',
     factor_scores_lbl:'Factor Scores',edit_factor_btn:'✏️ Edit Factors',radar_btn:'📊 Radar',predict_btn:'⚡ Predict',
@@ -6649,17 +6649,43 @@ function renderSAKO(el) {
     </div>`;
   }
 
+  // KO_SCHED slot indices: 0-15 R32 · 16-23 R16 · 24-27 QF · 28-29 SF · 30 3rd · 31 Final
   const rounds=[
-    {label:T('ko_r32'), matches:koSchedule.slice(0,16)},
-    {label:T('ko_r16'), matches:koSchedule.slice(16,24)},
-    {label:T('ko_sf'),  matches:koSchedule.slice(24,28)},
-    {label:T('ko_3rd'), matches:koSchedule.slice(28,32)},
+    {label:T('ko_r32'),  matches:koSchedule.slice(0,16)},
+    {label:T('ko_r16'),  matches:koSchedule.slice(16,24)},
+    {label:T('ko_qf'),   matches:koSchedule.slice(24,28)},
+    {label:T('ko_sf'),   matches:koSchedule.slice(28,30)},
+    {label:T('ko_3rd'),  matches:koSchedule.slice(30,31)},
+    {label:T('ko_final'),matches:koSchedule.slice(31,32)},
   ];
 
-  let html = accBanner;
+  // 与小组赛视图一致：今日/待赛/全部 时间筛选 + 按葡萄牙时间排序分组
+  const todayPT = _todayPT();
+  const tfLabels = currentLang==='en'
+    ? {TODAY:'Today',UPCOMING:'Upcoming',ALL:'All'}
+    : currentLang==='pt'
+    ? {TODAY:'Hoje',UPCOMING:'Próximos',ALL:'Todos'}
+    : {TODAY:'今日',UPCOMING:'待赛',ALL:'全部'};
+  let timeFilterHtml = `<div style="display:flex;gap:4px;margin-bottom:8px;">`;
+  ['TODAY','UPCOMING','ALL'].forEach(f=>{
+    timeFilterHtml += `<button class="btn btn-sm sa-tf-btn${saTimeFilter===f?' active':''}" data-tf="${f}" onclick="saSetTime('${f}')" style="font-size:10px;padding:3px 10px;">${tfLabels[f]}</button>`;
+  });
+  timeFilterHtml += `</div>`;
+
+  let html = timeFilterHtml + accBanner;
   rounds.forEach(({label,matches})=>{
-    const valid=matches.filter(m=>m.home!=='TBD'&&m.away!=='TBD');
+    let valid=matches.filter(m=>m.home!=='TBD'&&m.away!=='TBD');
     const tbdCount=matches.filter(m=>m.home==='TBD'||m.away==='TBD').length;
+    // 按葡萄牙时间应用 今日/待赛/全部 筛选
+    valid = valid.filter(m=>{
+      const dPT = _toPTDateStr(m.date, m.time);
+      const rec = matchResults.find(r=>(r.t1===m.home&&r.t2===m.away)||(r.t1===m.away&&r.t2===m.home));
+      if (saTimeFilter==='TODAY') return dPT===todayPT;
+      if (saTimeFilter==='UPCOMING') return dPT>=todayPT && !rec;
+      return true; // ALL
+    });
+    // 按实际开球时间（UTC ms）排序，确保显示顺序与真实时间一致
+    valid.sort((a,b)=>_toUtcMs(a.date,a.time)-_toUtcMs(b.date,b.time));
     let sectionHtml='';
     valid.forEach(m=>{
       const t1=teams.find(t=>t.name===m.home), t2=teams.find(t=>t.name===m.away);
