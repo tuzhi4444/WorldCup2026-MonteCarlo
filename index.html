@@ -4853,8 +4853,11 @@ function renderSchedule() {
     const mDateNorm=m.date.replace('/','-');
     if(schedDateFilter!=='ALL'&&(mDateNorm<dr.from||mDateNorm>dr.to)) return false;
     if(schedHideCompleted){
-      const rec=matchResults.find(r=>(r.t1===m.home&&r.t2===m.away)||(r.t1===m.away&&r.t2===m.home));
-      if(rec) return false;
+      // "Finished" means the real-world kickoff date has passed, not just that a
+      // result was manually entered — most past matches never get a result typed
+      // in, so gating on matchResults alone left stale matches at the top of the list.
+      const matchDate=new Date(mDateNorm+'T23:59:00');
+      if(matchDate<now) return false;
     }
     return true;
   });
