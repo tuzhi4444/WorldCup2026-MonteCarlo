@@ -4782,9 +4782,12 @@ function renderOdds(){
 // ─── TAB: SCHEDULE ───
 let schedGroupFilter='ALL';
 let schedDateFilter='ALL';
+let schedHideCompleted=true;
 function filterSchedGroup(g){schedGroupFilter=g;renderSchedule();}
 function filterSchedDate(d){schedDateFilter=d;renderSchedule();}
+function toggleSchedHideCompleted(){schedHideCompleted=!schedHideCompleted;renderSchedule();}
 window.filterSchedDate=filterSchedDate;
+window.toggleSchedHideCompleted=toggleSchedHideCompleted;
 
 const SCHED_DATE_RANGES=[
   {key:'ALL',  from:'2026-06-01', to:'2026-07-31'},
@@ -4839,7 +4842,7 @@ function renderSchedule() {
   // Count past group matches without recorded results \u2192 show banner
   const needEntry=MATCH_SCHEDULE.filter(m=>{
     if(m.group==='KO'||m.home==='TBD'||m.away==='TBD') return false;
-    const md=new Date(m.date+'T23:59:00');
+    const md=new Date(m.date.replace('/','-')+'T23:59:00');
     if(md>=now) return false;
     return !matchResults.find(r=>(r.t1===m.home&&r.t2===m.away)||(r.t1===m.away&&r.t2===m.home));
   });
@@ -4852,24 +4855,29 @@ function renderSchedule() {
       :`\u26a0\ufe0f \u6709 ${needEntry.length} \u573a\u5df2\u8d5b\u6bd4\u8d5b\u672a\u5f55\u5165\u7ed3\u679c\uff0c\u5f55\u5165\u540e\u53ef\u63d0\u5347\u6a21\u62df\u51c6\u786e\u6027`;
     html+=`<div style="background:rgba(234,179,8,.12);border:1px solid rgba(234,179,8,.4);border-radius:7px;padding:7px 10px;margin-bottom:8px;font-size:11px;color:var(--gold);">${lbl}</div>`;
   }
+  const hideLbl=currentLang==='en'?(schedHideCompleted?'\ud83d\udc41\ufe0f Show finished':'\ud83d\ude48 Hide finished')
+    :currentLang==='pt'?(schedHideCompleted?'\ud83d\udc41\ufe0f Mostrar terminados':'\ud83d\ude48 Ocultar terminados')
+    :(schedHideCompleted?'\ud83d\udc41\ufe0f \u663e\u793a\u5df2\u5b8c\u8d5b':'\ud83d\ude48 \u9690\u85cf\u5df2\u5b8c\u8d5b');
+  html+=`<div style="margin-bottom:8px;"><button class="btn btn-sm" onclick="toggleSchedHideCompleted()" style="${!schedHideCompleted?'background:var(--accent);color:#fff;':''}">${hideLbl}</button></div>`;
   const dr=SCHED_DATE_RANGES.find(r=>r.key===schedDateFilter)||SCHED_DATE_RANGES[0];
   const filtered=MATCH_SCHEDULE.filter(m=>{
     if(schedGroupFilter!=='ALL'&&m.group!==schedGroupFilter) return false;
-    if(schedDateFilter!=='ALL'&&(m.date<dr.from||m.date>dr.to)) return false;
+    const mDateNorm=m.date.replace('/','-');
+    if(schedDateFilter!=='ALL'&&(mDateNorm<dr.from||mDateNorm>dr.to)) return false;
+    if(schedHideCompleted){
+      const rec=matchResults.find(r=>(r.t1===m.home&&r.t2===m.away)||(r.t1===m.away&&r.t2===m.home));
+      if(rec) return false;
+    }
     return true;
   });
-  filtered.sort((a,b)=>{
-    const da=a.date+(a.time?'T'+a.time:'T00:00');
-    const db=b.date+(b.time?'T'+b.time:'T00:00');
-    return da.localeCompare(db)||a.id-b.id;
-  });
+  filtered.sort((a,b)=>_toUtcMs(a.date,a.time)-_toUtcMs(b.date,b.time)||a.id-b.id);
   filtered.forEach(m=>{
     const result=matchResults.find(r=>(r.t1===m.home&&r.t2===m.away)||(r.t1===m.away&&r.t2===m.home));
     const isCompleted=!!result;
     const isKO=m.group==='KO';
-    const matchDate=new Date(m.date+'T23:59:00');
+    const matchDate=new Date(m.date.replace('/','-')+'T23:59:00');
     const isPast=matchDate<now;
-    const isToday=m.date===now.toISOString().slice(0,10);
+    const isToday=m.date.replace('/','-')===now.toISOString().slice(0,10);
     const needsResult=isPast&&!isCompleted&&m.home!=='TBD'&&m.away!=='TBD'&&!isKO;
     const tz=showDualTime(m.date,m.time,m.city);
     // Compute PT primary date (advances when EDT time + 5h crosses midnight)
@@ -4899,7 +4907,7 @@ function renderSchedule() {
     } else if(needsResult){
       html+=`<div style="text-align:center;"><span style="font-size:10px;color:var(--orange,#f97316);font-weight:700;cursor:pointer;" onclick="switchTab('matchEntry',this)" title="${currentLang==='zh'?'\u70b9\u51fb\u5f55\u5165\u7ed3\u679c':currentLang==='pt'?'Clique para inserir o resultado':'Click to enter result'}">${currentLang==='zh'?'\u5f85\u5f55\u5165':currentLang==='pt'?'A inserir':'Pending'}</span></div>`;
     } else if(m.home!=='TBD'){
-      const mts=new Date(m.date+'T'+(m.time||'00:00')+':00').getTime();
+      const mts=new Date(m.date.replace('/','-')+'T'+(m.time||'00:00')+':00').getTime();
       const cdSpan=`<span data-mts="${mts}" style="font-size:9px;display:block;margin-top:2px"></span>`;
       // Show live odds from ESPN if available
       const oddsKey=m.home+'|'+m.away;
@@ -5272,7 +5280,11 @@ async function fetchScoresESPN(daysBack) {
 // time (MATCH_SCHEDULE times are stored as EDT/UTC-4), so a late-evening ET kickoff
 // that lands on the next UTC calendar day is still matched correctly.
 async function fetchKnockoutFixturesESPN() {
-  const koSlots = MATCH_SCHEDULE.filter(m => m.group === 'KO' && m.home === 'TBD');
+  // Live view of every KO slot (filled or not) — this function runs repeatedly
+  // (2-min auto-refresh, tab switches), so the dup-check below must see
+  // assignments made in *earlier* calls, not just slots still TBD right now.
+  const allKO = MATCH_SCHEDULE.filter(m => m.group === 'KO');
+  const koSlots = allKO.filter(m => m.home === 'TBD');
   if (!koSlots.length) return 0;
   koSlots.forEach(m => {
     const [y, mo, da] = m.date.split('-').map(Number);
@@ -5308,7 +5320,9 @@ async function fetchKnockoutFixturesESPN() {
         const a = TEAM_EN_TO_ZH[away.team?.displayName]||TEAM_EN_TO_ZH[away.team?.name]||away.team?.displayName;
         if (!h||!a) continue;
         // Same safety net by team name, in case ESPN ever omits/reuses an id.
-        if (koSlots.some(s => s.home!=='TBD' && ((s.home===h&&s.away===a)||(s.home===a&&s.away===h)))) {
+        // Checked against allKO (not koSlots) so a pair assigned in an earlier
+        // call — already non-TBD and thus absent from this call's koSlots — still blocks a second assignment.
+        if (allKO.some(s => s.home!=='TBD' && ((s.home===h&&s.away===a)||(s.home===a&&s.away===h)))) {
           if (ev.id) seenEventIds.add(ev.id);
           continue;
         }
