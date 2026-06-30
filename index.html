@@ -3552,12 +3552,18 @@ function renderBracket(){
       const a=prev[i],b=prev[i+1];
       if(!a||!b||a.name==='?'||b.name==='?'){res.push(a||b||{name:'?',adv:.5,champ:0});continue;}
       // If this exact matchup has already been played and recorded with a clear
-      // winner, show the real outcome instead of a probability guess — a draw
-      // (penalty shootout) has no recorded winner, so fall back to simulation.
+      // winner, show the real outcome instead of a probability guess.
+      // For a regulation/ET draw, use the recorded pkWinner (penalty shootout)
+      // when available instead of falling back to simulation.
       const rec=matchResults.find(r=>(r.t1===a.name&&r.t2===b.name)||(r.t1===b.name&&r.t2===a.name));
       if(rec && rec.score1!==rec.score2){
         const aWon=(rec.t1===a.name)===(rec.score1>rec.score2);
         res.push({...(aWon?a:b),adv:1});
+        continue;
+      }
+      if(rec && rec.score1===rec.score2 && rec.pkWinner){
+        const aWon=rec.pkWinner===a.name;
+        res.push({...(aWon?a:b),adv:1,pk:true});
         continue;
       }
       const ta=teams.find(x=>x.name===a.name)||a,tb=teams.find(x=>x.name===b.name)||b;
@@ -4974,7 +4980,9 @@ function rebuildEloFromHistory() {
     const tB = teams.find(t => t.name === m.t2);
     if (!tA || !tB) return;
     const eA = 1 / (1 + Math.pow(10, (tB.elo - tA.elo) / 400));
-    let sA = m.score1 > m.score2 ? 1 : m.score1 < m.score2 ? 0 : 0.5;
+    // 点球大战获胜：给获胜方部分加分（0.65而非满分1.0），因为点球结果运气成分更高
+    let sA = m.score1 > m.score2 ? 1 : m.score1 < m.score2 ? 0
+           : m.pkWinner === m.t1 ? 0.65 : m.pkWinner === m.t2 ? 0.35 : 0.5;
     tA.elo = Math.round(tA.elo + K * (sA - eA));
     tB.elo = Math.round(tB.elo + K * ((1-sA) - (1-eA)));
   });
@@ -5011,6 +5019,7 @@ function renderMatchEntry() {
       <span style="font-weight:500;">${getFlag(m.t1)} ${TN(m.t1)}</span>
       <span style="font-weight:700;">${m.score1}-${m.score2}</span>
       <span style="font-weight:500;">${getFlag(m.t2)} ${TN(m.t2)}</span>
+      ${m.pkWinner?`<span style="font-size:9px;color:#d97706;font-weight:700;">🥅 ${TN(m.pkWinner)}${currentLang==='zh'?'点球胜':currentLang==='en'?' wins on PKs':' vence nos pênaltis'}</span>`:''}
       <span style="margin-left:auto;color:var(--red);cursor:pointer;font-weight:700;" onclick="deleteMatch(${i})">✕</span>
     </div>
   `).join('');
@@ -5172,15 +5181,18 @@ function setScoreStatus(html, type) {
   el.innerHTML = `<span style="color:${colors[type]||'var(--text2)'};">${html}</span>`;
 }
 
-function mergeScoreResult(homeZh, awayZh, s1, s2, dateStr) {
+// pkWinner: zh team name that won on penalties, only meaningful when s1===s2
+// (淘汰赛战平后点球大战的获胜方 — 没有点球大战时传 null)
+function mergeScoreResult(homeZh, awayZh, s1, s2, dateStr, pkWinner) {
   if (!homeZh || !awayZh) return false;
   const idx = matchResults.findIndex(m =>
     (m.t1 === homeZh && m.t2 === awayZh) || (m.t1 === awayZh && m.t2 === homeZh));
   const entry = { t1: homeZh, t2: awayZh, score1: s1, score2: s2, time: dateStr };
+  if (pkWinner) entry.pkWinner = pkWinner;
   if (idx >= 0) {
-    // update if score changed
+    // update if score or pkWinner changed
     const old = matchResults[idx];
-    if (old.score1 === s1 && old.score2 === s2) return false;
+    if (old.score1 === s1 && old.score2 === s2 && old.pkWinner === entry.pkWinner) return false;
     matchResults[idx] = entry;
     return true;
   }
@@ -5235,7 +5247,13 @@ async function fetchScoresESPN(daysBack) {
         // Score for finished matches
         if (state !== 'post' && !completed) return;
         const hs = parseInt(home.score)||0, as_ = parseInt(away.score)||0;
-        if (h && a && mergeScoreResult(h, a, hs, as_, comp.date)) changed++;
+        // 战平时查 ESPN 的 winner 标记，识别点球大战获胜方
+        let pkW = null;
+        if (hs === as_) {
+          if (home.winner === true) pkW = h;
+          else if (away.winner === true) pkW = a;
+        }
+        if (h && a && mergeScoreResult(h, a, hs, as_, comp.date, pkW)) changed++;
       });
     } catch(e) { /* skip this day */ }
   }
@@ -5363,7 +5381,10 @@ async function fetchAllTournamentScores() {
         if(!home||!away) return;
         const h=TEAM_EN_TO_ZH[home.team?.displayName]||TEAM_EN_TO_ZH[home.team?.name]||home.team?.displayName;
         const a=TEAM_EN_TO_ZH[away.team?.displayName]||TEAM_EN_TO_ZH[away.team?.name]||away.team?.displayName;
-        if(h&&a&&mergeScoreResult(h,a,parseInt(home.score)||0,parseInt(away.score)||0,comp.date)) changed++;
+        const _hs=parseInt(home.score)||0, _as=parseInt(away.score)||0;
+        let _pkW=null;
+        if(_hs===_as){ if(home.winner===true) _pkW=h; else if(away.winner===true) _pkW=a; }
+        if(h&&a&&mergeScoreResult(h,a,_hs,_as,comp.date,_pkW)) changed++;
         total++;
       });
     } catch(e){}
@@ -5450,7 +5471,12 @@ async function fetchScoresFootballData(token) {
         const s1 = m.score?.fullTime?.home ?? m.score?.regularTime?.home;
         const s2 = m.score?.fullTime?.away ?? m.score?.regularTime?.away;
         if (s1 != null && s2 != null) {
-          if (mergeScoreResult(h, a, s1, s2, m.utcDate)) changed++;
+          let pkW = null;
+          if (s1 === s2 && m.score?.penalties) {
+            const p1 = m.score.penalties.home, p2 = m.score.penalties.away;
+            if (p1 != null && p2 != null) pkW = p1 > p2 ? h : p2 > p1 ? a : null;
+          }
+          if (mergeScoreResult(h, a, s1, s2, m.utcDate, pkW)) changed++;
         }
       });
       return { source: 'football-data.org', count: matches.length, changed };
@@ -6274,10 +6300,12 @@ function spCard(t1, t2, isKO, recorded, matchDate, isToday, matchTime, matchCtx)
       const hCol = actualGD>line?'#22c55e':actualGD===line?'#f59e0b':'var(--red,#ef4444)';
       hcapResultStr = `<span style="font-size:9px;color:${hCol};margin-left:4px;">${lineFmtR} ${hRes}</span>`;
     }
-    recBlock = `<div style="display:flex;align-items:center;gap:6px;margin-top:4px;padding:4px 8px;border-radius:6px;background:${hit.exactHit?'rgba(168,85,247,.1)':hit.resultHit?'rgba(34,197,94,.1)':'rgba(239,68,68,.08)'};">
+    const pkStr = recorded.pkWinner ? `<span style="font-size:9px;color:#d97706;font-weight:700;">🥅 ${TN(recorded.pkWinner)}${zh?'点球获胜晋级':en?' advances on PKs':' avança nos pênaltis'}</span>` : '';
+    recBlock = `<div style="display:flex;align-items:center;gap:6px;margin-top:4px;padding:4px 8px;border-radius:6px;background:${hit.exactHit?'rgba(168,85,247,.1)':hit.resultHit?'rgba(34,197,94,.1)':'rgba(239,68,68,.08)'};flex-wrap:wrap;">
       <span style="font-weight:800;font-size:13px;">${rs1} - ${rs2}</span>
       <span style="font-size:9px;font-weight:700;color:${correctColor};">${correct}</span>
       ${hcapResultStr}
+      ${pkStr}
     </div>`;
   }
 
@@ -6638,7 +6666,7 @@ function renderSAKO(el) {
       if(!t1||!t2) return;
       const rec=matchResults.find(r=>(r.t1===t1.name&&r.t2===t2.name)||(r.t1===t2.name&&r.t2===t1.name));
       if(saFutureOnly&&rec) return;
-      const recorded=rec?{score1:rec.t1===t1.name?rec.score1:rec.score2,score2:rec.t1===t1.name?rec.score2:rec.score1}:null;
+      const recorded=rec?{score1:rec.t1===t1.name?rec.score1:rec.score2,score2:rec.t1===t1.name?rec.score2:rec.score1,pkWinner:rec.pkWinner||null}:null;
       sectionHtml+=spCard(t1,t2,true,recorded,m.date||'',false,m.time,{date:m.date});
     });
     if(!sectionHtml&&!tbdCount) return;
