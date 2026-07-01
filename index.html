@@ -1629,22 +1629,22 @@ const MATCH_SCHEDULE = (function(){
   // 已对照 NBC Sports / ESPN 多篇赛程报道及 MD19 战报逐场交叉核实 (2026-06-30)，时间均为美东时间(ET)
   const KO_SCHED = [
     // ── 1/16决赛 (R32) June 28 (单场) – July 3 · 之后每天3场 ──
-    {d:'06/28',t:'15:00',n:'1/16决赛',v:V[1]},   // 洛杉矶 - 南非vs加拿大
-    {d:'06/29',t:'13:00',n:'1/16决赛',v:V[4]},   // 休斯顿 - 巴西vs日本
-    {d:'06/29',t:'16:30',n:'1/16决赛',v:V[7]},   // 波士顿 - 德国vs巴拉圭
-    {d:'06/29',t:'21:00',n:'1/16决赛',v:V[12]},  // 蒙特雷 - 荷兰vs摩洛哥
-    {d:'06/30',t:'13:00',n:'1/16决赛',v:V[2]},   // 达拉斯 - 科特迪瓦vs挪威
-    {d:'06/30',t:'17:00',n:'1/16决赛',v:V[0]},   // 纽约/新泽西 - 法国vs瑞典
-    {d:'06/30',t:'21:00',n:'1/16决赛',v:V[11]},  // 墨西哥城 - 墨西哥vs厄瓜多尔
-    {d:'07/01',t:'12:00',n:'1/16决赛',v:V[5]},   // 亚特兰大 - 英格兰vs民主刚果
-    {d:'07/01',t:'16:00',n:'1/16决赛',v:V[9]},   // 西雅图 - 比利时vs塞内加尔
-    {d:'07/01',t:'20:00',n:'1/16决赛',v:V[8]},   // 旧金山 - 美国vs波黑
-    {d:'07/02',t:'15:00',n:'1/16决赛',v:V[1]},   // 洛杉矶 - 西班牙vs奥地利
-    {d:'07/02',t:'19:00',n:'1/16决赛',v:V[15]},  // 多伦多 - 葡萄牙vs克罗地亚
-    {d:'07/02',t:'23:00',n:'1/16决赛',v:V[14]},  // 温哥华 - 瑞士vs阿尔及利亚
-    {d:'07/03',t:'14:00',n:'1/16决赛',v:V[2]},   // 达拉斯 - 澳大利亚vs埃及
-    {d:'07/03',t:'18:00',n:'1/16决赛',v:V[10]},  // 迈阿密 - 阿根廷vs佛得角
-    {d:'07/03',t:'21:30',n:'1/16决赛',v:V[3]},   // 堪萨斯城 - 哥伦比亚vs加纳
+    {d:'06/28',t:'15:00',n:'1/16决赛',v:V[1],t1:'南非',t2:'加拿大'},
+    {d:'06/29',t:'13:00',n:'1/16决赛',v:V[4],t1:'巴西',t2:'日本'},
+    {d:'06/29',t:'16:30',n:'1/16决赛',v:V[7],t1:'德国',t2:'巴拉圭'},
+    {d:'06/29',t:'21:00',n:'1/16决赛',v:V[12],t1:'荷兰',t2:'摩洛哥'},
+    {d:'06/30',t:'13:00',n:'1/16决赛',v:V[2],t1:'科特迪瓦',t2:'挪威'},
+    {d:'06/30',t:'17:00',n:'1/16决赛',v:V[0],t1:'法国',t2:'瑞典'},
+    {d:'06/30',t:'21:00',n:'1/16决赛',v:V[11],t1:'墨西哥',t2:'厄瓜多尔'},
+    {d:'07/01',t:'12:00',n:'1/16决赛',v:V[5],t1:'英格兰',t2:'民主刚果'},
+    {d:'07/01',t:'16:00',n:'1/16决赛',v:V[9],t1:'比利时',t2:'塞内加尔'},
+    {d:'07/01',t:'20:00',n:'1/16决赛',v:V[8],t1:'美国',t2:'波黑'},
+    {d:'07/02',t:'15:00',n:'1/16决赛',v:V[1],t1:'西班牙',t2:'奥地利'},
+    {d:'07/02',t:'19:00',n:'1/16决赛',v:V[15],t1:'葡萄牙',t2:'克罗地亚'},
+    {d:'07/02',t:'23:00',n:'1/16决赛',v:V[14],t1:'瑞士',t2:'阿尔及利亚'},
+    {d:'07/03',t:'14:00',n:'1/16决赛',v:V[2],t1:'澳大利亚',t2:'埃及'},
+    {d:'07/03',t:'18:00',n:'1/16决赛',v:V[10],t1:'阿根廷',t2:'佛得角'},
+    {d:'07/03',t:'21:30',n:'1/16决赛',v:V[3],t1:'哥伦比亚',t2:'加纳'},
     // ── 1/8决赛 (R16) July 4–7 · 每天2场 (Match 89–96) ──
     {d:'07/04',t:'13:00',n:'1/8决赛',v:V[4]},    // 休斯顿 - Match 90
     {d:'07/04',t:'17:00',n:'1/8决赛',v:V[6]},    // 费城 - Match 89
@@ -3529,59 +3529,79 @@ function _groupRanking(g){
 
 // Build the 32 bracket entry slots fresh every time — no persistent cache.
 // bracketCustomSlots is only set when the user is in manual-edit mode.
+// Uses KO_SCHED team pairings with FIFA bracket tree ordering for correct
+// R16+ pairings via simple adjacent-winner advancement.
 function buildBracketSlots(){
-  const GS=['A','B','C','D','E','F','G','H','I','J','K','L'];
-  const ranks={}, gd={};
-  GS.forEach(g=>{
-    ranks[g]=_groupRanking(g);
-    gd[g]={w:ranks[g][0]||null, ru:ranks[g][1]||null, t3:ranks[g][2]||null};
-  });
-
-  // Collect third-place teams, sort, top 8 qualify
-  const thirds=[];
-  GS.forEach(g=>{
-    const t3=gd[g].t3; if(!t3) return;
-    const complete=_groupMatchCount(g)>=6;
-    const st=complete?getGroupStandingsFull(g).find(s=>s.name===t3):null;
-    thirds.push({name:t3, group:g, complete,
-      pts:st?.pts||0, gd:st?.gd||0, gf:st?.gf||0,
-      simAdv:simResults?(simResults.advanceCount[t3]||0):0});
-  });
-  thirds.sort((a,b)=>{
-    if(a.complete&&b.complete) return b.pts-a.pts||b.gd-a.gd||b.gf-a.gf;
-    if(a.complete!==b.complete) return a.complete?-1:1;
-    return b.simAdv-a.simAdv;
-  });
-  const btAll=thirds.slice(0,8), q3=new Set(btAll.map(t=>t.group));
-
   const slots=new Array(32).fill('?');
 
-  // FIFA 2026 third-place assignment (priority order per winner, match index)
-  const thirdSlots=[
-    {s:2,  p:['A','B','C','D','F']},{s:8,  p:['C','D','F','G','H']},
-    {s:12, p:['C','E','F','H','I']},{s:14, p:['E','H','I','J','K']},
-    {s:16, p:['B','E','F','I','J']},{s:18, p:['A','E','H','I','J']},
-    {s:24, p:['E','F','G','I','J']},{s:28, p:['D','E','I','J','L']},
-  ];
-  const assigned3=new Set();
-  for(const ts of thirdSlots)
-    for(const g of ts.p)
-      if(q3.has(g)&&!assigned3.has(g)){const t=btAll.find(x=>x.group===g);if(t){slots[ts.s+1]=t.name;assigned3.add(g);break;}}
+  // FIFA bracket tree ordering: which KO_SCHED index goes to each slot-pair
+  // to produce correct R16/QF/SF pairings via adjacent (0,1)(2,3)... folding.
+  const koR32Order=[0,1,3,4,2,5,6,7,8,9,11,12,10,13,14,15];
 
-  // FIFA R32 fixed matchups: [homeSlot, awaySlot, homeGrp, homePos, awayGrp, awayPos]
-  const fixed=[
-    [0,1,'A','ru','B','ru'],[2,3,'E','w',null,null],[4,5,'F','w','C','ru'],
-    [6,7,'C','w','F','ru'],[8,9,'I','w',null,null],[10,11,'E','ru','I','ru'],
-    [12,13,'A','w',null,null],[14,15,'L','w',null,null],
-    [16,17,'D','w',null,null],[18,19,'G','w',null,null],
-    [20,21,'K','ru','L','ru'],[22,23,'H','w','J','ru'],
-    [24,25,'B','w',null,null],[26,27,'J','w','H','ru'],
-    [28,29,'K','w',null,null],[30,31,'D','ru','G','ru'],
-  ];
-  for(const [sa,sb,gA,pA,gB,pB] of fixed){
-    const a=pA==='w'?gd[gA].w:gd[gA].ru;
-    if(a) slots[sa]=a;
-    if(gB){const b=pB==='ru'?gd[gB].ru:null;if(b) slots[sb]=b;}
+  // Fill from KO_SCHED team pairings (priority)
+  if(typeof KO_SCHED!=='undefined'){
+    for(let pi=0;pi<16;pi++){
+      const ksi=koR32Order[pi]; // KO_SCHED index for this bracket position
+      const ks=KO_SCHED[ksi];
+      if(ks&&ks.t1&&ks.t2){
+        const sa=pi*2, sb=pi*2+1;
+        slots[sa]=ks.t1;
+        slots[sb]=ks.t2;
+      }
+    }
+  }
+
+  // Fallback: fill any remaining '?' from group-based FIFA bracket
+  const hasQ=slots.some(s=>s==='?');
+  if(hasQ){
+    const GS=['A','B','C','D','E','F','G','H','I','J','K','L'];
+    const ranks={}, gd={};
+    GS.forEach(g=>{
+      ranks[g]=_groupRanking(g);
+      gd[g]={w:ranks[g][0]||null, ru:ranks[g][1]||null, t3:ranks[g][2]||null};
+    });
+    // Third-place
+    const thirds=[];
+    GS.forEach(g=>{
+      const t3=gd[g].t3; if(!t3) return;
+      const complete=_groupMatchCount(g)>=6;
+      const st=complete?getGroupStandingsFull(g).find(s=>s.name===t3):null;
+      thirds.push({name:t3, group:g, complete,
+        pts:st?.pts||0, gd:st?.gd||0, gf:st?.gf||0,
+        simAdv:simResults?(simResults.advanceCount[t3]||0):0});
+    });
+    thirds.sort((a,b)=>{
+      if(a.complete&&b.complete) return b.pts-a.pts||b.gd-a.gd||b.gf-a.gf;
+      if(a.complete!==b.complete) return a.complete?-1:1;
+      return b.simAdv-a.simAdv;
+    });
+    const btAll=thirds.slice(0,8), q3=new Set(btAll.map(t=>t.group));
+    const thirdSlots=[
+      {s:2,  p:['A','B','C','D','F']},{s:8,  p:['C','D','F','G','H']},
+      {s:12, p:['C','E','F','H','I']},{s:14, p:['E','H','I','J','K']},
+      {s:16, p:['B','E','F','I','J']},{s:18, p:['A','E','H','I','J']},
+      {s:24, p:['E','F','G','I','J']},{s:28, p:['D','E','I','J','L']},
+    ];
+    const assigned3=new Set();
+    for(const ts of thirdSlots){
+      if(slots[ts.s+1]!=='?') continue;
+      for(const g of ts.p)
+        if(q3.has(g)&&!assigned3.has(g)){const t=btAll.find(x=>x.group===g);if(t){slots[ts.s+1]=t.name;assigned3.add(g);break;}}
+    }
+    // Fixed group matchups for remaining slots
+    const fixed=[
+      [0,1,'A','ru','B','ru'],[2,3,'E','w',null,null],[4,5,'F','w','C','ru'],
+      [6,7,'C','w','F','ru'],[8,9,'I','w',null,null],[10,11,'E','ru','I','ru'],
+      [12,13,'A','w',null,null],[14,15,'L','w',null,null],
+      [16,17,'D','w',null,null],[18,19,'G','w',null,null],
+      [20,21,'K','ru','L','ru'],[22,23,'H','w','J','ru'],
+      [24,25,'B','w',null,null],[26,27,'J','w','H','ru'],
+      [28,29,'K','w',null,null],[30,31,'D','ru','G','ru'],
+    ];
+    for(const [sa,sb,gA,pA,gB,pB] of fixed){
+      if(slots[sa]==='?'){const a=pA==='w'?gd[gA].w:gd[gA].ru;if(a) slots[sa]=a;}
+      if(gB&&slots[sb]==='?'){const b=pB==='ru'?gd[gB].ru:null;if(b) slots[sb]=b;}
+    }
   }
   return slots;
 }
