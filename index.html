@@ -2582,21 +2582,41 @@ async function runSim() {
       return Math.random()-0.5;
     });
   }
+  // FIFA 2026 bracket: map group winners, runners-up, and qualifying thirds to slot positions
   function buildBracket(gw,ruData,btData){
-    const all=[...gw.map(t=>({...t,pos:'1'})),...ruData.map(t=>({...t,pos:'2'})),...btData.map(t=>({...t,pos:'3'}))];
-    const b=new Array(32);
-    const seedPos=[0,16,8,24,4,20,12,28,2,18,10,26,6,22,14,30,1,17,9,25,5,21,13,29,3,19,11,27,7,23,15,31];
-    const used=new Set();
-    for(let si=0;si<32;si++){
-      const pos=seedPos[si],qs=Math.floor(pos/8)*8;
-      const qgroups=new Set();
-      for(let q=qs;q<qs+8;q++){if(b[q])qgroups.add(all.find(t=>t.name===b[q])?.group);}
-      let placed=false;
-      for(let ti=0;ti<all.length;ti++){
-        if(used.has(ti))continue;
-        if(!qgroups.has(all[ti].group)){b[pos]=all[ti].name;used.add(ti);placed=true;break;}
-      }
-      if(!placed){for(let ti=0;ti<all.length;ti++){if(!used.has(ti)){b[pos]=all[ti].name;used.add(ti);break;}}}
+    const b=new Array(32).fill('?');
+    // Group lookup: {A:{w:'teamName',ru:'teamName'}, B:{...}, ...}
+    const gd={};
+    for(const g of ['A','B','C','D','E','F','G','H','I','J','K','L']) gd[g]={};
+    gw.forEach(t=>{gd[t.group].w=t.name;});
+    ruData.forEach(t=>{gd[t.group].ru=t.name;});
+
+    // Third-place assignment: top 8 qualifying groups from btData
+    const q3=new Set(btData.map(t=>t.group)), assigned3=new Set();
+    const thirdSlots=[
+      {s:2, p:['A','B','C','D','F']},{s:8, p:['C','D','F','G','H']},
+      {s:12,p:['C','E','F','H','I']},{s:14,p:['E','H','I','J','K']},
+      {s:16,p:['B','E','F','I','J']},{s:18,p:['A','E','H','I','J']},
+      {s:24,p:['E','F','G','I','J']},{s:28,p:['D','E','I','J','L']},
+    ];
+    for(const ts of thirdSlots)
+      for(const g of ts.p)
+        if(q3.has(g)&&!assigned3.has(g)){const t=btData.find(x=>x.group===g);if(t){b[ts.s+1]=t.name;assigned3.add(g);break;}}
+
+    // Fixed matchups
+    const fixed=[
+      [0,1,'A','ru','B','ru'],[2,3,'E','w',null,null],[4,5,'F','w','C','ru'],
+      [6,7,'C','w','F','ru'],[8,9,'I','w',null,null],[10,11,'E','ru','I','ru'],
+      [12,13,'A','w',null,null],[14,15,'L','w',null,null],
+      [16,17,'D','w',null,null],[18,19,'G','w',null,null],
+      [20,21,'K','ru','L','ru'],[22,23,'H','w','J','ru'],
+      [24,25,'B','w',null,null],[26,27,'J','w','H','ru'],
+      [28,29,'K','w',null,null],[30,31,'D','ru','G','ru'],
+    ];
+    for(const [sa,sb,gA,pA,gB,pB] of fixed){
+      const a=pA==='w'?gd[gA].w:gd[gA].ru;
+      if(a) b[sa]=a;
+      if(gB){const bb=pB==='ru'?gd[gB].ru:null;if(bb) b[sb]=bb;}
     }
     return b;
   }
@@ -3511,21 +3531,16 @@ function _groupRanking(g){
 // bracketCustomSlots is only set when the user is in manual-edit mode.
 function buildBracketSlots(){
   const GS=['A','B','C','D','E','F','G','H','I','J','K','L'];
-  const ranks={};
-  GS.forEach(g=>{ranks[g]=_groupRanking(g);});
-
-  // Collect group winners and runners-up
-  const gwAll=[], ruAll=[];
+  const ranks={}, gd={};
   GS.forEach(g=>{
-    if(ranks[g][0]) gwAll.push({name:ranks[g][0], group:g});
-    if(ranks[g][1]) ruAll.push({name:ranks[g][1], group:g});
+    ranks[g]=_groupRanking(g);
+    gd[g]={w:ranks[g][0]||null, ru:ranks[g][1]||null, t3:ranks[g][2]||null};
   });
 
-  // Collect 3rd-place teams; sort complete-group thirds (real pts) above incomplete (sim)
+  // Collect third-place teams, sort, top 8 qualify
   const thirds=[];
   GS.forEach(g=>{
-    const t3=ranks[g][2];
-    if(!t3) return;
+    const t3=gd[g].t3; if(!t3) return;
     const complete=_groupMatchCount(g)>=6;
     const st=complete?getGroupStandingsFull(g).find(s=>s.name===t3):null;
     thirds.push({name:t3, group:g, complete,
@@ -3537,23 +3552,36 @@ function buildBracketSlots(){
     if(a.complete!==b.complete) return a.complete?-1:1;
     return b.simAdv-a.simAdv;
   });
-  const btAll=thirds.slice(0,8).map(t=>({name:t.name, group:t.group}));
+  const btAll=thirds.slice(0,8), q3=new Set(btAll.map(t=>t.group));
 
-  // Build bracket with seed-based placement — same logic as simulation's buildBracket()
-  const all=[...gwAll.map(t=>({...t,pos:'1'})),...ruAll.map(t=>({...t,pos:'2'})),...btAll.map(t=>({...t,pos:'3'}))];
   const slots=new Array(32).fill('?');
-  const seedPos=[0,16,8,24,4,20,12,28,2,18,10,26,6,22,14,30,1,17,9,25,5,21,13,29,3,19,11,27,7,23,15,31];
-  const used=new Set();
-  for(let si=0;si<32;si++){
-    const pos=seedPos[si],qs=Math.floor(pos/8)*8;
-    const qgroups=new Set();
-    for(let q=qs;q<qs+8;q++){if(slots[q]&&slots[q]!=='?')qgroups.add(all.find(t=>t.name===slots[q])?.group);}
-    let placed=false;
-    for(let ti=0;ti<all.length;ti++){
-      if(used.has(ti))continue;
-      if(!qgroups.has(all[ti].group)){slots[pos]=all[ti].name;used.add(ti);placed=true;break;}
-    }
-    if(!placed){for(let ti=0;ti<all.length;ti++){if(!used.has(ti)){slots[pos]=all[ti].name;used.add(ti);break;}}}
+
+  // FIFA 2026 third-place assignment (priority order per winner, match index)
+  const thirdSlots=[
+    {s:2,  p:['A','B','C','D','F']},{s:8,  p:['C','D','F','G','H']},
+    {s:12, p:['C','E','F','H','I']},{s:14, p:['E','H','I','J','K']},
+    {s:16, p:['B','E','F','I','J']},{s:18, p:['A','E','H','I','J']},
+    {s:24, p:['E','F','G','I','J']},{s:28, p:['D','E','I','J','L']},
+  ];
+  const assigned3=new Set();
+  for(const ts of thirdSlots)
+    for(const g of ts.p)
+      if(q3.has(g)&&!assigned3.has(g)){const t=btAll.find(x=>x.group===g);if(t){slots[ts.s+1]=t.name;assigned3.add(g);break;}}
+
+  // FIFA R32 fixed matchups: [homeSlot, awaySlot, homeGrp, homePos, awayGrp, awayPos]
+  const fixed=[
+    [0,1,'A','ru','B','ru'],[2,3,'E','w',null,null],[4,5,'F','w','C','ru'],
+    [6,7,'C','w','F','ru'],[8,9,'I','w',null,null],[10,11,'E','ru','I','ru'],
+    [12,13,'A','w',null,null],[14,15,'L','w',null,null],
+    [16,17,'D','w',null,null],[18,19,'G','w',null,null],
+    [20,21,'K','ru','L','ru'],[22,23,'H','w','J','ru'],
+    [24,25,'B','w',null,null],[26,27,'J','w','H','ru'],
+    [28,29,'K','w',null,null],[30,31,'D','ru','G','ru'],
+  ];
+  for(const [sa,sb,gA,pA,gB,pB] of fixed){
+    const a=pA==='w'?gd[gA].w:gd[gA].ru;
+    if(a) slots[sa]=a;
+    if(gB){const b=pB==='ru'?gd[gB].ru:null;if(b) slots[sb]=b;}
   }
   return slots;
 }
