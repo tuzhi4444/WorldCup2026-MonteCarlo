@@ -2656,7 +2656,7 @@ async function runSim() {
         for(let i=0;i<gt.length;i++){
           for(let j=i+1;j<gt.length;j++){
             const a=gt[i],b=gt[j];
-            const known=(matchResults||[]).find(m=>(m.t1===a.name&&m.t2===b.name)||(m.t1===b.name&&m.t2===a.name));
+            const known=(matchResults||[]).find(m=>!m.isKO&&((m.t1===a.name&&m.t2===b.name)||(m.t1===b.name&&m.t2===a.name)));
             let s1,s2,ycA,ycB;
             if(known){
               s1=known.t1===a.name?known.score1:known.score2;
@@ -4899,7 +4899,7 @@ function renderSchedule() {
     if(m.group==='KO'||m.home==='TBD'||m.away==='TBD') return false;
     const md=new Date(m.date.replace('/','-')+'T23:59:00');
     if(md>=now) return false;
-    return !matchResults.find(r=>(r.t1===m.home&&r.t2===m.away)||(r.t1===m.away&&r.t2===m.home));
+    return !matchResults.find(r=>!r.isKO&&((r.t1===m.home&&r.t2===m.away)||(r.t1===m.away&&r.t2===m.home)));
   });
   let html='';
   if(needEntry.length){
@@ -4930,7 +4930,7 @@ function renderSchedule() {
   });
   filtered.sort((a,b)=>_toUtcMs(a.date,a.time)-_toUtcMs(b.date,b.time)||a.id-b.id);
   filtered.forEach(m=>{
-    const result=matchResults.find(r=>(r.t1===m.home&&r.t2===m.away)||(r.t1===m.away&&r.t2===m.home));
+    const result=matchResults.find(r=>(m.group==='KO'?!!r.isKO:!r.isKO)&&((r.t1===m.home&&r.t2===m.away)||(r.t1===m.away&&r.t2===m.home)));
     const isCompleted=!!result;
     const isKO=m.group==='KO';
     const matchDate=new Date(m.date.replace('/','-')+'T23:59:00');
@@ -4949,11 +4949,13 @@ function renderSchedule() {
         ptPrimaryDate=String(dt.getMonth()+1).padStart(2,'0')+'/'+String(dt.getDate()).padStart(2,'0');
       }
     }
+    // showDualTime prefixes PT date when midnight is crossed; strip it since sc-date already shows it
+    const tzDisplay=tz.startsWith(ptPrimaryDate+' ')?tz.slice(ptPrimaryDate.length+1):tz;
     const borderStyle=needsResult?'border-left:3px solid var(--orange,#f97316);':isKO?'border-left:3px solid var(--gold);':'';
     html+=`<div class="sched-card${isCompleted?' completed':''}" style="${borderStyle}">
       <div style="display:flex;flex-direction:column;min-width:52px;">
         <span class="sc-date">${ptPrimaryDate} 🇵🇹</span>
-        <span style="font-size:8px;color:var(--text3);">${tz}</span>
+        <span style="font-size:8px;color:var(--text3);">${tzDisplay}</span>
       </div>
       <span class="sc-group">${isKO?koRoundShort(m.md):(currentLang==='zh'?m.group+'\u7ec4 R':T('group_suffix')+m.group+' R')+m.md}</span>
       <div style="flex:1;">
@@ -5025,7 +5027,7 @@ function updateEntryGroup() {
   pairs.forEach(([i,j])=>{
     const tA=gt[i],tB=gt[j];
     if(!tA||!tB)return;
-    const already=matchResults.find(m=>(m.t1===tA.name&&m.t2===tB.name)||(m.t1===tB.name&&m.t2===tA.name));
+    const already=matchResults.find(m=>!m.isKO&&((m.t1===tA.name&&m.t2===tB.name)||(m.t1===tB.name&&m.t2===tA.name)));
     html+=`<div style="display:flex;align-items:center;gap:4px;margin-bottom:4px;font-size:11px;">
       <span style="min-width:70px;text-align:right;">${tA.name}</span>
       <input type="number" id="sc_${i}_${j}_1" value="${already?already.score1:0}" min="0" max="15" style="width:28px;text-align:center;padding:2px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:11px;">
@@ -5048,6 +5050,7 @@ function rebuildEloFromHistory() {
   });
   const sorted = [...matchResults].sort((a,b) => new Date(a.time) - new Date(b.time));
   sorted.forEach(m => {
+    if(m.isKO) return;
     const tA = teams.find(t => t.name === m.t1);
     const tB = teams.find(t => t.name === m.t2);
     if (!tA || !tB) return;
