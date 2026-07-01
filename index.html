@@ -3562,7 +3562,9 @@ function renderBracket(){
     else if(r.score2>r.score1) koEliminated.add(r.t1);
   });
 
-  // Advance bracket rounds: use actual KO result when recorded, else ELO probability
+  // Advance bracket rounds: data-driven — only advance teams when a recorded
+  // KO result or elimination status provides definitive proof. Unresolved matchups
+  // show '?' instead of guessing, so the tree reflects actual entered data.
   function simRound(prev){
     const res=[];
     for(let i=0;i<prev.length;i+=2){
@@ -3574,8 +3576,6 @@ function renderBracket(){
       const ta=teams.find(x=>x.name===a)||{name:a,elo:1500};
       const tb=teams.find(x=>x.name===b)||{name:b,elo:1500};
       // Use recorded KO result if available.
-      // Cross-group teams can only meet in KO rounds, so any result between them is a KO result.
-      // Same-group teams require the isKO flag to avoid using group-stage results.
       const sameGrp=ta.group&&tb.group&&ta.group===tb.group;
       const actual=matchResults.find(r=>
         (sameGrp?!!r.isKO:true)&&((r.t1===a&&r.t2===b)||(r.t1===b&&r.t2===a)));
@@ -3583,8 +3583,8 @@ function renderBracket(){
         res.push(actual.pkWinner||(actual.score1>actual.score2?actual.t1:actual.t2));
         continue;
       }
-      const p=getMatchProb(ta,tb),wp=p.pA/(p.pA+p.pB);
-      res.push(wp>=.5?a:b);
+      // No recorded result — show '?' instead of predicting
+      res.push('?');
     }
     return res;
   }
