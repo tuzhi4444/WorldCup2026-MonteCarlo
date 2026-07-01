@@ -2609,8 +2609,27 @@ async function runSim() {
   let lastSim = 0;
   const t0 = Date.now();
 
-  // Build once before chunked loop — matchResults never changes mid-sim
+  // Build real KO result index once before chunked loop — matchResults never changes mid-sim
   const koEliminated=new Set();
+  const koDirectResults=new Map(); // sorted "t1|||t2" → winner name
+  (matchResults||[]).forEach(m=>{
+    const ta=teams.find(t=>t.name===m.t1), tb=teams.find(t=>t.name===m.t2);
+    if(!ta||!tb) return;
+    const isCross=ta.group!==tb.group;
+    if(!m.isKO&&!isCross) return; // same-group non-KO = group stage, skip
+    if(m.score1==null||m.score2==null) return;
+    const key=[m.t1,m.t2].sort().join('|||');
+    if(m.pkWinner){
+      koDirectResults.set(key, m.pkWinner);
+      koEliminated.add(m.pkWinner===m.t1?m.t2:m.t1);
+    }else if(m.score1>m.score2){
+      koDirectResults.set(key, m.t1);
+      koEliminated.add(m.t2);
+    }else if(m.score2>m.score1){
+      koDirectResults.set(key, m.t2);
+      koEliminated.add(m.t1);
+    }
+  });
   function runChunk() {
     try {
     const end = Math.min(sim + CHUNK_SIZE, n);
@@ -2661,7 +2680,20 @@ async function runSim() {
         for(let i=0;i<rt.length;i+=2){
           const a=teams.find(t=>t.name===rt[i]),b=teams.find(t=>t.name===rt[i+1]);
           if(!a||!b){nr.push(rt[i]||rt[i+1]||'');continue;}
-          // If either or both teams are known eliminated in real KO results, resolve without simulation
+          // 1) Lock real KO result if recorded between these exact two teams
+          const dk=[a.name,b.name].sort().join('|||');
+          const knownWinner=koDirectResults.get(dk);
+          if(knownWinner){
+            const loser=knownWinner===a.name?b.name:a.name;
+            nr.push(knownWinner);
+            if(r<4&&qpd[knownWinner]){
+              if(!qpd[knownWinner][roundKeys[r+1]]) qpd[knownWinner][roundKeys[r+1]]=[];
+              qpd[knownWinner][roundKeys[r+1]].push(loser);
+            }
+            if(r===3){yellows[a.name]=0;yellows[b.name]=0;}
+            continue;
+          }
+          // 2) If either or both teams are known eliminated in real KO results, resolve without simulation
           const aElim=koEliminated.has(rt[i]),bElim=koEliminated.has(rt[i+1]);
           if(aElim||bElim){
             let winner,loser;
