@@ -2355,6 +2355,12 @@ function loadData() {
         });
         simResults = d.simResults||null;
         matchResults = d.matchResults||[];
+        // Retroactively tag KO results that ESPN sync stored without isKO flag
+        matchResults.forEach(m=>{
+          if(!m.isKO&&MATCH_SCHEDULE.some(s=>s.group==='KO'&&s.home!=='TBD'&&
+            ((s.home===m.t1&&s.away===m.t2)||(s.home===m.t2&&s.away===m.t1))
+          )) m.isKO=true;
+        });
         simHistory = d.simHistory||[];
         confidenceIntervals = d.confidenceIntervals||{};
         activeEvents = d.activeEvents||{};
@@ -3526,7 +3532,7 @@ function renderBracket(){
   const tdMap={};
   teams.forEach(t=>{tdMap[t.name]={...t,adv:(advanceCount[t.name]||0)/totalSims,champ:(champCount[t.name]||0)/totalSims};});
 
-  // Advance bracket rounds using ELO probability only (no group match results in KO sim)
+  // Advance bracket rounds: use actual KO result when recorded, else ELO probability
   function simRound(prev){
     const res=[];
     for(let i=0;i<prev.length;i+=2){
@@ -3534,6 +3540,16 @@ function renderBracket(){
       if(a==='?'||b==='?'){res.push(a!=='?'?a:b);continue;}
       const ta=teams.find(x=>x.name===a)||{name:a,elo:1500};
       const tb=teams.find(x=>x.name===b)||{name:b,elo:1500};
+      // Use recorded KO result if available.
+      // Cross-group teams can only meet in KO rounds, so any result between them is a KO result.
+      // Same-group teams require the isKO flag to avoid using group-stage results.
+      const sameGrp=ta.group&&tb.group&&ta.group===tb.group;
+      const actual=matchResults.find(r=>
+        (sameGrp?!!r.isKO:true)&&((r.t1===a&&r.t2===b)||(r.t1===b&&r.t2===a)));
+      if(actual){
+        res.push(actual.pkWinner||(actual.score1>actual.score2?actual.t1:actual.t2));
+        continue;
+      }
       const p=getMatchProb(ta,tb),wp=p.pA/(p.pA+p.pB);
       res.push(wp>=.5?a:b);
     }
@@ -5187,10 +5203,13 @@ function setScoreStatus(html, type) {
 // (淘汰赛战平后点球大战的获胜方 — 没有点球大战时传 null)
 function mergeScoreResult(homeZh, awayZh, s1, s2, dateStr, pkWinner) {
   if (!homeZh || !awayZh) return false;
+  const isKOMatch = MATCH_SCHEDULE.some(s=>s.group==='KO'&&s.home!=='TBD'&&
+    ((s.home===homeZh&&s.away===awayZh)||(s.home===awayZh&&s.away===homeZh)));
   const idx = matchResults.findIndex(m =>
     (m.t1 === homeZh && m.t2 === awayZh) || (m.t1 === awayZh && m.t2 === homeZh));
   const entry = { t1: homeZh, t2: awayZh, score1: s1, score2: s2, time: dateStr };
   if (pkWinner) entry.pkWinner = pkWinner;
+  if (isKOMatch) entry.isKO = true;
   if (idx >= 0) {
     // update if score or pkWinner changed
     const old = matchResults[idx];
