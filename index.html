@@ -5040,7 +5040,8 @@ function recordMatches() {
     recorded++;
   });
   rebuildEloFromHistory();
-  saveData(); updateEntryGroup(); renderMatchEntry(); renderGroups(); renderStandings(); renderPlayers(); renderOdds(); renderELO(); renderScoreAnalysis();
+  if(!bracketEditMode) bracketCustomSlots=null;
+  saveData(); updateEntryGroup(); renderMatchEntry(); renderGroups(); renderStandings(); renderPlayers(); renderOdds(); renderELO(); renderScoreAnalysis(); renderBracket();
   notify(currentLang==='en'?`Recorded ${recorded} matches, ELO updated`:currentLang==='pt'?`${recorded} jogos registrados, ELO atualizado`:`已录入 ${recorded} 场 · ELO已自动更新`, 'success');
 }
 
@@ -5062,7 +5063,7 @@ function renderMatchEntry() {
     </div>`;
   }).join('');
 }
-function deleteMatch(i){matchResults.splice(i,1);rebuildEloFromHistory();saveData();renderMatchEntry();renderGroups();renderStandings();renderELO();}
+function deleteMatch(i){matchResults.splice(i,1);rebuildEloFromHistory();if(!bracketEditMode)bracketCustomSlots=null;saveData();renderMatchEntry();renderGroups();renderStandings();renderELO();renderBracket();}
 
 
 // ─── SCENARIO SIMULATION ───
