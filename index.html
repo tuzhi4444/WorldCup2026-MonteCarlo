@@ -3604,8 +3604,9 @@ function renderBracket(){
         res.push(actual.pkWinner||(actual.score1>actual.score2?actual.t1:actual.t2));
         continue;
       }
-      // No recorded result — show '?' instead of predicting
-      res.push('?');
+      // No recorded result — predict most likely winner via ELO model
+      const pp=getMatchProb(ta,tb);
+      res.push(pp.pA>=pp.pB?a:b);
     }
     return res;
   }
