@@ -2313,7 +2313,6 @@ let simHistory = [];
 let chartInstances = {};
 let bracketCustomSlots = null;
 let bracketEditMode = false;
-let bracketEditSelected = null;
 let bracketPickerSlot = null;
 let userPickActive = false;
 let userPickStep = 'groups'; // 'groups' | 'bracket'
@@ -2700,7 +2699,7 @@ async function runSim() {
       });
       simResults={champCount:cc,advanceCount:ac,qualPathData:qpd,totalSims:n,upsetLog:upsetLog};
       confidenceIntervals=ci;
-      bracketCustomSlots=null; bracketEditMode=false; bracketEditSelected=null;
+      bracketCustomSlots=null; bracketEditMode=false;
       // Auto-populate model odds from simulation (no API key needed)
       if(!Object.keys(savedOdds).length||_oddsFromModel){
         _oddsFromModel=true;
@@ -3444,51 +3443,48 @@ function getMatchProb(a,b){
   return {pA:Math.max(0.01,rp*(1-pd)),pB:Math.max(0.01,(1-rp)*(1-pd)),pD:pd};
 }
 // 根据实际比赛结果 + 模拟混合填充赛程签位
-function getActualBracketSlots() {
+// ─── BRACKET SLOT COMPUTATION ───
+// Returns ordered team names for a group.
+// Rule: only use actual standings when ALL 6 group matches are recorded.
+// Partial standings mislead (a team winning early games may ultimately finish 3rd/4th).
+// Incomplete groups fall back to simulation probability ranking.
+function _groupMatchCount(g){
+  return matchResults.filter(m=>!m.isKO&&
+    teams.find(t=>t.name===m.t1&&t.group===g)&&
+    teams.find(t=>t.name===m.t2&&t.group===g)
+  ).length;
+}
+function _groupRanking(g){
+  if(_groupMatchCount(g)>=6) return getGroupStandingsFull(g).map(s=>s.name);
+  if(simResults){
+    return teams.filter(t=>t.group===g).slice()
+      .sort((a,b)=>(simResults.advanceCount[b.name]||0)-(simResults.advanceCount[a.name]||0))
+      .map(t=>t.name);
+  }
+  return getGroupStandingsFull(g).map(s=>s.name);
+}
+
+// Build the 32 bracket entry slots fresh every time — no persistent cache.
+// bracketCustomSlots is only set when the user is in manual-edit mode.
+function buildBracketSlots(){
   const GS=['A','B','C','D','E','F','G','H','I','J','K','L'];
+  const ranks={};
+  GS.forEach(g=>{ranks[g]=_groupRanking(g);});
 
-  // Count actual group matches entered (excludes KO entries)
-  function groupMatchCount(g) {
-    return matchResults.filter(m=>!m.isKO&&
-      teams.find(t=>t.name===m.t1&&t.group===g)&&
-      teams.find(t=>t.name===m.t2&&t.group===g)
-    ).length;
-  }
-
-  function getBestGroupRanking(g) {
-    // Only use actual standings when all 6 group matches are recorded.
-    // Partial standings mislead: a team that won early games may ultimately finish 3rd/4th.
-    if (groupMatchCount(g) >= 6) {
-      return getGroupStandingsFull(g).map(s=>s.name);
-    }
-    // Group not complete: fall back to sim probabilities to avoid partial-standing artifacts
-    if (simResults) {
-      const gt=teams.filter(t=>t.group===g).slice();
-      gt.sort((a,b)=>(simResults.advanceCount[b.name]||0)-(simResults.advanceCount[a.name]||0));
-      return gt.map(t=>t.name);
-    }
-    // No sim available: use whatever partial standings exist
-    return getGroupStandingsFull(g).map(s=>s.name);
-  }
-
-  const groupRanks={};
-  GS.forEach(g=>{groupRanks[g]=getBestGroupRanking(g);});
-
-  // Best third-place teams: only use real points from COMPLETE groups.
-  // Incomplete groups contribute 0 pts which artificially ranks them below any complete-group third.
+  // Collect 3rd-place teams; sort complete-group thirds (real pts) above incomplete (sim)
   const thirds=[];
   GS.forEach(g=>{
-    const t3=groupRanks[g][2];
+    const t3=ranks[g][2];
     if(!t3) return;
-    const complete=groupMatchCount(g)>=6;
+    const complete=_groupMatchCount(g)>=6;
     const st=complete?getGroupStandingsFull(g).find(s=>s.name===t3):null;
-    thirds.push({name:t3, pts:st?.pts||0, gd:st?.gd||0, gf:st?.gf||0,
-      complete, simAdv:simResults?(simResults.advanceCount[t3]||0):0});
+    thirds.push({name:t3, complete,
+      pts:st?.pts||0, gd:st?.gd||0, gf:st?.gf||0,
+      simAdv:simResults?(simResults.advanceCount[t3]||0):0});
   });
   thirds.sort((a,b)=>{
     if(a.complete&&b.complete) return b.pts-a.pts||b.gd-a.gd||b.gf-a.gf;
-    if(a.complete&&!b.complete) return -1;
-    if(!a.complete&&b.complete) return 1;
+    if(a.complete!==b.complete) return a.complete?-1:1;
     return b.simAdv-a.simAdv;
   });
 
@@ -3496,56 +3492,22 @@ function getActualBracketSlots() {
   const pairs=[['A','B'],['C','D'],['E','F'],['G','H'],['I','J'],['K','L']];
   pairs.forEach(([g1,g2],pi)=>{
     const base=pi*4;
-    slots[base]  =groupRanks[g1][0]||'?';
-    slots[base+1]=groupRanks[g2][1]||'?';
-    slots[base+2]=groupRanks[g2][0]||'?';
-    slots[base+3]=groupRanks[g1][1]||'?';
+    slots[base]  =ranks[g1][0]||'?';
+    slots[base+1]=ranks[g2][1]||'?';
+    slots[base+2]=ranks[g2][0]||'?';
+    slots[base+3]=ranks[g1][1]||'?';
   });
   for(let i=0;i<8;i++) slots[24+i]=thirds[i]?.name||'?';
   return slots;
 }
 
-// Build default bracket slots from sim results using official group-pair structure:
-// Group pairs (A-B),(C-D),(E-F),(G-H),(I-J),(K-L); 8 best 3rd-place fill remaining 8 slots.
-// Each pair block occupies 4 consecutive slots: [G1-winner, G2-runner-up, G2-winner, G1-runner-up]
-function getDefaultBracketSlots(){
-  // 有实际成绩时，优先用实际结果填充签位
-  if(matchResults.length > 0) return getActualBracketSlots();
-  if(!simResults) return null;
-  const {advanceCount,totalSims}=simResults;
-  const GS=['A','B','C','D','E','F','G','H','I','J','K','L'];
-  const groupRanks={};
-  GS.forEach(g=>{
-    const gt=teams.filter(t=>t.group===g).slice();
-    gt.sort((a,b)=>(advanceCount[b.name]||0)-(advanceCount[a.name]||0));
-    groupRanks[g]=gt;
-  });
-  // Collect 3rd-place candidates (rank 2+ in their group)
-  const thirds=[];
-  GS.forEach(g=>{for(let i=2;i<groupRanks[g].length;i++) thirds.push(groupRanks[g][i]);});
-  thirds.sort((a,b)=>(advanceCount[b.name]||0)-(advanceCount[a.name]||0));
-  const slots=new Array(32).fill('?');
-  const pairs=[['A','B'],['C','D'],['E','F'],['G','H'],['I','J'],['K','L']];
-  pairs.forEach(([g1,g2],pi)=>{
-    const base=pi*4;
-    slots[base]   =groupRanks[g1][0]?.name||'?';
-    slots[base+1] =groupRanks[g2][1]?.name||'?';
-    slots[base+2] =groupRanks[g2][0]?.name||'?';
-    slots[base+3] =groupRanks[g1][1]?.name||'?';
-  });
-  for(let i=0;i<8;i++) slots[24+i]=thirds[i]?.name||'?';
-  return slots;
-}
-
-// Return a label like "A1","B2","3rd" for a team name based on current sim ranking
-function getBracketSeedLabel(teamName){
-  if(!simResults||!teamName||teamName==='?') return '';
-  const {advanceCount}=simResults;
-  const t=teams.find(x=>x.name===teamName);
+// Seed label (A1/B2/3rd) — uses actual standings for complete groups, sim for others
+function _seedLabel(name){
+  if(!name||name==='?') return '';
+  const t=teams.find(x=>x.name===name);
   if(!t) return '';
-  const gt=teams.filter(x=>x.group===t.group).slice();
-  gt.sort((a,b)=>(advanceCount[b.name]||0)-(advanceCount[a.name]||0));
-  const rank=gt.findIndex(x=>x.name===teamName);
+  const ranking=_groupRanking(t.group);
+  const rank=ranking.indexOf(name);
   if(rank===0) return t.group+'1';
   if(rank===1) return t.group+'2';
   return '3rd';
@@ -3555,100 +3517,89 @@ function renderBracket(){
   const el=document.getElementById('bracketContent');
   if(!simResults){el.innerHTML=`<div class="empty-state">${T('run_first')}</div>`;return;}
   if(userPickActive){renderUserPickMode(el);return;}
-  if(!bracketCustomSlots) bracketCustomSlots=getDefaultBracketSlots();
+
+  // In edit mode use the manual snapshot; otherwise always compute fresh
+  if(bracketEditMode&&!bracketCustomSlots) bracketCustomSlots=buildBracketSlots().slice();
+  const slots=bracketEditMode&&bracketCustomSlots?bracketCustomSlots:buildBracketSlots();
 
   const {champCount,advanceCount,totalSims}=simResults;
   const tdMap={};
   teams.forEach(t=>{tdMap[t.name]={...t,adv:(advanceCount[t.name]||0)/totalSims,champ:(champCount[t.name]||0)/totalSims};});
 
-  const slotTeams=bracketCustomSlots.map(name=>tdMap[name]||{name,adv:0,champ:0});
-
+  // Advance bracket rounds using ELO probability only (no group match results in KO sim)
   function simRound(prev){
     const res=[];
     for(let i=0;i<prev.length;i+=2){
       const a=prev[i],b=prev[i+1];
-      if(!a||!b||a.name==='?'||b.name==='?'){res.push(a||b||{name:'?',adv:.5,champ:0});continue;}
-      // If this exact matchup has already been played and recorded with a clear
-      // winner, show the real outcome instead of a probability guess.
-      // For a regulation/ET draw, use the recorded pkWinner (penalty shootout)
-      // when available instead of falling back to simulation.
-      const rec=matchResults.find(r=>(r.t1===a.name&&r.t2===b.name)||(r.t1===b.name&&r.t2===a.name));
-      if(rec && rec.score1!==rec.score2){
-        const aWon=(rec.t1===a.name)===(rec.score1>rec.score2);
-        res.push({...(aWon?a:b),adv:1});
-        continue;
-      }
-      if(rec && rec.score1===rec.score2 && rec.pkWinner){
-        const aWon=rec.pkWinner===a.name;
-        res.push({...(aWon?a:b),adv:1,pk:true});
-        continue;
-      }
-      const ta=teams.find(x=>x.name===a.name)||a,tb=teams.find(x=>x.name===b.name)||b;
+      if(a==='?'||b==='?'){res.push(a!=='?'?a:b);continue;}
+      const ta=teams.find(x=>x.name===a)||{name:a,elo:1500};
+      const tb=teams.find(x=>x.name===b)||{name:b,elo:1500};
       const p=getMatchProb(ta,tb),wp=p.pA/(p.pA+p.pB);
-      res.push({...(wp>=.5?a:b),adv:Math.max(wp,1-wp)});
+      res.push(wp>=.5?a:b);
     }
     return res;
   }
+
+  const allRounds=[slots];
+  for(let r=1;r<6;r++) allRounds.push(simRound(allRounds[r-1]));
+
+  // Track each team's slot index per round for path highlighting
+  const trackMap={};
+  allRounds[0].forEach((name,si)=>{
+    if(!name||name==='?') return;
+    trackMap[name]={0:si};
+    for(let ri=1;ri<allRounds.length;ri++){
+      const ns=Math.floor(trackMap[name][ri-1]/2);
+      if(allRounds[ri][ns]===name) trackMap[name][ri]=ns;
+      else break;
+    }
+  });
 
   const rn=({zh:['32强','16强','8强','半决赛','决赛','🏆 冠军'],
               en:['R32','R16','QF','SF','Final','🏆 Winner'],
               pt:['16avos','Oitavas','Quartas','Semi','Final','🏆 Campeão']})[currentLang]
           ||['32强','16强','8强','半决赛','决赛','🏆 冠军'];
-
-  const allRounds=[slotTeams];
-  for(let r=1;r<6;r++) allRounds.push(simRound(allRounds[r-1]));
-
-  const trackMap={};
-  allRounds[0].forEach((t,si)=>{
-    if(!t||t.name==='?') return;
-    trackMap[t.name]={0:si};
-    for(let ri=1;ri<allRounds.length;ri++){
-      const ns=Math.floor(trackMap[t.name][ri-1]/2);
-      if(allRounds[ri][ns]?.name===t.name) trackMap[t.name][ri]=ns;
-      else break;
-    }
-  });
-
   const BASE_H=22,TOTAL_H=32*BASE_H,CW=122,CONN=22;
+
+  const completedGroups=['A','B','C','D','E','F','G','H','I','J','K','L']
+    .filter(g=>_groupMatchCount(g)>=6).length;
+  const srcLabel=completedGroups>0
+    ?(currentLang==='zh'?`📊 ${completedGroups}/12组完赛`:currentLang==='en'?`📊 ${completedGroups}/12 groups done`:`📊 ${completedGroups}/12 grupos`)
+    :(currentLang==='zh'?'🎲 蒙特卡洛模拟':currentLang==='en'?'🎲 Monte Carlo sim':'🎲 Simulação MC');
 
   const editBtnLbl=bracketEditMode
     ?(currentLang==='en'?'✓ Done':currentLang==='pt'?'✓ Feito':'✓ 完成')
     :(currentLang==='en'?'✏ Edit Bracket':currentLang==='pt'?'✏ Editar':'✏ 自由安排');
   const resetLbl=currentLang==='en'?'↺ Reset':currentLang==='pt'?'↺ Redefinir':'↺ 重置';
   const editHint=bracketEditMode
-    ?`<span style="font-size:11px;color:var(--accent);margin-left:4px;">${currentLang==='en'?'Click any slot to change team':currentLang==='pt'?'Clique num slot para trocar':'点击任意格位选择球队'}</span>`
-    :'';
-
+    ?`<span style="font-size:11px;color:var(--accent);margin-left:4px;">${currentLang==='en'?'Click any slot to change team':currentLang==='pt'?'Clique num slot para trocar':'点击任意格位选择球队'}</span>`:'';
   const upLbl=currentLang==='en'?'🎯 My Picks':currentLang==='pt'?'🎯 Meus Picks':'🎯 自定义预测';
-  const actualCount=matchResults.length;
-  const bracketSrcLabel = actualCount>0
-    ? (currentLang==='zh'?`📊 基于${actualCount}场实际成绩`:currentLang==='en'?`📊 ${actualCount} actual results`:` 📊 ${actualCount} jogos reais`)
-    : (currentLang==='zh'?'🎲 蒙特卡洛模拟':currentLang==='en'?'🎲 Monte Carlo sim':'🎲 Simulação MC');
+
   let html=`<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
     <button onclick="toggleBracketEdit()" class="btn-sm${bracketEditMode?' btn-active':''}" style="${bracketEditMode?'background:var(--accent);color:#fff;border-color:var(--accent);':''}">${editBtnLbl}</button>
     <button onclick="resetBracket()" class="btn-sm">${resetLbl}</button>${editHint}
-    <span style="font-size:9px;color:var(--text2);padding:2px 6px;background:var(--bg3);border-radius:4px;">${bracketSrcLabel}</span>
+    <span style="font-size:9px;color:var(--text2);padding:2px 6px;background:var(--bg3);border-radius:4px;">${srcLabel}</span>
     <button onclick="toggleUserPick()" class="btn-sm" style="margin-left:auto;">${upLbl}</button>
   </div>`;
   html+=`<div class="bk-tree" id="bkTree">`;
 
-  allRounds.forEach((roundTeams,ri)=>{
-    const nSlots=roundTeams.length,slotH=(32/nSlots)*BASE_H,isLast=ri===5;
+  allRounds.forEach((roundNames,ri)=>{
+    const nSlots=roundNames.length,slotH=(32/nSlots)*BASE_H,isLast=ri===5;
     html+=`<div class="bk-col" style="width:${CW}px;">`;
     html+=`<div class="bk-col-label">${rn[ri]}</div>`;
-    roundTeams.forEach((t,si)=>{
-      const td=tdMap[t.name]||{champ:0,adv:0};
+    roundNames.forEach((name,si)=>{
+      const td=tdMap[name]||{champ:0,adv:0};
       const cp=(td.champ*100).toFixed(1),ap=(td.adv*100).toFixed(0);
       const probColor=parseFloat(cp)>10?'var(--accent)':parseFloat(cp)>2?'var(--green)':'var(--text3)';
-      const tn=(t.name||'').replace(/'/g,"\\'");
-      const seedLbl=ri===0?getBracketSeedLabel(t.name):'';
+      const tn=(name||'').replace(/'/g,"\\'");
+      const sl=ri===0?_seedLabel(name):'';
       const editCls=bracketEditMode&&ri===0?' bk-editable':'';
       const clickFn=bracketEditMode&&ri===0?`openBkPicker(${si})`:`highlightBracketPath('${tn}')`;
       const editIcon=bracketEditMode&&ri===0?'<span style="font-size:9px;float:right;opacity:.5;margin-left:2px;">✎</span>':'';
       html+=`<div class="bk-slot" style="height:${slotH}px;">
-        <div class="bk-card${isLast?' bk-champ':''}${editCls}" id="bk-${ri}-${si}" data-team="${t.name||'?'}" data-slot="${si}"
-          onclick="${clickFn}" title="${t.name||'?'} · ${cp}%">
-          <div class="bk-cname">${seedLbl?`<span class="bk-seed">${seedLbl}</span>`:''}${t.name&&t.name!=='?'?getFlag(t.name)+' ':''}<b>${t.name&&t.name!=='?'?TN(t.name):'?'}</b>${editIcon}</div>
+        <div class="bk-card${isLast?' bk-champ':''}${editCls}" id="bk-${ri}-${si}" data-team="${name||'?'}" data-slot="${si}"
+          onclick="${clickFn}" title="${name||'?'} · ${cp}%">
+          <div class="bk-cname">${sl?`<span class="bk-seed">${sl}</span>`:''}${name&&name!=='?'?getFlag(name)+' ':''}<b>${name&&name!=='?'?TN(name):'?'}</b>${editIcon}</div>
           <div class="bk-cprob" style="color:${isLast?'var(--gold)':probColor}">${isLast?'🏆 ':''}${ri===0?ap+'%↑':cp+'%'}</div>
         </div>
       </div>`;
@@ -3671,27 +3622,24 @@ function renderBracket(){
     }
   });
   html+=`</div>`;
-
-  const hint={zh:'点击球队可高亮晋级路径 · R32列%为出线概率，其余列为夺冠概率',
-              en:'Click a team to highlight path · R32 % = advance, others = champ prob',
-              pt:'Clique para destacar · 16avos % = class., outros = título'}[currentLang]||'';
-  const champ=allRounds[5][0]?.name||'?';
+  const champ=allRounds[5][0]||'?';
+  const hint={zh:'点击球队高亮晋级路径 · 32强%=出线率，后续列=夺冠率',en:'Click team to highlight path · R32 %=advance, others=champ',pt:'Clique para destacar · 16avos %=class., outros=título'}[currentLang]||'';
   html+=`<div style="font-size:10px;color:var(--text3);margin-top:6px;padding:0 4px;">${hint} &nbsp;|&nbsp; 🏆 ${TN(champ)}</div>`;
-
   el.innerHTML=html;
   el._trackMap=trackMap;
 }
 
 function toggleBracketEdit(){
   bracketEditMode=!bracketEditMode;
-  bracketEditSelected=null;
+  if(bracketEditMode) bracketCustomSlots=buildBracketSlots().slice();
+  else bracketCustomSlots=null;
   renderBracket();
 }
 
 function resetBracket(){
-  bracketCustomSlots=getDefaultBracketSlots();
+  if(bracketEditMode) bracketCustomSlots=buildBracketSlots().slice();
+  else bracketCustomSlots=null;
   bracketEditMode=false;
-  bracketEditSelected=null;
   renderBracket();
 }
 
