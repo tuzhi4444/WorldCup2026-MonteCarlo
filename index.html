@@ -3551,20 +3551,6 @@ function renderBracket(){
   const tdMap={};
   teams.forEach(t=>{tdMap[t.name]={...t,adv:(advanceCount[t.name]||0)/totalSims,champ:(champCount[t.name]||0)/totalSims};});
 
-  // Build eliminated set from recorded KO match results
-  // Cross-group teams can only meet in knockout rounds, so any recorded
-  // cross-group result is treated as a KO result regardless of isKO flag.
-  const koEliminated=new Set();
-  (matchResults||[]).forEach(r=>{
-    const ta=teams.find(t=>t.name===r.t1);
-    const tb=teams.find(t=>t.name===r.t2);
-    const isKO=r.isKO||(ta&&tb&&ta.group!==tb.group);
-    if(!isKO) return;
-    if(r.pkWinner) koEliminated.add(r.pkWinner===r.t1?r.t2:r.t1);
-    else if(r.score1>r.score2) koEliminated.add(r.t2);
-    else if(r.score2>r.score1) koEliminated.add(r.t1);
-  });
-
   // Advance bracket rounds: data-driven — only advance teams when a recorded
   // KO result or elimination status provides definitive proof. Unresolved matchups
   // show '?' instead of guessing, so the tree reflects actual entered data.
@@ -3573,9 +3559,9 @@ function renderBracket(){
     for(let i=0;i<prev.length;i+=2){
       const a=prev[i],b=prev[i+1];
       if(a==='?'||b==='?'){res.push(a!=='?'?a:b);continue;}
-      // If one team is known-eliminated by KO result and the other isn't, auto-advance the safe team
-      if(koEliminated.has(a)&&!koEliminated.has(b)){res.push(b);continue;}
-      if(!koEliminated.has(a)&&koEliminated.has(b)){res.push(a);continue;}
+      // Do NOT auto-advance from a global elimination set: team X may have been
+      // eliminated by someone else, not by the opponent in THIS bracket slot.
+      // Only advance with a direct recorded result between the two teams.
       const ta=teams.find(x=>x.name===a)||{name:a,elo:1500};
       const tb=teams.find(x=>x.name===b)||{name:b,elo:1500};
       // Use recorded KO result if available.
