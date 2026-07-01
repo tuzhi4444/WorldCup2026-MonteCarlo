@@ -3446,35 +3446,49 @@ function getMatchProb(a,b){
 // 根据实际比赛结果 + 模拟混合填充赛程签位
 function getActualBracketSlots() {
   const GS=['A','B','C','D','E','F','G','H','I','J','K','L'];
+
+  // Count actual group matches entered (excludes KO entries)
+  function groupMatchCount(g) {
+    return matchResults.filter(m=>!m.isKO&&
+      teams.find(t=>t.name===m.t1&&t.group===g)&&
+      teams.find(t=>t.name===m.t2&&t.group===g)
+    ).length;
+  }
+
   function getBestGroupRanking(g) {
-    const st = getGroupStandingsFull(g);
-    const anyPlayed = st.some(s=>s.mp>0);
-    if (!anyPlayed && simResults) {
-      // 无实际结果：用模拟
+    // Only use actual standings when all 6 group matches are recorded.
+    // Partial standings mislead: a team that won early games may ultimately finish 3rd/4th.
+    if (groupMatchCount(g) >= 6) {
+      return getGroupStandingsFull(g).map(s=>s.name);
+    }
+    // Group not complete: fall back to sim probabilities to avoid partial-standing artifacts
+    if (simResults) {
       const gt=teams.filter(t=>t.group===g).slice();
       gt.sort((a,b)=>(simResults.advanceCount[b.name]||0)-(simResults.advanceCount[a.name]||0));
       return gt.map(t=>t.name);
     }
-    // 有实际结果：用积分榜（即使未全部赛完，当前排名也比模拟更准）
-    return st.map(s=>s.name);
+    // No sim available: use whatever partial standings exist
+    return getGroupStandingsFull(g).map(s=>s.name);
   }
+
   const groupRanks={};
   GS.forEach(g=>{groupRanks[g]=getBestGroupRanking(g);});
 
-  // 最佳第三名：实际有成绩用实际积分，否则用模拟
+  // Best third-place teams: only use real points from COMPLETE groups.
+  // Incomplete groups contribute 0 pts which artificially ranks them below any complete-group third.
   const thirds=[];
   GS.forEach(g=>{
     const t3=groupRanks[g][2];
-    if(t3) {
-      const st=getGroupStandingsFull(g).find(s=>s.name===t3);
-      thirds.push({name:t3, pts:st?.pts||0, gd:st?.gd||0, gf:st?.gf||0,
-        simAdv:simResults?(simResults.advanceCount[t3]||0):0});
-    }
+    if(!t3) return;
+    const complete=groupMatchCount(g)>=6;
+    const st=complete?getGroupStandingsFull(g).find(s=>s.name===t3):null;
+    thirds.push({name:t3, pts:st?.pts||0, gd:st?.gd||0, gf:st?.gf||0,
+      complete, simAdv:simResults?(simResults.advanceCount[t3]||0):0});
   });
   thirds.sort((a,b)=>{
-    // 优先用实际积分排序，否则用模拟概率
-    const hasReal = thirds.some(x=>x.pts>0||x.gd!==0);
-    if(hasReal) return b.pts-a.pts||b.gd-a.gd||b.gf-a.gf;
+    if(a.complete&&b.complete) return b.pts-a.pts||b.gd-a.gd||b.gf-a.gf;
+    if(a.complete&&!b.complete) return -1;
+    if(!a.complete&&b.complete) return 1;
     return b.simAdv-a.simAdv;
   });
 
