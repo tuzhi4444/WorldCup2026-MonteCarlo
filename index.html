@@ -3463,7 +3463,10 @@ function _groupMatchCount(g){
   ).length;
 }
 function _groupRanking(g){
-  if(_groupMatchCount(g)>=6) return getGroupStandingsFull(g).map(s=>s.name);
+  // Use actual standings for any group that has results
+  const mc=_groupMatchCount(g);
+  if(mc>=1) return getGroupStandingsFull(g).map(s=>s.name);
+  // No real results yet — use simulation as fallback
   if(simResults){
     return teams.filter(t=>t.group===g).slice()
       .sort((a,b)=>(simResults.advanceCount[b.name]||0)-(simResults.advanceCount[a.name]||0))
