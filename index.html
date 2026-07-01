@@ -4909,6 +4909,7 @@ function renderSchedule() {
     const isPast=matchDate<now;
     const isToday=m.date.replace('/','-')===now.toISOString().slice(0,10);
     const needsResult=isPast&&!isCompleted&&m.home!=='TBD'&&m.away!=='TBD'&&!isKO;
+    const koNeedsResult=isPast&&!isCompleted&&m.home!=='TBD'&&m.away!=='TBD'&&isKO;
     const tz=showDualTime(m.date,m.time,m.city);
     // Compute PT primary date (advances when EDT time + 5h crosses midnight)
     let ptPrimaryDate = m.date.slice(5); // default: EDT date
@@ -4938,6 +4939,14 @@ function renderSchedule() {
       html+=`<div style="text-align:center;"><span class="sc-score">${result.score1}-${result.score2}</span></div>`;
     } else if(needsResult){
       html+=`<div style="text-align:center;"><span style="font-size:10px;color:var(--orange,#f97316);font-weight:700;cursor:pointer;" onclick="switchTab('matchEntry',this)" title="${currentLang==='zh'?'\u70b9\u51fb\u5f55\u5165\u7ed3\u679c':currentLang==='pt'?'Clique para inserir o resultado':'Click to enter result'}">${currentLang==='zh'?'\u5f85\u5f55\u5165':currentLang==='pt'?'A inserir':'Pending'}</span></div>`;
+    } else if(koNeedsResult){
+      const mid=m.date+'_'+m.home.replace(/[^a-zA-Z]/g,'')+'_'+m.away.replace(/[^a-zA-Z]/g,'');
+      html+=`<div style="text-align:center;display:flex;align-items:center;gap:2px;">
+        <input type="number" id="kos1_${mid}" value="0" min="0" max="15" style="width:28px;text-align:center;padding:2px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:11px;">
+        <span style="font-size:9px;color:var(--text2);">-</span>
+        <input type="number" id="kos2_${mid}" value="0" min="0" max="15" style="width:28px;text-align:center;padding:2px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:11px;">
+        <button onclick="saveKOResult('${mid}','${m.home.replace(/'/g,"\\'")}','${m.away.replace(/'/g,"\\'")}','${m.date}')" style="background:var(--accent);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;padding:2px 6px;font-weight:700;" title="${currentLang==='zh'?'\u4fdd\u5b58':currentLang==='pt'?'Salvar':'Save'}">\u2713</button>
+      </div>`;
     } else if(m.home!=='TBD'){
       const mts=new Date(m.date.replace('/','-')+'T'+(m.time||'00:00')+':00').getTime();
       const cdSpan=`<span data-mts="${mts}" style="font-size:9px;display:block;margin-top:2px"></span>`;
@@ -5075,6 +5084,24 @@ function renderMatchEntry() {
   }).join('');
 }
 function deleteMatch(i){matchResults.splice(i,1);rebuildEloFromHistory();if(!bracketEditMode)bracketCustomSlots=null;saveData();renderMatchEntry();renderGroups();renderStandings();renderELO();renderBracket();}
+
+function saveKOResult(mid,home,away,date){
+  const s1El=document.getElementById('kos1_'+mid);
+  const s2El=document.getElementById('kos2_'+mid);
+  if(!s1El||!s2El) return;
+  const s1=parseInt(s1El.value)||0;
+  const s2=parseInt(s2El.value)||0;
+  let pkW=null;
+  if(s1===s2){
+    pkW=confirm(currentLang==='zh'?`${home} 点球获胜?`:`${home} wins on PKs?`)?home:away;
+  }
+  mergeScoreResult(home,away,s1,s2,date,pkW);
+  rebuildEloFromHistory();
+  if(!bracketEditMode) bracketCustomSlots=null;
+  saveData();
+  renderSchedule(); renderMatchEntry(); renderGroups(); renderStandings(); renderELO(); renderBracket();
+  notify((currentLang==='zh'?'已保存KO结果':currentLang==='en'?'Saved KO':'Salvo KO')+': '+home+' '+s1+'-'+s2+' '+away,'success');
+}
 
 
 // ─── SCENARIO SIMULATION ───
@@ -7014,6 +7041,7 @@ window.fetchLiveOdds=fetchLiveOdds;
 window.fetchLiveScores=fetchLiveScores;
 window.filterSchedGroup=filterSchedGroup;
 window.recordMatches=recordMatches;
+window.saveKOResult=saveKOResult;
 window.deleteMatch=deleteMatch;
 window.updateEntryGroup=updateEntryGroup;
 window.renderChampionship=renderChampionship;
