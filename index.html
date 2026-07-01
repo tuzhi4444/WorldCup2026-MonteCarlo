@@ -3549,9 +3549,14 @@ function renderBracket(){
   teams.forEach(t=>{tdMap[t.name]={...t,adv:(advanceCount[t.name]||0)/totalSims,champ:(champCount[t.name]||0)/totalSims};});
 
   // Build eliminated set from recorded KO match results
+  // Cross-group teams can only meet in knockout rounds, so any recorded
+  // cross-group result is treated as a KO result regardless of isKO flag.
   const koEliminated=new Set();
   (matchResults||[]).forEach(r=>{
-    if(!r.isKO) return;
+    const ta=teams.find(t=>t.name===r.t1);
+    const tb=teams.find(t=>t.name===r.t2);
+    const isKO=r.isKO||(ta&&tb&&ta.group!==tb.group);
+    if(!isKO) return;
     if(r.pkWinner) koEliminated.add(r.pkWinner===r.t1?r.t2:r.t1);
     else if(r.score1>r.score2) koEliminated.add(r.t2);
     else if(r.score2>r.score1) koEliminated.add(r.t1);
