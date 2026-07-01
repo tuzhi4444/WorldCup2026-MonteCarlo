@@ -3570,6 +3570,26 @@ function _seedLabel(name){
   return '3rd';
 }
 
+// Build eliminated-teams set from real KO results (for display-layer knockout resolution)
+function getKOEliminated(){
+  const elim=new Set();
+  (matchResults||[]).forEach(m=>{
+    const ta=teams.find(t=>t.name===m.t1), tb=teams.find(t=>t.name===m.t2);
+    if(!ta||!tb) return;
+    const isCross=ta.group!==tb.group;
+    if(!m.isKO&&!isCross) return;
+    if(m.score1==null||m.score2==null) return;
+    if(m.pkWinner){
+      elim.add(m.pkWinner===m.t1?m.t2:m.t1);
+    }else if(m.score1>m.score2){
+      elim.add(m.t2);
+    }else if(m.score2>m.score1){
+      elim.add(m.t1);
+    }
+  });
+  return elim;
+}
+
 function renderBracket(){
   const el=document.getElementById('bracketContent');
   if(!simResults){el.innerHTML=`<div class="empty-state">${T('run_first')}</div>`;return;}
@@ -3583,17 +3603,13 @@ function renderBracket(){
   const tdMap={};
   teams.forEach(t=>{tdMap[t.name]={...t,adv:(advanceCount[t.name]||0)/totalSims,champ:(champCount[t.name]||0)/totalSims};});
 
-  // Advance bracket rounds: data-driven — only advance teams when a recorded
-  // KO result or elimination status provides definitive proof. Unresolved matchups
-  // show '?' instead of guessing, so the tree reflects actual entered data.
+  // Advance bracket rounds. Priority: 1) recorded KO result → 2) real elimination → 3) ELO prediction.
   function simRound(prev){
+    const koElim=getKOEliminated();
     const res=[];
     for(let i=0;i<prev.length;i+=2){
       const a=prev[i],b=prev[i+1];
       if(a==='?'||b==='?'){res.push(a!=='?'?a:b);continue;}
-      // Do NOT auto-advance from a global elimination set: team X may have been
-      // eliminated by someone else, not by the opponent in THIS bracket slot.
-      // Only advance with a direct recorded result between the two teams.
       const ta=teams.find(x=>x.name===a)||{name:a,elo:1500};
       const tb=teams.find(x=>x.name===b)||{name:b,elo:1500};
       // Use recorded KO result if available.
@@ -3604,7 +3620,11 @@ function renderBracket(){
         res.push(actual.pkWinner||(actual.score1>actual.score2?actual.t1:actual.t2));
         continue;
       }
-      // No recorded result — predict most likely winner via ELO model
+      // 2) Known elimination from real KO data
+      const aElim=koElim.has(a), bElim=koElim.has(b);
+      if(aElim&&!bElim){res.push(b);continue;}
+      if(bElim&&!aElim){res.push(a);continue;}
+      // 3) Neither eliminated (or both) — ELO prediction
       const pp=getMatchProb(ta,tb);
       res.push(pp.pA>=pp.pB?a:b);
     }
