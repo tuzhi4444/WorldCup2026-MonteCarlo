@@ -2355,11 +2355,13 @@ function loadData() {
         });
         simResults = d.simResults||null;
         matchResults = d.matchResults||[];
-        // Retroactively tag KO results that ESPN sync stored without isKO flag
+        // Retroactively tag KO results: cross-group teams can only meet in KO rounds
         matchResults.forEach(m=>{
-          if(!m.isKO&&MATCH_SCHEDULE.some(s=>s.group==='KO'&&s.home!=='TBD'&&
-            ((s.home===m.t1&&s.away===m.t2)||(s.home===m.t2&&s.away===m.t1))
-          )) m.isKO=true;
+          if(!m.isKO){
+            const ta=teams.find(t=>t.name===m.t1);
+            const tb=teams.find(t=>t.name===m.t2);
+            if(ta&&tb&&ta.group!==tb.group) m.isKO=true;
+          }
         });
         simHistory = d.simHistory||[];
         confidenceIntervals = d.confidenceIntervals||{};
@@ -5391,6 +5393,9 @@ async function fetchAllTournamentScores() {
   if (btn) { btn.disabled = true; btn.textContent = _fetchingLbl; }
   const _fetchAllMsg=currentLang==='en'?'📥 Fetching all results from ESPN...':currentLang==='pt'?'📥 A buscar todos os resultados (ESPN)...':'📥 正在获取全部赛果（ESPN）...';
   setScoreStatus(_fetchAllMsg, 'info');
+  // Fill KO fixtures FIRST so mergeScoreResult can tag them as isKO correctly
+  let koFilled = 0;
+  try { koFilled = await fetchKnockoutFixturesESPN(); } catch(e) {}
   const start = new Date('2026-06-11');
   const today = new Date();
   let changed = 0, total = 0;
@@ -5416,8 +5421,6 @@ async function fetchAllTournamentScores() {
       });
     } catch(e){}
   }
-  let koFilled = 0;
-  try { koFilled = await fetchKnockoutFixturesESPN(); } catch(e) {}
   if(btn){btn.disabled=false;btn.textContent=T('fetch_all_btn');}
   if(changed>0 || koFilled>0){
     if (!bracketEditMode) bracketCustomSlots = null;
@@ -5530,6 +5533,10 @@ async function fetchLiveScores() {
 
   let result = null, lastErr = '';
 
+  // Fill KO fixtures FIRST so mergeScoreResult can detect them and tag isKO correctly
+  let koFilled = 0;
+  try { koFilled = await fetchKnockoutFixturesESPN(); } catch(e) { /* keep TBD on failure */ }
+
   // Source 0: ESPN (no key needed) — always try first
   try {
     result = await fetchScoresESPN(3);
@@ -5549,8 +5556,13 @@ async function fetchLiveScores() {
 
   if (btn) { btn.disabled = false; btn.textContent = T('live_scores'); }
 
-  let koFilled = 0;
-  try { koFilled = await fetchKnockoutFixturesESPN(); } catch(e) { /* keep TBD on failure */ }
+  // Re-tag any KO results that were already in matchResults before this sync
+  MATCH_SCHEDULE.filter(s=>s.group==='KO'&&s.home!=='TBD').forEach(s=>{
+    matchResults.forEach(m=>{
+      if(!m.isKO&&((m.t1===s.home&&m.t2===s.away)||(m.t1===s.away&&m.t2===s.home)))
+        m.isKO=true;
+    });
+  });
 
   if (!result) {
     if (koFilled > 0) { saveData(); updateAll(); triggerAutoResim(); }
