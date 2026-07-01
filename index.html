@@ -706,6 +706,39 @@ body {
   </div>
 </div>
 
+<!-- ─── KO RESULT ENTRY PANEL ─── -->
+<div class="panel" id="koEntryPanel" style="margin-top:10px;">
+  <div class="panel-header"><h3>🏆 淘汰赛比分录入</h3></div>
+  <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;padding:8px 0;">
+    <div>
+      <div style="font-size:10px;font-weight:600;margin-bottom:3px;">主队 (中文)</div>
+      <input id="koT1" type="text" placeholder="如：巴西" style="width:90px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg2);color:var(--text);">
+    </div>
+    <div>
+      <div style="font-size:10px;font-weight:600;margin-bottom:3px;">比分</div>
+      <div style="display:flex;align-items:center;gap:4px;">
+        <input id="koS1" type="number" min="0" value="" placeholder="0" style="width:44px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-weight:700;text-align:center;background:var(--bg2);color:var(--text);">
+        <span style="font-weight:700;font-size:14px;">:</span>
+        <input id="koS2" type="number" min="0" value="" placeholder="0" style="width:44px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-weight:700;text-align:center;background:var(--bg2);color:var(--text);">
+      </div>
+    </div>
+    <div>
+      <div style="font-size:10px;font-weight:600;margin-bottom:3px;">客队 (中文)</div>
+      <input id="koT2" type="text" placeholder="如：阿根廷" style="width:90px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg2);color:var(--text);">
+    </div>
+    <div id="koPKWrap" style="display:none;">
+      <div style="font-size:10px;font-weight:600;margin-bottom:3px;">点球胜者</div>
+      <select id="koPK" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg2);color:var(--text);">
+        <option value="">选择</option>
+        <option id="koPKopt1" value=""></option>
+        <option id="koPKopt2" value=""></option>
+      </select>
+    </div>
+    <button class="btn btn-sm" onclick="recordKOMatch()" style="background:var(--green);color:#fff;white-space:nowrap;">⚽ 录入淘汰赛比分</button>
+  </div>
+  <div id="koMatchList" style="max-height:220px;overflow-y:auto;margin-top:4px;"></div>
+</div>
+
 <!-- ─── TAB: PREDICT + HISTORY ─── -->
 <div class="tab-content active" id="tab-history">
   <div class="panel">
@@ -2644,6 +2677,14 @@ async function runSim() {
           if(!qpd[bracketNames[i+1]].r32.includes(bracketNames[i]))qpd[bracketNames[i+1]].r32.push(bracketNames[i]);
         }
       }
+      // Build set of teams known eliminated via real KO results
+      const koEliminated=new Set();
+      (matchResults||[]).filter(m=>m.isKO).forEach(m=>{
+        let loser;
+        if(m.score1!==m.score2){loser=m.score1>m.score2?m.t2:m.t1;}
+        else if(m.pkWinner){loser=m.pkWinner===m.t1?m.t2:m.t1;}
+        if(loser)koEliminated.add(loser);
+      });
       let rt=[...bracketNames];
       const totalRounds=Math.log2(rt.length);
       const roundKeys=['r32','r16','qf','sf','f'];
@@ -2652,6 +2693,22 @@ async function runSim() {
         for(let i=0;i<rt.length;i+=2){
           const a=teams.find(t=>t.name===rt[i]),b=teams.find(t=>t.name===rt[i+1]);
           if(!a||!b){nr.push(rt[i]||rt[i+1]||'');continue;}
+          // If one team is known eliminated in real match, auto-advance the other
+          const aElim=koEliminated.has(rt[i]),bElim=koEliminated.has(rt[i+1]);
+          if(aElim&&!bElim){
+            const winner=rt[i+1],loser=rt[i];
+            nr.push(winner);
+            if(r<4&&winner&&qpd[winner]){if(!qpd[winner][roundKeys[r+1]])qpd[winner][roundKeys[r+1]]=[];if(loser)qpd[winner][roundKeys[r+1]].push(loser);}
+            if(r===3){yellows[rt[i]]=0;yellows[rt[i+1]]=0;}
+            continue;
+          }
+          if(bElim&&!aElim){
+            const winner=rt[i],loser=rt[i+1];
+            nr.push(winner);
+            if(r<4&&winner&&qpd[winner]){if(!qpd[winner][roundKeys[r+1]])qpd[winner][roundKeys[r+1]]=[];if(loser)qpd[winner][roundKeys[r+1]].push(loser);}
+            if(r===3){yellows[rt[i]]=0;yellows[rt[i+1]]=0;}
+            continue;
+          }
           let aMod={...a},bMod={...b};
           if((yellows[a.name]||0)>=2){aMod.overall=Math.max(1,(a.overall||5)-1);aMod.defense=Math.max(1,(a.defense||5)-1);}
           if((yellows[b.name]||0)>=2){bMod.overall=Math.max(1,(b.overall||5)-1);bMod.defense=Math.max(1,(b.defense||5)-1);}
@@ -2734,7 +2791,7 @@ function updateFactorMult() {
 }
 function updateAll() {
   renderChampionship(); renderGroups(); renderBracket(); renderEditor();
-  renderUpset(); renderQualPath(); renderMatchEntry(); renderHistory(); renderScoreAnalysis();
+  renderUpset(); renderQualPath(); renderMatchEntry(); renderKOMatchList(); renderHistory(); renderScoreAnalysis();
   renderSchedule(); renderELO(); renderRadar(); renderHistogram(); renderCI();
   renderOdds(); renderEvents(); renderScenarioPanel();
   matchResults.length && renderStandings();
@@ -5043,6 +5100,79 @@ function renderMatchEntry() {
   `).join('');
 }
 function deleteMatch(i){matchResults.splice(i,1);rebuildEloFromHistory();saveData();renderMatchEntry();renderGroups();renderStandings();renderELO();}
+
+// ─── KO RESULT ENTRY ───
+(function(){
+  function _bindKOPKToggle(){
+    ['koS1','koS2','koT1','koT2'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el)el.addEventListener('input',_updateKOPK);
+    });
+  }
+  function _updateKOPK(){
+    const s1=parseInt(document.getElementById('koS1').value),s2=parseInt(document.getElementById('koS2').value);
+    const t1=(document.getElementById('koT1').value||'').trim(),t2=(document.getElementById('koT2').value||'').trim();
+    const wrap=document.getElementById('koPKWrap');
+    if(wrap){wrap.style.display=(s1===s2&&!isNaN(s1)&&t1&&t2)?'block':'none';}
+    const o1=document.getElementById('koPKopt1'),o2=document.getElementById('koPKopt2');
+    if(o1){o1.value=t1;o1.textContent=t1||'主队';}
+    if(o2){o2.value=t2;o2.textContent=t2||'客队';}
+  }
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',_bindKOPKToggle);}
+  else{_bindKOPKToggle();}
+})();
+
+function recordKOMatch(){
+  const t1=(document.getElementById('koT1').value||'').trim();
+  const t2=(document.getElementById('koT2').value||'').trim();
+  const s1=parseInt(document.getElementById('koS1').value);
+  const s2=parseInt(document.getElementById('koS2').value);
+  if(!t1||!t2||isNaN(s1)||isNaN(s2)){notify('请填写两队队名和比分','warning');return;}
+  if(t1===t2){notify('两队不能相同','warning');return;}
+  const pk=(s1===s2)?document.getElementById('koPK').value:'';
+  if(s1===s2&&!pk){notify('平局须选择点球胜者','warning');return;}
+  const entry={t1,t2,score1:s1,score2:s2,time:new Date().toISOString(),isKO:true};
+  if(pk)entry.pkWinner=pk;
+  matchResults=matchResults.filter(m=>!((m.t1===t1&&m.t2===t2)||(m.t1===t2&&m.t2===t1)));
+  matchResults.push(entry);
+  rebuildEloFromHistory();
+  bracketCustomSlots=null;
+  saveData();
+  renderKOMatchList();
+  renderBracket();
+  renderChampionship();
+  renderMatchEntry();
+  notify('已录入淘汰赛: '+t1+' vs '+t2,'success');
+}
+
+function renderKOMatchList(){
+  const list=document.getElementById('koMatchList');
+  if(!list)return;
+  const koResults=matchResults.filter(m=>m.isKO);
+  if(!koResults.length){list.innerHTML='<div class="empty-state" style="font-size:10px;padding:8px;">暂无淘汰赛比分</div>';return;}
+  list.innerHTML=koResults.map((m,_)=>{
+    const realIdx=matchResults.indexOf(m);
+    const pkLabel=m.pkWinner?` <span style="font-size:9px;color:#d97706;font-weight:700;">🥅 ${TN(m.pkWinner)}点球胜</span>`:'';
+    return `<div style="display:flex;align-items:center;gap:6px;padding:4px 8px;font-size:11px;border-bottom:1px solid var(--border-light);">
+      <span style="font-weight:500;">${getFlag(m.t1)} ${TN(m.t1)}</span>
+      <span style="font-weight:700;">${m.score1}-${m.score2}</span>
+      <span style="font-weight:500;">${getFlag(m.t2)} ${TN(m.t2)}</span>
+      ${pkLabel}
+      <span style="margin-left:auto;color:var(--red);cursor:pointer;font-weight:700;" onclick="deleteKOMatch(${realIdx})">✕</span>
+    </div>`;
+  }).join('');
+}
+
+function deleteKOMatch(i){
+  matchResults.splice(i,1);
+  rebuildEloFromHistory();
+  bracketCustomSlots=null;
+  saveData();
+  renderKOMatchList();
+  renderBracket();
+  renderChampionship();
+  renderMatchEntry();
+}
 
 // ─── SCENARIO SIMULATION ───
 let scenarioForced = {}; // teamName → true if forced eliminated
