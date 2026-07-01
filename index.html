@@ -2635,6 +2635,14 @@ async function runSim() {
   let lastSim = 0;
   const t0 = Date.now();
 
+  // Build once before chunked loop — matchResults never changes mid-sim
+  const koEliminated=new Set();
+  (matchResults||[]).filter(m=>m.isKO).forEach(m=>{
+    let loser;
+    if(m.score1!==m.score2){loser=m.score1>m.score2?m.t2:m.t1;}
+    else if(m.pkWinner){loser=m.pkWinner===m.t1?m.t2:m.t1;}
+    if(loser)koEliminated.add(loser);
+  });
   function runChunk() {
     try {
     const end = Math.min(sim + CHUNK_SIZE, n);
@@ -2677,14 +2685,6 @@ async function runSim() {
           if(!qpd[bracketNames[i+1]].r32.includes(bracketNames[i]))qpd[bracketNames[i+1]].r32.push(bracketNames[i]);
         }
       }
-      // Build set of teams known eliminated via real KO results
-      const koEliminated=new Set();
-      (matchResults||[]).filter(m=>m.isKO).forEach(m=>{
-        let loser;
-        if(m.score1!==m.score2){loser=m.score1>m.score2?m.t2:m.t1;}
-        else if(m.pkWinner){loser=m.pkWinner===m.t1?m.t2:m.t1;}
-        if(loser)koEliminated.add(loser);
-      });
       let rt=[...bracketNames];
       const totalRounds=Math.log2(rt.length);
       const roundKeys=['r32','r16','qf','sf','f'];
@@ -2693,17 +2693,13 @@ async function runSim() {
         for(let i=0;i<rt.length;i+=2){
           const a=teams.find(t=>t.name===rt[i]),b=teams.find(t=>t.name===rt[i+1]);
           if(!a||!b){nr.push(rt[i]||rt[i+1]||'');continue;}
-          // If one team is known eliminated in real match, auto-advance the other
+          // If either or both teams are known eliminated in real KO results, resolve without simulation
           const aElim=koEliminated.has(rt[i]),bElim=koEliminated.has(rt[i+1]);
-          if(aElim&&!bElim){
-            const winner=rt[i+1],loser=rt[i];
-            nr.push(winner);
-            if(r<4&&winner&&qpd[winner]){if(!qpd[winner][roundKeys[r+1]])qpd[winner][roundKeys[r+1]]=[];if(loser)qpd[winner][roundKeys[r+1]].push(loser);}
-            if(r===3){yellows[rt[i]]=0;yellows[rt[i+1]]=0;}
-            continue;
-          }
-          if(bElim&&!aElim){
-            const winner=rt[i],loser=rt[i+1];
+          if(aElim||bElim){
+            let winner,loser;
+            if(aElim&&!bElim){winner=rt[i+1];loser=rt[i];}
+            else if(bElim&&!aElim){winner=rt[i];loser=rt[i+1];}
+            else{const sc=genScore(a,b,true);winner=sc.result==='A'?rt[i]:rt[i+1];loser=sc.result==='A'?rt[i+1]:rt[i];}
             nr.push(winner);
             if(r<4&&winner&&qpd[winner]){if(!qpd[winner][roundKeys[r+1]])qpd[winner][roundKeys[r+1]]=[];if(loser)qpd[winner][roundKeys[r+1]].push(loser);}
             if(r===3){yellows[rt[i]]=0;yellows[rt[i+1]]=0;}
@@ -3387,6 +3383,7 @@ function getGroupStandingsFull(g) {
   const pts={},gd={},gf={},ga={},w={},d={},l={},mp={};
   groupTeams.forEach(t => { pts[t.name]=0;gd[t.name]=0;gf[t.name]=0;ga[t.name]=0;w[t.name]=0;d[t.name]=0;l[t.name]=0;mp[t.name]=0; });
   matchResults.forEach(m => {
+    if(m.isKO) return;
     if(pts[m.t1]===undefined||pts[m.t2]===undefined) return;
     mp[m.t1]++;mp[m.t2]++;
     gf[m.t1]+=m.score1;ga[m.t1]+=m.score2;gf[m.t2]+=m.score2;ga[m.t2]+=m.score1;
@@ -3401,7 +3398,7 @@ function getGroupStandingsFull(g) {
 
 function getGroupStandings(g) {
   if(!matchResults.length) return null;
-  const gMatches=matchResults.filter(m=>{const a=teams.find(x=>x.name===m.t1),b=teams.find(x=>x.name===m.t2); return a?.group===g&&b?.group===g;});
+  const gMatches=matchResults.filter(m=>{if(m.isKO)return false;const a=teams.find(x=>x.name===m.t1),b=teams.find(x=>x.name===m.t2); return a?.group===g&&b?.group===g;});
   if(!gMatches.length) return null;
   const names=[...new Set(gMatches.flatMap(m=>[m.t1,m.t2]))], pts={},gd={},gf={},ga={},w={},d={},l={};
   names.forEach(n=>{pts[n]=0;gd[n]=0;gf[n]=0;ga[n]=0;w[n]=0;d[n]=0;l[n]=0;});
@@ -5084,20 +5081,22 @@ function recordMatches() {
 }
 
 function renderMatchEntry() {
-  const _mc=currentLang==='en'?`Recorded ${matchResults.length} results`:currentLang==='pt'?`${matchResults.length} jogos registrados`:`已录入 ${matchResults.length} 场`;
+  const groupOnly=matchResults.filter(m=>!m.isKO);
+  const _mc=currentLang==='en'?`Recorded ${groupOnly.length} results`:currentLang==='pt'?`${groupOnly.length} jogos registrados`:`已录入 ${groupOnly.length} 场`;
   document.getElementById('matchCount').textContent=_mc;
-  document.getElementById('matchCountLabel').textContent=matchResults.length;
+  document.getElementById('matchCountLabel').textContent=groupOnly.length;
   const list=document.getElementById('matchList');
-  if(!matchResults.length){list.innerHTML=`<div class="empty-state" style="font-size:10px;padding:8px;">${currentLang==='en'?'None yet':currentLang==='pt'?'Nenhum ainda':'暂无'}</div>`;return;}
-  list.innerHTML=matchResults.map((m,i)=>`
-    <div style="display:flex;align-items:center;gap:6px;padding:4px 8px;font-size:11px;border-bottom:1px solid var(--border-light);">
+  if(!groupOnly.length){list.innerHTML=`<div class="empty-state" style="font-size:10px;padding:8px;">${currentLang==='en'?'None yet':currentLang==='pt'?'Nenhum ainda':'暂无'}</div>`;return;}
+  list.innerHTML=groupOnly.map((m,_)=>{
+    const realIdx=matchResults.indexOf(m);
+    return `<div style="display:flex;align-items:center;gap:6px;padding:4px 8px;font-size:11px;border-bottom:1px solid var(--border-light);">
       <span style="font-weight:500;">${getFlag(m.t1)} ${TN(m.t1)}</span>
       <span style="font-weight:700;">${m.score1}-${m.score2}</span>
       <span style="font-weight:500;">${getFlag(m.t2)} ${TN(m.t2)}</span>
       ${m.pkWinner?`<span style="font-size:9px;color:#d97706;font-weight:700;">🥅 ${TN(m.pkWinner)}${currentLang==='zh'?'点球胜':currentLang==='en'?' wins on PKs':' vence nos pênaltis'}</span>`:''}
-      <span style="margin-left:auto;color:var(--red);cursor:pointer;font-weight:700;" onclick="deleteMatch(${i})">✕</span>
-    </div>
-  `).join('');
+      <span style="margin-left:auto;color:var(--red);cursor:pointer;font-weight:700;" onclick="deleteMatch(${realIdx})">✕</span>
+    </div>`;
+  }).join('');
 }
 function deleteMatch(i){matchResults.splice(i,1);rebuildEloFromHistory();saveData();renderMatchEntry();renderGroups();renderStandings();renderELO();}
 
@@ -5133,7 +5132,7 @@ function recordKOMatch(){
   if(s1===s2&&!pk){notify('平局须选择点球胜者','warning');return;}
   const entry={t1,t2,score1:s1,score2:s2,time:new Date().toISOString(),isKO:true};
   if(pk)entry.pkWinner=pk;
-  matchResults=matchResults.filter(m=>!((m.t1===t1&&m.t2===t2)||(m.t1===t2&&m.t2===t1)));
+  matchResults=matchResults.filter(m=>!(m.isKO&&((m.t1===t1&&m.t2===t2)||(m.t1===t2&&m.t2===t1))));
   matchResults.push(entry);
   rebuildEloFromHistory();
   bracketCustomSlots=null;
@@ -5152,7 +5151,7 @@ function renderKOMatchList(){
   if(!koResults.length){list.innerHTML='<div class="empty-state" style="font-size:10px;padding:8px;">暂无淘汰赛比分</div>';return;}
   list.innerHTML=koResults.map((m,_)=>{
     const realIdx=matchResults.indexOf(m);
-    const pkLabel=m.pkWinner?` <span style="font-size:9px;color:#d97706;font-weight:700;">🥅 ${TN(m.pkWinner)}点球胜</span>`:'';
+    const pkLabel=m.pkWinner?` <span style="font-size:9px;color:#d97706;font-weight:700;">🥅 ${TN(m.pkWinner)}${currentLang==='en'?' wins on PKs':currentLang==='pt'?' vence nos pênaltis':'点球胜'}</span>`:'';
     return `<div style="display:flex;align-items:center;gap:6px;padding:4px 8px;font-size:11px;border-bottom:1px solid var(--border-light);">
       <span style="font-weight:500;">${getFlag(m.t1)} ${TN(m.t1)}</span>
       <span style="font-weight:700;">${m.score1}-${m.score2}</span>
