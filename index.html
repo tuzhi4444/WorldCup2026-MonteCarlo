@@ -198,6 +198,24 @@ body {
 .qual-badge { font-size: 8px; padding: 1px 5px; border-radius: 20px; font-weight: 700; background: var(--green-light); color: var(--green); }
 .elim-badge { font-size: 8px; padding: 1px 5px; border-radius: 20px; font-weight: 700; background: var(--red-light); color: var(--red); }
 
+/* ─── KNOCKOUT BRACKET (results-driven tree) ─── */
+.kb-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; padding:8px 4px; }
+.kb-tree { display:flex; align-items:flex-start; gap:0; min-width:max-content; }
+.kb-col { flex-shrink:0; display:flex; flex-direction:column; }
+.kb-col-label { font-size:9px; font-weight:700; color:var(--text3); text-align:center; padding:4px 0 6px; text-transform:uppercase; letter-spacing:.05em; }
+.kb-slot { display:flex; align-items:center; box-sizing:border-box; }
+.kb-card { width:132px; box-sizing:border-box; background:var(--bg2); border:1.5px solid var(--border); border-radius:6px; padding:4px 7px; display:flex; align-items:center; gap:5px; overflow:hidden; font-size:11px; }
+.kb-card.kb-tbd { opacity:.45; font-style:italic; }
+.kb-card.kb-win { border-color:var(--accent); background:var(--accent-light,rgba(99,102,241,.12)); font-weight:700; }
+.kb-card.kb-lose { opacity:.42; }
+.kb-card.kb-champ { border-color:var(--gold); background:var(--gold-light,rgba(255,193,7,.12)); font-weight:700; }
+.kb-name { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.kb-score { font-weight:700; font-size:11px; min-width:12px; text-align:right; }
+.kb-pk { font-size:8px; color:#d97706; font-weight:700; }
+.kb-svg { flex-shrink:0; display:block; }
+.kb-3rd { margin:16px 4px 4px; padding:8px 12px; border:1.5px dashed var(--border); border-radius:8px; display:inline-flex; flex-direction:column; gap:4px; font-size:11px; }
+.kb-3rd-h { font-size:10px; font-weight:700; color:var(--text3); text-transform:uppercase; letter-spacing:.04em; }
+
 /* ─── TEAM MODAL ─── */
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 200;
@@ -344,6 +362,7 @@ body {
   <button class="tab" onclick="switchTab('schedule',this)">📅 赛程</button>
   <button class="tab" onclick="switchTab('championship',this)">🏆 冠军概率</button>
   <button class="tab" onclick="switchTab('groups',this)">🏟 小组赛</button>
+  <button class="tab" onclick="switchTab('bracket',this)">🏆 对阵图</button>
   <button class="tab" onclick="switchTab('teams',this)">📊 球队数据</button>
   <button class="tab" onclick="switchTab('analysis',this)">🔬 分析</button>
   <button class="tab" onclick="switchTab('squads',this)">📋 球队名单</button>
@@ -448,6 +467,17 @@ body {
 </div>
 
 <!-- ─── TAB: TEAMS ─── -->
+<!-- ─── TAB: KNOCKOUT BRACKET ─── -->
+<div class="tab-content" id="tab-bracket">
+  <div class="panel">
+    <div class="panel-header">
+      <h3 id="kbPanelH3">🏆 淘汰赛对阵图</h3>
+      <span class="panel-label" id="kbSubLabel">根据赛程结果实时更新</span>
+    </div>
+    <div id="bracketContent"></div>
+  </div>
+</div>
+
 <div class="tab-content" id="tab-teams">
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
     <div class="panel">
@@ -703,7 +733,7 @@ const L={
     sim:'模拟',simBtn:'▶ 运行',ready:'就绪',running:'模拟中...',done:'已完成',error_label:'错误',saved_label:'✓ 已保存',
     factor:'因子',factorMultiplier:'倍',scenario:'场景',scenario_reset:'恢复默认',
     tab_champ:'🏆 夺冠概率',tab_groups:'📊 小组赛',tab_analysis:'🔬 分析',tab_factors:'🎛 因子编辑',
-    tab_schedule:'📅 赛程',tab_history:'🎯 比分预测',
+    tab_schedule:'📅 赛程',tab_history:'🎯 比分预测',tab_bracket:'🏆 对阵图',
     tab_players:'👥 球员',tab_teams:'🏴 球队',
     panel_predict:'⚡ 单场预测',panel_upset:'⚠️ 冷门 & 黑马分析',
     panel_path:'🗺 晋级路径',panel_event:'🚨 突发事件面板',
@@ -835,7 +865,7 @@ const L={
     sim:'Simular',simBtn:'▶ Executar',ready:'Pronto',running:'Simulando...',done:'Concluído',error_label:'Erro',saved_label:'✓ Salvo',
     factor:'Fator',factorMultiplier:'×',scenario:'Cenário',scenario_reset:'Restaurar',
     tab_champ:'🏆 Probabilidade',tab_groups:'📊 Grupos',tab_analysis:'🔬 Análise',tab_factors:'🎛 Fatores',
-    tab_schedule:'📅 Jogos',tab_history:'🎯 Previsão',
+    tab_schedule:'📅 Jogos',tab_history:'🎯 Previsão',tab_bracket:'🏆 Chave',
     tab_players:'👥 Jogadores',tab_teams:'🏴 Seleções',
     panel_predict:'⚡ Previsão Individual',panel_upset:'⚠️ Zebras & Surpresas',
     panel_path:'🗺 Trajetória',panel_event:'🚨 Eventos de Última Hora',
@@ -976,7 +1006,7 @@ const L={
     no_sim:'Run simulation first',
     standings_title:'📋 Group Standings',
     tab_champ:'🏆 Championship',tab_groups:'📊 Groups',tab_analysis:'🔬 Analysis',tab_factors:'🎛 Factors',
-    tab_schedule:'📅 Schedule',tab_history:'🎯 Prediction',
+    tab_schedule:'📅 Schedule',tab_history:'🎯 Prediction',tab_bracket:'🏆 Bracket',
     tab_players:'👥 Players',tab_teams:'🏴 Teams',
     panel_predict:'⚡ Match Predictor',panel_upset:'⚠️ Upset & Dark Horse',
     panel_path:'🗺 Qualification Path',panel_event:'🚨 Breaking Events',
@@ -1160,8 +1190,11 @@ function applyLangDOM(){
   }
   // Tabs — correct order: championship, groups, bracket, teams, analysis, schedule, history, squads
   const tabs=document.querySelectorAll('.tab');
-  const tabKeys={0:'tab_history',1:'tab_schedule',2:'tab_champ',3:'tab_groups',4:'tab_teams',5:'tab_analysis',6:'tab_squads'};
+  const tabKeys={0:'tab_history',1:'tab_schedule',2:'tab_champ',3:'tab_groups',4:'tab_bracket',5:'tab_teams',6:'tab_analysis',7:'tab_squads'};
   tabs.forEach((t,i)=>{if(tabKeys[i])t.textContent=T(tabKeys[i]);});
+  // Knockout bracket tab panel header
+  const kbh=document.getElementById('kbPanelH3'); if(kbh)kbh.textContent=zh?'🏆 淘汰赛对阵图':en?'🏆 Knockout Bracket':'🏆 Chave Eliminatória';
+  const kbs=document.getElementById('kbSubLabel'); if(kbs)kbs.textContent=zh?'根据赛程结果实时更新':en?'Live from schedule results':'Ao vivo pelos resultados';
   // Status badge
   const sd=document.getElementById('simStatus');
   if(sd)sd.textContent=sd.className.includes('running')?T('running'):sd.className.includes('done')?T('done'):T('ready');
@@ -2364,6 +2397,7 @@ function switchTab(name,btn) {
   });
   const el=document.getElementById('tab-'+name);
   if(el) el.classList.add('active');
+  if(name==='bracket') renderKnockoutBracket();
   if(name==='championship'){renderELO();renderHistogram();}
   if(name==='teams'){
     // 首次打开雷达图时自动选前3强队
@@ -2710,7 +2744,7 @@ function updateFactorMult() {
   notify(_multMsg,'info');
 }
 function updateAll() {
-  renderChampionship(); renderGroups(); renderEditor();
+  renderChampionship(); renderGroups(); renderEditor(); renderKnockoutBracket();
   renderUpset(); renderQualPath(); renderMatchEntry(); renderHistory(); renderScoreAnalysis();
   renderSchedule(); renderELO(); renderRadar(); renderHistogram(); renderCI();
   renderOdds(); renderEvents(); renderScenarioPanel();
@@ -4258,6 +4292,137 @@ function koRoundShort(raw){
   return t?(t[currentLang]||t.zh):raw;
 }
 
+// ─── TAB: KNOCKOUT BRACKET (results-driven) ───
+// A pure real-results knockout bracket. R32 pairings come from the schedule's
+// KO fixtures (MATCH_SCHEDULE, filled with real qualifiers by the ESPN sync;
+// KO_SCHED projection as fallback). Winners advance ONLY on recorded results —
+// no ELO prediction, no simulation dependency. Undecided matchups show 待定/TBD.
+// Re-rendered on every result change (updateAll + KO save/delete paths).
+const KB_LABELS={
+  zh:['32强','16强','8强','半决赛','决赛','🏆 冠军'],
+  en:['R32','R16','QF','SF','Final','🏆 Champ'],
+  pt:['16avos','Oitavas','Quartas','Semi','Final','🏆 Campeão']
+};
+// FIFA bracket tree ordering: which R32 fixture index sits at each tree position,
+// so adjacent-pair folding (0,1)(2,3)… yields the correct R16+ path.
+const KB_R32_ORDER=[0,1,3,4,2,5,6,7,8,9,11,12,10,13,14,15];
+
+// Recorded KO result between two teams, oriented to (a,b). Returns
+// {winner, loser, sa, sb, pk} or null if not yet played/decided.
+function _kbResult(a,b){
+  if(!a||!b||a==='TBD'||b==='TBD') return null;
+  const ta=teams.find(t=>t.name===a), tb=teams.find(t=>t.name===b);
+  const sameGrp=ta&&tb&&ta.group&&ta.group===tb.group;
+  // KO opponents are cross-group, so a name match is enough; require isKO only
+  // for the (theoretical) same-group case to avoid catching a group-stage game.
+  const r=(matchResults||[]).find(m=>(sameGrp?!!m.isKO:true)&&
+    ((m.t1===a&&m.t2===b)||(m.t1===b&&m.t2===a)));
+  if(!r||r.score1==null||r.score2==null) return null;
+  let winner;
+  if(r.score1===r.score2){ if(!r.pkWinner) return null; winner=r.pkWinner; }
+  else winner=(r.score1>r.score2)?r.t1:r.t2;
+  const sa=(r.t1===a)?r.score1:r.score2;
+  const sb=(r.t1===a)?r.score2:r.score1;
+  return {winner, loser:(winner===a?b:a), sa, sb, pk:(r.score1===r.score2)};
+}
+
+// Build the 6 rounds of the tree: lengths 32,16,8,4,2,1.
+function buildKOTree(){
+  const koFx=(typeof MATCH_SCHEDULE!=='undefined')
+    ? MATCH_SCHEDULE.filter(m=>m.group==='KO').slice(0,16) : [];
+  const r32=new Array(32).fill('TBD');
+  for(let pi=0;pi<16;pi++){
+    const idx=KB_R32_ORDER[pi];
+    const f=koFx[idx];
+    const ks=(typeof KO_SCHED!=='undefined')?KO_SCHED[idx]:null;
+    const t1=(f&&f.home&&f.home!=='TBD')?f.home:(ks?ks.t1:null);
+    const t2=(f&&f.away&&f.away!=='TBD')?f.away:(ks?ks.t2:null);
+    if(t1)r32[pi*2]=t1;
+    if(t2)r32[pi*2+1]=t2;
+  }
+  const rounds=[r32];
+  for(let r=0;r<5;r++){
+    const prev=rounds[r], next=[];
+    for(let i=0;i<prev.length;i+=2){
+      const res=_kbResult(prev[i],prev[i+1]);
+      next.push(res?res.winner:'TBD');
+    }
+    rounds.push(next);
+  }
+  return rounds;
+}
+
+function renderKnockoutBracket(){
+  const el=document.getElementById('bracketContent');
+  if(!el) return;
+  const L=currentLang;
+  const labels=KB_LABELS[L]||KB_LABELS.zh;
+  const TBD=L==='en'?'TBD':L==='pt'?'A def.':'待定';
+  const rounds=buildKOTree();
+  const BASE_H=30, TOTAL_H=32*BASE_H, CW=140, CONN=20;
+
+  let html='<div class="kb-wrap"><div class="kb-tree">';
+  for(let ri=0;ri<rounds.length;ri++){
+    const col=rounds[ri];
+    const slotH=(32/col.length)*BASE_H;
+    const isChamp=ri===5;
+    html+=`<div class="kb-col" style="width:${CW}px;"><div class="kb-col-label">${labels[ri]}</div>`;
+    for(let si=0;si<col.length;si++){
+      const name=col[si];
+      let cls='kb-card', score='';
+      if(isChamp){
+        cls+= name!=='TBD' ? ' kb-champ' : ' kb-tbd';
+      } else {
+        if(name==='TBD') cls+=' kb-tbd';
+        const partner=(si%2===0)?col[si+1]:col[si-1];
+        const res=_kbResult(name,partner);
+        if(res){
+          const my=res.sa; // _kbResult called with name as `a`, so sa is name's own score
+          const isW=res.winner===name;
+          score=`<span class="kb-score">${my}${res.pk&&isW?'<span class="kb-pk"> P</span>':''}</span>`;
+          cls+= isW ? ' kb-win' : ' kb-lose';
+        }
+      }
+      const label= name==='TBD' ? TBD : `${getFlag(name)} ${TN(name)}`;
+      html+=`<div class="kb-slot" style="height:${slotH}px;"><div class="${cls}"><span class="kb-name">${isChamp&&name!=='TBD'?'🏆 ':''}${label}</span>${score}</div></div>`;
+    }
+    html+=`</div>`;
+    if(!isChamp){
+      const nPairs=col.length/2;
+      let lines='';
+      for(let ci=0;ci<nPairs;ci++){
+        const yT=(ci*2*slotH+slotH/2).toFixed(1);
+        const yB=((ci*2+1)*slotH+slotH/2).toFixed(1);
+        const yM=(ci*slotH*2+slotH).toFixed(1);
+        const xV=(CONN/2).toFixed(1);
+        lines+=`<line x1="0" y1="${yT}" x2="${xV}" y2="${yT}" stroke="var(--border)" stroke-width="1.5"/>`;
+        lines+=`<line x1="0" y1="${yB}" x2="${xV}" y2="${yB}" stroke="var(--border)" stroke-width="1.5"/>`;
+        lines+=`<line x1="${xV}" y1="${yT}" x2="${xV}" y2="${yB}" stroke="var(--border)" stroke-width="1.5"/>`;
+        lines+=`<line x1="${xV}" y1="${yM}" x2="${CONN}" y2="${yM}" stroke="var(--border)" stroke-width="1.5"/>`;
+      }
+      html+=`<svg class="kb-svg" width="${CONN}" height="${TOTAL_H}" viewBox="0 0 ${CONN} ${TOTAL_H}">${lines}</svg>`;
+    }
+  }
+  html+='</div>'; // .kb-tree
+
+  // 3rd-place playoff — the two semi-final losers.
+  const sf=rounds[3]; // 4 teams → 2 SF matches
+  const s1=_kbResult(sf[0],sf[1]), s2=_kbResult(sf[2],sf[3]);
+  const a3=s1?s1.loser:'TBD', b3=s2?s2.loser:'TBD';
+  const r3=_kbResult(a3,b3);
+  const row3=(nm)=>{
+    if(nm==='TBD') return `<span class="kb-tbd">${TBD}</span>`;
+    const sc=r3?(nm===a3?r3.sa:r3.sb):null;
+    const w=r3&&r3.winner===nm;
+    return `<span style="${w?'font-weight:700;color:var(--gold);':''}">${getFlag(nm)} ${TN(nm)}${sc!=null?' · '+sc:''}</span>`;
+  };
+  const thirdH=L==='en'?'Third Place':L==='pt'?'3º Lugar':'三四名决赛';
+  html+=`<div class="kb-3rd"><div class="kb-3rd-h">🥉 ${thirdH}</div><div>${row3(a3)}</div><div>${row3(b3)}</div></div>`;
+
+  html+='</div>'; // .kb-wrap
+  el.innerHTML=html;
+}
+
 function renderSchedule() {
   const grid=document.getElementById('scheduleGrid');
   const btnContainer=document.getElementById('schedGroupBtns');
@@ -4471,7 +4636,7 @@ function recordMatches() {
     recorded++;
   });
   rebuildEloFromHistory();
-  saveData(); updateEntryGroup(); renderMatchEntry(); renderGroups(); renderStandings(); renderPlayers(); renderOdds(); renderELO(); renderScoreAnalysis();
+  saveData(); updateEntryGroup(); renderMatchEntry(); renderGroups(); renderStandings(); renderPlayers(); renderOdds(); renderELO(); renderScoreAnalysis(); renderKnockoutBracket();
   notify(currentLang==='en'?`Recorded ${recorded} matches, ELO updated`:currentLang==='pt'?`${recorded} jogos registrados, ELO atualizado`:`已录入 ${recorded} 场 · ELO已自动更新`, 'success');
 }
 
@@ -4493,7 +4658,7 @@ function renderMatchEntry() {
     </div>`;
   }).join('');
 }
-function deleteMatch(i){matchResults.splice(i,1);rebuildEloFromHistory();saveData();renderMatchEntry();renderGroups();renderStandings();renderELO();}
+function deleteMatch(i){matchResults.splice(i,1);rebuildEloFromHistory();saveData();renderMatchEntry();renderGroups();renderStandings();renderELO();renderKnockoutBracket();}
 
 function saveKOResult(mid,home,away,date){
   const s1El=document.getElementById('kos1_'+mid);
@@ -4508,7 +4673,7 @@ function saveKOResult(mid,home,away,date){
   mergeScoreResult(home,away,s1,s2,date,pkW);
   rebuildEloFromHistory();
   saveData();
-  renderSchedule(); renderMatchEntry(); renderGroups(); renderStandings(); renderELO();
+  renderSchedule(); renderMatchEntry(); renderGroups(); renderStandings(); renderELO(); renderKnockoutBracket();
   notify((currentLang==='zh'?'已保存KO结果':currentLang==='en'?'Saved KO':'Salvo KO')+': '+home+' '+s1+'-'+s2+' '+away,'success');
 }
 
@@ -6410,6 +6575,7 @@ window.loadData=loadData;
 window.updateAll=updateAll;
 window.renderChampionship=renderChampionship;
 window.renderGroups=renderGroups;
+window.renderKnockoutBracket=renderKnockoutBracket;
 window.renderSchedule=renderSchedule;
 window.renderScenarioPanel=renderScenarioPanel;
 window.toggleForce=toggleForce;
