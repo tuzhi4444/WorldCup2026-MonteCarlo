@@ -198,67 +198,6 @@ body {
 .qual-badge { font-size: 8px; padding: 1px 5px; border-radius: 20px; font-weight: 700; background: var(--green-light); color: var(--green); }
 .elim-badge { font-size: 8px; padding: 1px 5px; border-radius: 20px; font-weight: 700; background: var(--red-light); color: var(--red); }
 
-/* ─── BRACKET (visual tree) ─── */
-.bk-tree { display:flex; align-items:flex-start; overflow-x:auto; padding:12px 8px; gap:0; -webkit-overflow-scrolling:touch; }
-.bk-col { flex-shrink:0; display:flex; flex-direction:column; }
-.bk-col-label { font-size:9px; font-weight:700; color:var(--text3); text-align:center; padding:4px 0 6px; text-transform:uppercase; letter-spacing:.05em; }
-.bk-slot { display:flex; align-items:center; box-sizing:border-box; }
-.bk-card { width:120px; background:var(--bg2); border:1.5px solid var(--border); border-radius:6px; padding:4px 7px; cursor:pointer; transition:all .18s; display:flex; flex-direction:column; gap:1px; overflow:hidden; }
-.bk-card:hover { border-color:var(--accent); transform:translateY(-1px); }
-.bk-card.bk-hl { border-color:var(--accent); background:var(--accent-light); }
-.bk-card.bk-opp { border-color:var(--text3); opacity:.75; }
-.bk-card.bk-faded { opacity:.28; }
-.bk-card.bk-champ { border-color:var(--gold); background:var(--gold-light,#2a2200); }
-.bk-card.bk-editable { cursor:pointer; }
-.bk-card.bk-editable:hover { border-color:var(--accent); box-shadow:0 0 0 2px rgba(99,102,241,.25); }
-.bk-card.bk-edit-sel { border-color:var(--accent)!important; background:var(--accent-light,rgba(99,102,241,.18))!important; box-shadow:0 0 0 2px var(--accent); }
-.bk-seed { font-size:9px; color:var(--text3); font-weight:700; margin-right:2px; }
-#bkPickerOverlay { position:fixed; inset:0; z-index:9998; background:rgba(0,0,0,.45); display:none; }
-#bkPicker { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:9999;
-  background:var(--bg2); border:2px solid var(--border); border-radius:13px; padding:14px;
-  width:300px; max-height:500px; box-shadow:0 16px 50px rgba(0,0,0,.55); display:none; flex-direction:column; gap:0; }
-#bkPickerSearch { width:100%; box-sizing:border-box; padding:6px 10px; border:1.5px solid var(--border); border-radius:7px;
-  background:var(--bg3,var(--bg)); color:var(--text); font-size:12px; outline:none; margin-top:8px; }
-#bkPickerSearch:focus { border-color:var(--accent); }
-#bkPickerList { flex:1; overflow-y:auto; margin-top:6px; max-height:360px; }
-.bk-pi-grp { font-size:9px; font-weight:700; color:var(--text3); padding:6px 8px 2px; text-transform:uppercase; letter-spacing:.06em; }
-.bk-pi { display:flex; align-items:center; gap:6px; padding:6px 8px; border-radius:6px; cursor:pointer; font-size:12px; }
-.bk-pi:hover { background:var(--bg3,rgba(255,255,255,.07)); }
-.bk-pi.bk-pi-cur { background:var(--accent-light,rgba(99,102,241,.15)); color:var(--accent); font-weight:600; }
-.bk-pi-badge { font-size:9px; margin-left:auto; padding:1px 5px; border-radius:3px; background:var(--bg3,rgba(255,255,255,.08)); color:var(--text3); white-space:nowrap; }
-/* User pick mode */
-.up-groups { display:grid; grid-template-columns:repeat(4,1fr); gap:7px; margin-bottom:10px; }
-@media(max-width:700px){ .up-groups { grid-template-columns:repeat(3,1fr); } }
-@media(max-width:500px){ .up-groups { grid-template-columns:repeat(2,1fr); } }
-.up-gcard { background:var(--bg2); border:1.5px solid var(--border); border-radius:8px; padding:7px 6px; }
-.up-gcard-done { border-color:var(--green,#22c55e); }
-.up-ghead { font-size:10px; font-weight:700; color:var(--text3); margin-bottom:5px; text-transform:uppercase; letter-spacing:.04em; }
-.up-trow { display:flex; align-items:center; gap:4px; padding:3px 4px; border-radius:5px; cursor:pointer; font-size:11px; transition:background .1s; }
-.up-trow:hover { background:var(--bg3,rgba(255,255,255,.07)); }
-.up-trow.up-p1 { background:rgba(255,193,7,.16); }
-.up-trow.up-p2 { background:rgba(99,102,241,.14); }
-.up-badge { font-size:9px; min-width:22px; text-align:right; font-weight:700; flex-shrink:0; }
-.up-bk { display:flex; gap:0; }
-.up-bk-col { flex-shrink:0; display:flex; flex-direction:column; }
-.up-bk-label { font-size:10px; font-weight:800; color:var(--text); text-align:center; padding:4px 0 8px; text-transform:uppercase; letter-spacing:.07em; border-bottom:2px solid var(--border); margin-bottom:0; }
-.up-match-card { background:var(--bg2); border:1.5px solid var(--border); border-radius:8px; overflow:hidden; width:100%; transition:border-color .15s; }
-.up-match-card:has(.up-mt-won) { border-color:var(--accent); }
-.up-mt { display:flex; align-items:center; gap:5px; padding:5px 8px; cursor:pointer; font-size:11px; transition:background .12s; }
-.up-mt:hover:not(.up-mt-won):not(.up-mt-lost):not(.up-mt-empty) { background:var(--bg3,rgba(255,255,255,.06)); }
-.up-mt.up-mt-won { background:var(--accent-light,rgba(99,102,241,.13)); font-weight:700; color:var(--accent); }
-.up-mt.up-mt-lost { opacity:.28; cursor:pointer; }
-.up-mt.up-mt-empty { cursor:default; color:var(--text3); font-style:italic; font-size:10px; }
-.up-vs-line { display:flex; align-items:center; gap:4px; padding:0 8px; border-top:1px solid var(--border); border-bottom:1px solid var(--border); height:16px; }
-.up-vs-line span.bar { flex:1; height:1px; background:var(--border); }
-.up-vs-line span.vs { font-size:8px; color:var(--text3); font-weight:800; letter-spacing:.1em; }
-.up-match-box { display:flex; flex-direction:column; justify-content:center; width:100%; overflow:hidden; }
-.bk-cname { font-size:11px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.bk-cprob { font-size:9px; color:var(--text3); }
-.bk-svg { flex-shrink:0; overflow:visible; }
-/* legacy bracket classes kept for reference */
-.bracket-wrap { display:none; }
-.bracket-round { display:none; }
-
 /* ─── TEAM MODAL ─── */
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 200;
@@ -334,7 +273,6 @@ body {
   .tab { font-size: 11px; padding: 6px 8px; }
   .panel { padding: 10px; }
   .groups-grid { grid-template-columns: repeat(2, 1fr); }
-  .bracket-round { min-width: 100px; }
   .modal-stats { grid-template-columns: 1fr; }
   .modal-factors { grid-template-columns: 1fr; }
   .ctrl-group { gap: 4px; }
@@ -349,7 +287,6 @@ body {
   .main { padding: 8px 6px; }
   .panel { padding: 8px 8px; }
   .groups-grid { grid-template-columns: 1fr; }
-  .bracket-round { min-width: 80px; font-size: 10px; }
   .match-result-grid { grid-template-columns: 1fr; }
   /* 赛程表在手机上可横向滑动 */
   #scheduleTable { font-size: 10px; }
@@ -358,8 +295,6 @@ body {
   .champ-bar-row { font-size: 10px; }
   /* 积分榜 */
   .standings-table th, .standings-table td { padding: 3px 5px; font-size: 10px; }
-  /* 对阵树可横向滑动 */
-  .bracket-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   /* 按钮组 */
   .btn { font-size: 10px; padding: 4px 8px; }
   .btn-sm { font-size: 9px; padding: 3px 6px; }
@@ -409,7 +344,6 @@ body {
   <button class="tab" onclick="switchTab('schedule',this)">📅 赛程</button>
   <button class="tab" onclick="switchTab('championship',this)">🏆 冠军概率</button>
   <button class="tab" onclick="switchTab('groups',this)">🏟 小组赛</button>
-  <button class="tab" onclick="switchTab('bracket',this)">🏆 淘汰赛</button>
   <button class="tab" onclick="switchTab('teams',this)">📊 球队数据</button>
   <button class="tab" onclick="switchTab('analysis',this)">🔬 分析</button>
   <button class="tab" onclick="switchTab('squads',this)">📋 球队名单</button>
@@ -510,14 +444,6 @@ body {
     </div>
     <div id="groupSimHint" style="font-size:11px;color:var(--text2);margin-bottom:8px;">选择小组，填入每场比分，实时计算积分榜和出线席位</div>
     <div id="groupSimContent"><div class="empty-state">请先选择小组</div></div>
-  </div>
-</div>
-
-<!-- ─── TAB: BRACKET ─── -->
-<div class="tab-content" id="tab-bracket">
-  <div class="panel">
-    <div class="panel-header"><h3 id="bracketPanelH3">🏆 淘汰赛对阵图</h3><span id="bracketSubLabel" class="panel-label">32强 → 冠军</span></div>
-    <div id="bracketContent"><div class="empty-state" id="bracketEmpty">运行模拟后显示淘汰赛对阵表</div></div>
   </div>
 </div>
 
@@ -777,7 +703,7 @@ const L={
     sim:'模拟',simBtn:'▶ 运行',ready:'就绪',running:'模拟中...',done:'已完成',error_label:'错误',saved_label:'✓ 已保存',
     factor:'因子',factorMultiplier:'倍',scenario:'场景',scenario_reset:'恢复默认',
     tab_champ:'🏆 夺冠概率',tab_groups:'📊 小组赛',tab_analysis:'🔬 分析',tab_factors:'🎛 因子编辑',
-    tab_schedule:'📅 赛程',tab_history:'🎯 比分预测',tab_bracket:'🌳 对阵树',
+    tab_schedule:'📅 赛程',tab_history:'🎯 比分预测',
     tab_players:'👥 球员',tab_teams:'🏴 球队',
     panel_predict:'⚡ 单场预测',panel_upset:'⚠️ 冷门 & 黑马分析',
     panel_path:'🗺 晋级路径',panel_event:'🚨 突发事件面板',
@@ -798,7 +724,6 @@ const L={
     snapshot:'📸 快照',clear:'清空',snapshot_hint:'运行模拟后保存快照，对比调参前后变化',
     poisson:'泊松模型',upset_idx:'爆冷指数',
     live_scores:'🔄 获取实时比分',all:'全部',ko:'淘汰赛',
-    bracket_header:'晋级之路',
     qual_r32:'32强出线概率',qual_advance:'出线32强',qual_champ:'夺冠',
     portugal_time:'🇵🇹 葡萄牙',china_time:'🇨🇳 中国',
     fetch_status:'',
@@ -835,7 +760,6 @@ const L={
     group_sim_title:'📊 小组积分模拟',
     group_sim_hint:'选择小组，填入每场比分，实时计算积分榜和出线席位',
     group_sim_empty:'请先选择小组',
-    bracket_sub_label:'32强 → 冠军',
     team1_opt:'球队1', team2_opt:'球队2', team3_opt:'球队3',
     save_btn:'💾 保存',
     batch_adj_btn:'批量±1',
@@ -911,7 +835,7 @@ const L={
     sim:'Simular',simBtn:'▶ Executar',ready:'Pronto',running:'Simulando...',done:'Concluído',error_label:'Erro',saved_label:'✓ Salvo',
     factor:'Fator',factorMultiplier:'×',scenario:'Cenário',scenario_reset:'Restaurar',
     tab_champ:'🏆 Probabilidade',tab_groups:'📊 Grupos',tab_analysis:'🔬 Análise',tab_factors:'🎛 Fatores',
-    tab_schedule:'📅 Jogos',tab_history:'🎯 Previsão',tab_bracket:'🌳 Chave',
+    tab_schedule:'📅 Jogos',tab_history:'🎯 Previsão',
     tab_players:'👥 Jogadores',tab_teams:'🏴 Seleções',
     panel_predict:'⚡ Previsão Individual',panel_upset:'⚠️ Zebras & Surpresas',
     panel_path:'🗺 Trajetória',panel_event:'🚨 Eventos de Última Hora',
@@ -932,7 +856,6 @@ const L={
     snapshot:'📸 Snapshot',clear:'Limpar',snapshot_hint:'Salve snapshots para comparar ajustes',
     poisson:'Modelo Poisson',upset_idx:'Índice Zebra',
     live_scores:'🔄 Resultados ao Vivo',all:'Todos',ko:'Mata-mata',
-    bracket_header:'Caminho do Título',
     qual_r32:'Prob. de Avançar',qual_advance:'Avançar',qual_champ:'Campeão',
     portugal_time:'🇵🇹 Portugal',china_time:'🇨🇳 China',
     fetch_status:'',
@@ -969,7 +892,6 @@ const L={
     group_sim_title:'📊 Simulação de Grupo',
     group_sim_hint:'Selecione um grupo, insira os resultados e calcule a classificação em tempo real',
     group_sim_empty:'Selecione um grupo primeiro',
-    bracket_sub_label:'R32 → Campeão',
     team1_opt:'Seleção 1', team2_opt:'Seleção 2', team3_opt:'Seleção 3',
     save_btn:'💾 Salvar',
     batch_adj_btn:'Ajuste ±1',
@@ -1054,7 +976,7 @@ const L={
     no_sim:'Run simulation first',
     standings_title:'📋 Group Standings',
     tab_champ:'🏆 Championship',tab_groups:'📊 Groups',tab_analysis:'🔬 Analysis',tab_factors:'🎛 Factors',
-    tab_schedule:'📅 Schedule',tab_history:'🎯 Prediction',tab_bracket:'🌳 Bracket',
+    tab_schedule:'📅 Schedule',tab_history:'🎯 Prediction',
     tab_players:'👥 Players',tab_teams:'🏴 Teams',
     panel_predict:'⚡ Match Predictor',panel_upset:'⚠️ Upset & Dark Horse',
     panel_path:'🗺 Qualification Path',panel_event:'🚨 Breaking Events',
@@ -1075,7 +997,6 @@ const L={
     snapshot:'📸 Snapshot',clear:'Clear',snapshot_hint:'Save snapshots to compare parameter changes',
     poisson:'Poisson Model',upset_idx:'Upset Index',
     live_scores:'🔄 Live Scores',all:'All',ko:'Knockout',
-    bracket_header:'Road to the Title',
     qual_r32:'Advance Probability',qual_advance:'Advance',qual_champ:'Champion',
     portugal_time:'🇵🇹 Portugal',china_time:'🇨🇳 China',
     fetch_status:'',
@@ -1112,7 +1033,6 @@ const L={
     group_sim_title:'📊 Group Simulation',
     group_sim_hint:'Select a group, enter match scores, and calculate standings in real time',
     group_sim_empty:'Please select a group first',
-    bracket_sub_label:'R32 → Champion',
     team1_opt:'Team 1', team2_opt:'Team 2', team3_opt:'Team 3',
     save_btn:'💾 Save',
     batch_adj_btn:'Batch ±1',
@@ -1240,7 +1160,7 @@ function applyLangDOM(){
   }
   // Tabs — correct order: championship, groups, bracket, teams, analysis, schedule, history, squads
   const tabs=document.querySelectorAll('.tab');
-  const tabKeys={0:'tab_history',1:'tab_schedule',2:'tab_champ',3:'tab_groups',4:'tab_bracket',5:'tab_teams',6:'tab_analysis',7:'tab_squads'};
+  const tabKeys={0:'tab_history',1:'tab_schedule',2:'tab_champ',3:'tab_groups',4:'tab_teams',5:'tab_analysis',6:'tab_squads'};
   tabs.forEach((t,i)=>{if(tabKeys[i])t.textContent=T(tabKeys[i]);});
   // Status badge
   const sd=document.getElementById('simStatus');
@@ -1311,10 +1231,6 @@ function applyLangDOM(){
   const gsh=document.getElementById('groupSimH3');if(gsh)gsh.textContent=T('group_sim_title');
   const gshint=document.getElementById('groupSimHint');if(gshint)gshint.textContent=T('group_sim_hint');
   const gse=document.querySelector('#groupSimContent .empty-state');if(gse)gse.textContent=T('group_sim_empty');
-  // Bracket tab
-  const bph=document.getElementById('bracketPanelH3');
-  if(bph)bph.textContent=zh?'🏆 淘汰赛对阵图':en?'🏆 Knockout Bracket':'🏆 Chave Eliminatória';
-  const bsl=document.getElementById('bracketSubLabel');if(bsl)bsl.textContent=T('bracket_sub_label');
   // Teams tab — radar selects, editor
   const rt1=document.querySelector('#radarT1 option[value=""]');if(rt1)rt1.textContent=T('team1_opt');
   const rt2=document.querySelector('#radarT2 option[value=""]');if(rt2)rt2.textContent=T('team2_opt');
@@ -1378,8 +1294,6 @@ function applyLangDOM(){
   // Empty states
   const pe=document.getElementById('probContent');
   if(pe&&pe.querySelector('.empty-state'))pe.querySelector('.empty-state').textContent=zh?'点击「运行」开始模拟':en?'Click "Run" to start simulation':'Clique em "Executar" para simular';
-  const be=document.getElementById('bracketEmpty');
-  if(be)be.textContent=zh?'运行模拟后显示淘汰赛对阵表':en?'Run simulation to view knockout bracket':'Execute a simulação para ver a chave';
   const ciEmpty=document.querySelector('#ciContent .empty-state');if(ciEmpty)ciEmpty.textContent=T('run_first');
   const histEmpty=document.querySelector('#historyContent .empty-state');if(histEmpty)histEmpty.textContent=T('snapshot_hint');
   // Clear events button
@@ -2311,15 +2225,6 @@ Object.values(TEAM_SQUADS).forEach(t=>{
 let matchResults = [];
 let simHistory = [];
 let chartInstances = {};
-let bracketCustomSlots = null;
-let bracketEditMode = false;
-let bracketPickerSlot = null;
-let userPickActive = false;
-let userPickStep = 'groups'; // 'groups' | 'bracket'
-let userGroupPicks = {}; // {A:['1st','2nd'], ...}
-let userKOPicks = new Array(31).fill(null); // R32[0-15] R16[16-23] QF[24-27] SF[28-29] Final[30]
-const KO_OFFSETS = [0,16,24,28,30];
-const KO_SIZES   = [16, 8, 4, 2, 1];
 let darkMode = false;
 let confidenceIntervals = {};
 let FACTOR_MULT = 4.0;
@@ -2759,7 +2664,6 @@ async function runSim() {
       });
       simResults={champCount:cc,advanceCount:ac,qualPathData:qpd,totalSims:n,upsetLog:upsetLog};
       confidenceIntervals=ci;
-      bracketCustomSlots=null; bracketEditMode=false;
       // Auto-populate model odds from simulation (no API key needed)
       if(!Object.keys(savedOdds).length||_oddsFromModel){
         _oddsFromModel=true;
@@ -2806,7 +2710,7 @@ function updateFactorMult() {
   notify(_multMsg,'info');
 }
 function updateAll() {
-  renderChampionship(); renderGroups(); renderBracket(); renderEditor();
+  renderChampionship(); renderGroups(); renderEditor();
   renderUpset(); renderQualPath(); renderMatchEntry(); renderHistory(); renderScoreAnalysis();
   renderSchedule(); renderELO(); renderRadar(); renderHistogram(); renderCI();
   renderOdds(); renderEvents(); renderScenarioPanel();
@@ -3493,7 +3397,7 @@ function renderGroups() {
   grid.innerHTML=html;
 }
 
-// ─── TAB: BRACKET ───
+// ─── MATCH PROBABILITY (shared: prediction + sim) ───
 const _HOST_SET=new Set(['美国','加拿大','墨西哥']);
 const _HOST_BONUS=55;
 function getMatchProb(a,b){
@@ -3501,589 +3405,6 @@ function getMatchProb(a,b){
   const eb=calcAdjELO(b)+(_HOST_SET.has(b.name)?_HOST_BONUS:0);
   const d=ea-eb,rp=1/(1+Math.pow(10,-d/400)),pd=Math.max(0.12,0.28-0.0004*Math.abs(d));
   return {pA:Math.max(0.01,rp*(1-pd)),pB:Math.max(0.01,(1-rp)*(1-pd)),pD:pd};
-}
-// 根据实际比赛结果 + 模拟混合填充赛程签位
-// ─── BRACKET SLOT COMPUTATION ───
-// Returns ordered team names for a group.
-// Rule: only use actual standings when ALL 6 group matches are recorded.
-// Partial standings mislead (a team winning early games may ultimately finish 3rd/4th).
-// Incomplete groups fall back to simulation probability ranking.
-function _groupMatchCount(g){
-  return matchResults.filter(m=>!m.isKO&&
-    teams.find(t=>t.name===m.t1&&t.group===g)&&
-    teams.find(t=>t.name===m.t2&&t.group===g)
-  ).length;
-}
-function _groupRanking(g){
-  // Use actual standings for any group that has results
-  const mc=_groupMatchCount(g);
-  if(mc>=1) return getGroupStandingsFull(g).map(s=>s.name);
-  // No real results yet — use simulation as fallback
-  if(simResults){
-    return teams.filter(t=>t.group===g).slice()
-      .sort((a,b)=>(simResults.advanceCount[b.name]||0)-(simResults.advanceCount[a.name]||0))
-      .map(t=>t.name);
-  }
-  return getGroupStandingsFull(g).map(s=>s.name);
-}
-
-// Build the 32 bracket entry slots fresh every time — no persistent cache.
-// bracketCustomSlots is only set when the user is in manual-edit mode.
-// Uses KO_SCHED team pairings with FIFA bracket tree ordering for correct
-// R16+ pairings via simple adjacent-winner advancement.
-function buildBracketSlots(){
-  const slots=new Array(32).fill('?');
-
-  // FIFA bracket tree ordering: which KO_SCHED index goes to each slot-pair
-  // to produce correct R16/QF/SF pairings via adjacent (0,1)(2,3)... folding.
-  const koR32Order=[0,1,3,4,2,5,6,7,8,9,11,12,10,13,14,15];
-
-  // Fill from KO_SCHED team pairings (priority)
-  if(typeof KO_SCHED!=='undefined'){
-    for(let pi=0;pi<16;pi++){
-      const ksi=koR32Order[pi]; // KO_SCHED index for this bracket position
-      const ks=KO_SCHED[ksi];
-      if(ks&&ks.t1&&ks.t2){
-        const sa=pi*2, sb=pi*2+1;
-        slots[sa]=ks.t1;
-        slots[sb]=ks.t2;
-      }
-    }
-  }
-
-  // Fallback: fill any remaining '?' from group-based FIFA bracket
-  const hasQ=slots.some(s=>s==='?');
-  if(hasQ){
-    const GS=['A','B','C','D','E','F','G','H','I','J','K','L'];
-    const ranks={}, gd={};
-    GS.forEach(g=>{
-      ranks[g]=_groupRanking(g);
-      gd[g]={w:ranks[g][0]||null, ru:ranks[g][1]||null, t3:ranks[g][2]||null};
-    });
-    // Third-place
-    const thirds=[];
-    GS.forEach(g=>{
-      const t3=gd[g].t3; if(!t3) return;
-      const complete=_groupMatchCount(g)>=6;
-      const st=complete?getGroupStandingsFull(g).find(s=>s.name===t3):null;
-      thirds.push({name:t3, group:g, complete,
-        pts:st?.pts||0, gd:st?.gd||0, gf:st?.gf||0,
-        simAdv:simResults?(simResults.advanceCount[t3]||0):0});
-    });
-    thirds.sort((a,b)=>{
-      if(a.complete&&b.complete) return b.pts-a.pts||b.gd-a.gd||b.gf-a.gf;
-      if(a.complete!==b.complete) return a.complete?-1:1;
-      return b.simAdv-a.simAdv;
-    });
-    const btAll=thirds.slice(0,8), q3=new Set(btAll.map(t=>t.group));
-    const thirdSlots=[
-      {s:2,  p:['A','B','C','D','F']},{s:8,  p:['C','D','F','G','H']},
-      {s:12, p:['C','E','F','H','I']},{s:14, p:['E','H','I','J','K']},
-      {s:16, p:['B','E','F','I','J']},{s:18, p:['A','E','H','I','J']},
-      {s:24, p:['E','F','G','I','J']},{s:28, p:['D','E','I','J','L']},
-    ];
-    const assigned3=new Set();
-    for(const ts of thirdSlots){
-      if(slots[ts.s+1]!=='?') continue;
-      for(const g of ts.p)
-        if(q3.has(g)&&!assigned3.has(g)){const t=btAll.find(x=>x.group===g);if(t){slots[ts.s+1]=t.name;assigned3.add(g);break;}}
-    }
-    // Fixed group matchups for remaining slots
-    const fixed=[
-      [0,1,'A','ru','B','ru'],[2,3,'E','w',null,null],[4,5,'F','w','C','ru'],
-      [6,7,'C','w','F','ru'],[8,9,'I','w',null,null],[10,11,'E','ru','I','ru'],
-      [12,13,'A','w',null,null],[14,15,'L','w',null,null],
-      [16,17,'D','w',null,null],[18,19,'G','w',null,null],
-      [20,21,'K','ru','L','ru'],[22,23,'H','w','J','ru'],
-      [24,25,'B','w',null,null],[26,27,'J','w','H','ru'],
-      [28,29,'K','w',null,null],[30,31,'D','ru','G','ru'],
-    ];
-    for(const [sa,sb,gA,pA,gB,pB] of fixed){
-      if(slots[sa]==='?'){const a=pA==='w'?gd[gA].w:gd[gA].ru;if(a) slots[sa]=a;}
-      if(gB&&slots[sb]==='?'){const b=pB==='ru'?gd[gB].ru:null;if(b) slots[sb]=b;}
-    }
-  }
-  return slots;
-}
-
-// Seed label (A1/B2/3rd) — uses actual standings for complete groups, sim for others
-function _seedLabel(name){
-  if(!name||name==='?') return '';
-  const t=teams.find(x=>x.name===name);
-  if(!t) return '';
-  const ranking=_groupRanking(t.group);
-  const rank=ranking.indexOf(name);
-  if(rank===0) return t.group+'1';
-  if(rank===1) return t.group+'2';
-  return '3rd';
-}
-
-// Build eliminated-teams set from real KO results (for display-layer knockout resolution)
-function getKOEliminated(){
-  const elim=new Set();
-  (matchResults||[]).forEach(m=>{
-    const ta=teams.find(t=>t.name===m.t1), tb=teams.find(t=>t.name===m.t2);
-    if(!ta||!tb) return;
-    const isCross=ta.group!==tb.group;
-    if(!m.isKO&&!isCross) return;
-    if(m.score1==null||m.score2==null) return;
-    if(m.pkWinner){
-      elim.add(m.pkWinner===m.t1?m.t2:m.t1);
-    }else if(m.score1>m.score2){
-      elim.add(m.t2);
-    }else if(m.score2>m.score1){
-      elim.add(m.t1);
-    }
-  });
-  return elim;
-}
-
-function renderBracket(){
-  const el=document.getElementById('bracketContent');
-  if(!simResults){el.innerHTML=`<div class="empty-state">${T('run_first')}</div>`;return;}
-  if(userPickActive){renderUserPickMode(el);return;}
-
-  // In edit mode use the manual snapshot; otherwise always compute fresh
-  if(bracketEditMode&&!bracketCustomSlots) bracketCustomSlots=buildBracketSlots().slice();
-  const slots=bracketEditMode&&bracketCustomSlots?bracketCustomSlots:buildBracketSlots();
-
-  const {champCount,advanceCount,totalSims}=simResults;
-  const tdMap={};
-  teams.forEach(t=>{tdMap[t.name]={...t,adv:(advanceCount[t.name]||0)/totalSims,champ:(champCount[t.name]||0)/totalSims};});
-
-  // Advance bracket rounds. Priority: 1) recorded KO result → 2) real elimination → 3) ELO prediction.
-  function simRound(prev){
-    const koElim=getKOEliminated();
-    const res=[];
-    for(let i=0;i<prev.length;i+=2){
-      const a=prev[i],b=prev[i+1];
-      if(a==='?'||b==='?'){res.push(a!=='?'?a:b);continue;}
-      const ta=teams.find(x=>x.name===a)||{name:a,elo:1500};
-      const tb=teams.find(x=>x.name===b)||{name:b,elo:1500};
-      // Use recorded KO result if available.
-      const sameGrp=ta.group&&tb.group&&ta.group===tb.group;
-      const actual=matchResults.find(r=>
-        (sameGrp?!!r.isKO:true)&&((r.t1===a&&r.t2===b)||(r.t1===b&&r.t2===a)));
-      if(actual){
-        res.push(actual.pkWinner||(actual.score1>actual.score2?actual.t1:actual.t2));
-        continue;
-      }
-      // 2) Known elimination from real KO data
-      const aElim=koElim.has(a), bElim=koElim.has(b);
-      if(aElim&&!bElim){res.push(b);continue;}
-      if(bElim&&!aElim){res.push(a);continue;}
-      // 3) Neither eliminated (or both) — ELO prediction
-      const pp=getMatchProb(ta,tb);
-      res.push(pp.pA>=pp.pB?a:b);
-    }
-    return res;
-  }
-
-  const allRounds=[slots];
-  for(let r=1;r<6;r++) allRounds.push(simRound(allRounds[r-1]));
-
-  // Track each team's slot index per round for path highlighting
-  const trackMap={};
-  allRounds[0].forEach((name,si)=>{
-    if(!name||name==='?') return;
-    trackMap[name]={0:si};
-    for(let ri=1;ri<allRounds.length;ri++){
-      const ns=Math.floor(trackMap[name][ri-1]/2);
-      if(allRounds[ri][ns]===name) trackMap[name][ri]=ns;
-      else break;
-    }
-  });
-
-  const rn=({zh:['32强','16强','8强','半决赛','决赛','🏆 冠军'],
-              en:['R32','R16','QF','SF','Final','🏆 Winner'],
-              pt:['16avos','Oitavas','Quartas','Semi','Final','🏆 Campeão']})[currentLang]
-          ||['32强','16强','8强','半决赛','决赛','🏆 冠军'];
-  const BASE_H=22,TOTAL_H=32*BASE_H,CW=122,CONN=22;
-
-  const completedGroups=['A','B','C','D','E','F','G','H','I','J','K','L']
-    .filter(g=>_groupMatchCount(g)>=6).length;
-  const srcLabel=completedGroups>0
-    ?(currentLang==='zh'?`📊 ${completedGroups}/12组完赛`:currentLang==='en'?`📊 ${completedGroups}/12 groups done`:`📊 ${completedGroups}/12 grupos`)
-    :(currentLang==='zh'?'🎲 蒙特卡洛模拟':currentLang==='en'?'🎲 Monte Carlo sim':'🎲 Simulação MC');
-
-  const editBtnLbl=bracketEditMode
-    ?(currentLang==='en'?'✓ Done':currentLang==='pt'?'✓ Feito':'✓ 完成')
-    :(currentLang==='en'?'✏ Edit Bracket':currentLang==='pt'?'✏ Editar':'✏ 自由安排');
-  const resetLbl=currentLang==='en'?'↺ Reset':currentLang==='pt'?'↺ Redefinir':'↺ 重置';
-  const editHint=bracketEditMode
-    ?`<span style="font-size:11px;color:var(--accent);margin-left:4px;">${currentLang==='en'?'Click any slot to change team':currentLang==='pt'?'Clique num slot para trocar':'点击任意格位选择球队'}</span>`:'';
-  const upLbl=currentLang==='en'?'🎯 My Picks':currentLang==='pt'?'🎯 Meus Picks':'🎯 自定义预测';
-
-  let html=`<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
-    <button onclick="toggleBracketEdit()" class="btn-sm${bracketEditMode?' btn-active':''}" style="${bracketEditMode?'background:var(--accent);color:#fff;border-color:var(--accent);':''}">${editBtnLbl}</button>
-    <button onclick="resetBracket()" class="btn-sm">${resetLbl}</button>${editHint}
-    <span style="font-size:9px;color:var(--text2);padding:2px 6px;background:var(--bg3);border-radius:4px;">${srcLabel}</span>
-    <button onclick="toggleUserPick()" class="btn-sm" style="margin-left:auto;">${upLbl}</button>
-  </div>`;
-  html+=`<div class="bk-tree" id="bkTree">`;
-
-  allRounds.forEach((roundNames,ri)=>{
-    const nSlots=roundNames.length,slotH=(32/nSlots)*BASE_H,isLast=ri===5;
-    html+=`<div class="bk-col" style="width:${CW}px;">`;
-    html+=`<div class="bk-col-label">${rn[ri]}</div>`;
-    roundNames.forEach((name,si)=>{
-      const td=tdMap[name]||{champ:0,adv:0};
-      const cp=(td.champ*100).toFixed(1),ap=(td.adv*100).toFixed(0);
-      const probColor=parseFloat(cp)>10?'var(--accent)':parseFloat(cp)>2?'var(--green)':'var(--text3)';
-      const tn=(name||'').replace(/'/g,"\\'");
-      const sl=ri===0?_seedLabel(name):'';
-      const editCls=bracketEditMode&&ri===0?' bk-editable':'';
-      const clickFn=bracketEditMode&&ri===0?`openBkPicker(${si})`:`highlightBracketPath('${tn}')`;
-      const editIcon=bracketEditMode&&ri===0?'<span style="font-size:9px;float:right;opacity:.5;margin-left:2px;">✎</span>':'';
-      html+=`<div class="bk-slot" style="height:${slotH}px;">
-        <div class="bk-card${isLast?' bk-champ':''}${editCls}" id="bk-${ri}-${si}" data-team="${name||'?'}" data-slot="${si}"
-          onclick="${clickFn}" title="${name||'?'} · ${cp}%">
-          <div class="bk-cname">${sl?`<span class="bk-seed">${sl}</span>`:''}${name&&name!=='?'?getFlag(name)+' ':''}<b>${name&&name!=='?'?TN(name):'?'}</b>${editIcon}</div>
-          <div class="bk-cprob" style="color:${isLast?'var(--gold)':probColor}">${isLast?'🏆 ':''}${ri===0?ap+'%↑':cp+'%'}</div>
-        </div>
-      </div>`;
-    });
-    html+=`</div>`;
-    if(!isLast){
-      const nPairs=nSlots/2;
-      let lines='';
-      for(let ci=0;ci<nPairs;ci++){
-        const yT=(ci*2*slotH+slotH/2).toFixed(1);
-        const yB=((ci*2+1)*slotH+slotH/2).toFixed(1);
-        const yM=(ci*slotH*2+slotH).toFixed(1);
-        const xV=(CONN/2).toFixed(1);
-        lines+=`<line id="bkl-${ri}-${ci}-a" x1="0" y1="${yT}" x2="${xV}" y2="${yT}" stroke="var(--border)" stroke-width="1.5"/>`;
-        lines+=`<line id="bkl-${ri}-${ci}-b" x1="0" y1="${yB}" x2="${xV}" y2="${yB}" stroke="var(--border)" stroke-width="1.5"/>`;
-        lines+=`<line id="bkl-${ri}-${ci}-v" x1="${xV}" y1="${yT}" x2="${xV}" y2="${yB}" stroke="var(--border)" stroke-width="1.5"/>`;
-        lines+=`<line id="bkl-${ri}-${ci}-o" x1="${xV}" y1="${yM}" x2="${CONN}" y2="${yM}" stroke="var(--border)" stroke-width="1.5"/>`;
-      }
-      html+=`<svg class="bk-svg" width="${CONN}" height="${TOTAL_H}" viewBox="0 0 ${CONN} ${TOTAL_H}" style="display:block;">${lines}</svg>`;
-    }
-  });
-  html+=`</div>`;
-  const champ=allRounds[5][0]||'?';
-  const hint={zh:'点击球队高亮晋级路径 · 32强%=出线率，后续列=夺冠率',en:'Click team to highlight path · R32 %=advance, others=champ',pt:'Clique para destacar · 16avos %=class., outros=título'}[currentLang]||'';
-  html+=`<div style="font-size:10px;color:var(--text3);margin-top:6px;padding:0 4px;">${hint} &nbsp;|&nbsp; 🏆 ${TN(champ)}</div>`;
-  el.innerHTML=html;
-  el._trackMap=trackMap;
-}
-
-function toggleBracketEdit(){
-  bracketEditMode=!bracketEditMode;
-  if(bracketEditMode) bracketCustomSlots=buildBracketSlots().slice();
-  else bracketCustomSlots=null;
-  renderBracket();
-}
-
-function resetBracket(){
-  if(bracketEditMode) bracketCustomSlots=buildBracketSlots().slice();
-  else bracketCustomSlots=null;
-  bracketEditMode=false;
-  renderBracket();
-}
-
-function initBkPicker(){
-  if(document.getElementById('bkPicker')) return;
-  const overlay=document.createElement('div');
-  overlay.id='bkPickerOverlay';
-  overlay.onclick=closeBkPicker;
-  const picker=document.createElement('div');
-  picker.id='bkPicker';
-  picker.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-      <div>
-        <div style="font-size:12px;font-weight:700;" id="bkPickerTitle"></div>
-        <div style="font-size:10px;color:var(--text3);margin-top:1px;" id="bkPickerSub"></div>
-      </div>
-      <span onclick="closeBkPicker()" style="cursor:pointer;font-size:18px;line-height:1;opacity:.5;padding:0 2px;margin-left:8px;">✕</span>
-    </div>
-    <input id="bkPickerSearch" autocomplete="off" oninput="filterBkPicker(this.value)">
-    <div id="bkPickerList"></div>`;
-  document.body.appendChild(overlay);
-  document.body.appendChild(picker);
-}
-
-function openBkPicker(slotIdx){
-  if(!bracketEditMode||!bracketCustomSlots) return;
-  bracketPickerSlot=slotIdx;
-  const cur=bracketCustomSlots[slotIdx];
-  const L=currentLang;
-  document.getElementById('bkPickerTitle').textContent=
-    L==='en'?`Slot ${slotIdx+1}`:L==='pt'?`Posição ${slotIdx+1}`:`格位 ${slotIdx+1}`;
-  document.getElementById('bkPickerSub').textContent=
-    L==='en'?`Current: ${TN(cur)||cur}`:L==='pt'?`Atual: ${TN(cur)||cur}`:`当前: ${TN(cur)||cur}`;
-  const s=document.getElementById('bkPickerSearch');
-  if(s){s.value='';s.placeholder=L==='en'?'Search team…':L==='pt'?'Buscar equipe…':'搜索球队…';}
-  filterBkPicker('');
-  document.getElementById('bkPickerOverlay').style.display='block';
-  document.getElementById('bkPicker').style.display='flex';
-  if(s) setTimeout(()=>s.focus(),60);
-}
-
-function filterBkPicker(q){
-  const list=document.getElementById('bkPickerList');
-  if(!list) return;
-  const term=q.toLowerCase().trim();
-  const GS=['A','B','C','D','E','F','G','H','I','J','K','L'];
-  const cur=bracketPickerSlot!==null?bracketCustomSlots[bracketPickerSlot]:'';
-  const L=currentLang;
-  let html='';
-  GS.forEach(g=>{
-    const gt=teams.filter(t=>t.group===g);
-    const filtered=term?gt.filter(t=>t.name.includes(q)||TN(t.name).toLowerCase().includes(term)):gt;
-    if(!filtered.length) return;
-    html+=`<div class="bk-pi-grp">${L==='en'?'Group ':L==='pt'?'Grupo ':'第'}${g}${L==='zh'?'组':''}</div>`;
-    filtered.forEach(t=>{
-      const si=bracketCustomSlots.indexOf(t.name);
-      const isCur=t.name===cur;
-      const badge=si>=0?(L==='en'?`S${si+1}`:L==='pt'?`P${si+1}`:`格${si+1}`):'';
-      const tn=t.name.replace(/'/g,"\\'");
-      html+=`<div class="bk-pi${isCur?' bk-pi-cur':''}" onclick="pickTeamForSlot('${tn}')">
-        <span>${getFlag(t.name)}</span>
-        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${TN(t.name)}</span>
-        ${badge?`<span class="bk-pi-badge">${badge}</span>`:'<span class="bk-pi-badge" style="color:var(--green);">+</span>'}
-      </div>`;
-    });
-  });
-  list.innerHTML=html||`<div style="padding:12px;text-align:center;color:var(--text3);font-size:12px;">${L==='en'?'No results':L==='pt'?'Sem resultados':'无结果'}</div>`;
-}
-
-function pickTeamForSlot(teamName){
-  if(bracketPickerSlot===null||!bracketCustomSlots) return;
-  const target=bracketPickerSlot;
-  const displaced=bracketCustomSlots[target];
-  const existingIdx=bracketCustomSlots.indexOf(teamName);
-  bracketCustomSlots[target]=teamName;
-  if(existingIdx>=0&&existingIdx!==target) bracketCustomSlots[existingIdx]=displaced;
-  closeBkPicker();
-  renderBracket();
-}
-
-function closeBkPicker(){
-  bracketPickerSlot=null;
-  const p=document.getElementById('bkPicker'),o=document.getElementById('bkPickerOverlay');
-  if(p) p.style.display='none';
-  if(o) o.style.display='none';
-}
-
-// ─── USER PICK MODE ───
-function toggleUserPick(){
-  userPickActive=!userPickActive;
-  if(userPickActive) userPickStep='groups';
-  renderBracket();
-}
-function setUserPickStep(step){
-  userPickStep=step;
-  renderBracket();
-}
-function resetUserPick(){
-  userGroupPicks={};
-  userKOPicks=new Array(31).fill(null);
-  userPickStep='groups';
-  renderBracket();
-}
-function pickGroupTeam(group,teamName){
-  const picks=[...(userGroupPicks[group]||[])];
-  const idx=picks.indexOf(teamName);
-  if(idx>=0){ picks.splice(idx,1); }
-  else if(picks.length<2){ picks.push(teamName); }
-  else { return; }
-  userGroupPicks={...userGroupPicks,[group]:picks};
-  userKOPicks=new Array(31).fill(null);
-  renderBracket();
-}
-function pickKOWinner(pickIdx,teamName){
-  const next=[...userKOPicks];
-  next[pickIdx]=next[pickIdx]===teamName?null:teamName;
-  userKOPicks=next;
-  renderBracket();
-}
-function buildUserR32Slots(){
-  const pairs=[['A','B'],['C','D'],['E','F'],['G','H'],['I','J'],['K','L']];
-  const slots=new Array(32).fill(null);
-  pairs.forEach(([g1,g2],pi)=>{
-    const base=pi*4;
-    slots[base]  =userGroupPicks[g1]?.[0]||null;
-    slots[base+1]=userGroupPicks[g2]?.[1]||null;
-    slots[base+2]=userGroupPicks[g2]?.[0]||null;
-    slots[base+3]=userGroupPicks[g1]?.[1]||null;
-  });
-  // Auto-fill 8 3rd-place slots by ELO weight
-  const GS=['A','B','C','D','E','F','G','H','I','J','K','L'];
-  const thirds=[];
-  GS.forEach(g=>{
-    const picked=userGroupPicks[g]||[];
-    teams.filter(t=>t.group===g&&!picked.includes(t.name)).forEach(t=>thirds.push(t));
-  });
-  thirds.sort((a,b)=>calcWeight(b)-calcWeight(a));
-  for(let i=0;i<8;i++) slots[24+i]=thirds[i]?.name||null;
-  return slots;
-}
-function getUserMatchTeams(r,m){
-  if(r===0){const s=buildUserR32Slots();return[s[2*m],s[2*m+1]];}
-  const prev=KO_OFFSETS[r-1];
-  return[userKOPicks[prev+2*m],userKOPicks[prev+2*m+1]];
-}
-
-function renderUserPickMode(el){
-  const L=currentLang;
-  const GS=['A','B','C','D','E','F','G','H','I','J','K','L'];
-  const groupsDone=GS.every(g=>(userGroupPicks[g]||[]).length===2);
-  const doneCount=GS.filter(g=>(userGroupPicks[g]||[]).length===2).length;
-
-  let html=`<div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
-    <button onclick="toggleUserPick()" class="btn-sm">${L==='en'?'← Sim View':L==='pt'?'← Simulação':'← 模拟视图'}</button>
-    <button onclick="resetUserPick()" class="btn-sm">${L==='en'?'↺ Reset':L==='pt'?'↺ Reiniciar':'↺ 全部重置'}</button>`;
-
-  if(userPickStep==='groups'){
-    html+=`<span style="font-size:11px;color:var(--text3);margin-left:2px;">${L==='en'?`${doneCount}/12 done`:L==='pt'?`${doneCount}/12 grupos`:`已完成 ${doneCount}/12 组`}</span>`;
-    if(groupsDone) html+=`<button onclick="setUserPickStep('bracket')" class="btn-sm" style="background:var(--accent);color:#fff;border-color:var(--accent);">${L==='en'?'→ Knockout':L==='pt'?'→ Mata-Mata':'→ 进入淘汰赛'}</button>`;
-  } else {
-    html+=`<button onclick="setUserPickStep('groups')" class="btn-sm">${L==='en'?'← Groups':L==='pt'?'← Grupos':'← 分组赛'}</button>`;
-    const champ=userKOPicks[30];
-    if(champ) html+=`<span style="font-size:12px;color:var(--gold);margin-left:6px;">🏆 ${getFlag(champ)} ${TN(champ)}</span>`;
-  }
-  html+=`</div>`;
-
-  if(userPickStep==='groups'){
-    html+=`<div class="up-groups">`;
-    GS.forEach(g=>{
-      const picks=userGroupPicks[g]||[];
-      const gt=teams.filter(t=>t.group===g);
-      html+=`<div class="up-gcard${picks.length===2?' up-gcard-done':''}">
-        <div class="up-ghead">${L==='en'?'Grp ':L==='pt'?'Gr ':''}${g}${L==='zh'?'组':''} ${picks.length===2?'✓':picks.length===1?'·':'○'}</div>`;
-      gt.forEach(t=>{
-        const rank=picks.indexOf(t.name);
-        const cls=rank===0?' up-p1':rank===1?' up-p2':'';
-        const badge=rank===0?(L==='en'?'1st':L==='pt'?'1°':'第1'):rank===1?(L==='en'?'2nd':L==='pt'?'2°':'第2'):'';
-        const badgeColor=rank===0?'var(--gold)':rank===1?'var(--accent)':'var(--text3)';
-        const tn=t.name.replace(/'/g,"\\'");
-        html+=`<div class="up-trow${cls}" onclick="pickGroupTeam('${g}','${tn}')">
-          <span>${getFlag(t.name)}</span>
-          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${TN(t.name)}</span>
-          <span class="up-badge" style="color:${badgeColor}">${badge}</span>
-        </div>`;
-      });
-      html+=`</div>`;
-    });
-    html+=`</div>`;
-    if(groupsDone) html+=`<div style="text-align:center;padding:6px 0 2px;">
-      <button onclick="setUserPickStep('bracket')" style="background:var(--accent);color:#fff;border:none;padding:8px 22px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">
-        ${L==='en'?'Continue to Knockout →':L==='pt'?'Continuar →':'继续到淘汰赛 →'}</button></div>`;
-  } else {
-    html+=renderPickBracket();
-  }
-  el.innerHTML=html;
-}
-
-function renderPickBracket(){
-  const L=currentLang;
-  const rn=({zh:['32强','16强','8强','半决赛','决赛'],en:['R32','R16','QF','SF','Final'],pt:['16avos','Oitavas','Quartas','Semi','Final']})[L]
-          ||['32强','16强','8强','半决赛','决赛'];
-  // Each match card: 2 rows (22px each) + VS bar (16px) + card border (3px) = 63px
-  // SLOT_H=72 gives 9px vertical centering margin per match
-  const SLOT_H=72, TOTAL_H=16*SLOT_H, COL_W=140, CONN=24;
-  let html=`<div class="bracket-scroll"><div class="up-bk" id="upBkTree">`;
-  for(let r=0;r<5;r++){
-    const nMatches=KO_SIZES[r], matchH=TOTAL_H/nMatches;
-    html+=`<div class="up-bk-col" style="width:${COL_W}px;">`;
-    html+=`<div class="up-bk-label">${rn[r]}</div>`;
-    for(let m=0;m<nMatches;m++){
-      const[tA,tB]=getUserMatchTeams(r,m);
-      const pickIdx=KO_OFFSETS[r]+m, picked=userKOPicks[pickIdx], canPick=!!(tA&&tB);
-      const mkRow=(name)=>{
-        if(!name) return `<div class="up-mt up-mt-empty"><span>${L==='en'?'TBD':L==='pt'?'A def.':'待定'}</span></div>`;
-        const wonCls=picked===name?' up-mt-won':picked&&picked!==name?' up-mt-lost':'';
-        const tn=name.replace(/'/g,"\\'");
-        return `<div class="up-mt${wonCls}" ${canPick?`onclick="pickKOWinner(${pickIdx},'${tn}')"`:'style="cursor:default"'}>
-          <span>${getFlag(name)}</span>
-          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${TN(name)}</span>
-          ${picked===name?`<span style="font-size:10px;">✓</span>`:''}
-        </div>`;
-      };
-      html+=`<div style="height:${matchH}px;display:flex;align-items:center;padding:0 4px;box-sizing:border-box;">
-        <div class="up-match-card">
-          ${mkRow(tA)}
-          <div class="up-vs-line"><span class="bar"></span><span class="vs">VS</span><span class="bar"></span></div>
-          ${mkRow(tB)}
-        </div>
-      </div>`;
-    }
-    html+=`</div>`;
-    if(r<4){
-      const nPairs=nMatches/2;
-      let lines='';
-      for(let ci=0;ci<nPairs;ci++){
-        const yT=(ci*2*matchH+matchH/2).toFixed(1),yB=((ci*2+1)*matchH+matchH/2).toFixed(1);
-        const yM=(ci*2*matchH+matchH).toFixed(1),xV=(CONN/2).toFixed(1);
-        lines+=`<line x1="0" y1="${yT}" x2="${xV}" y2="${yT}" stroke="var(--border)" stroke-width="2"/>`;
-        lines+=`<line x1="0" y1="${yB}" x2="${xV}" y2="${yB}" stroke="var(--border)" stroke-width="2"/>`;
-        lines+=`<line x1="${xV}" y1="${yT}" x2="${xV}" y2="${yB}" stroke="var(--border)" stroke-width="2"/>`;
-        lines+=`<line x1="${xV}" y1="${yM}" x2="${CONN}" y2="${yM}" stroke="var(--border)" stroke-width="2"/>`;
-      }
-      html+=`<svg width="${CONN}" height="${TOTAL_H}" viewBox="0 0 ${CONN} ${TOTAL_H}" style="display:block;flex-shrink:0;">${lines}</svg>`;
-    }
-  }
-  const champ=userKOPicks[30];
-  html+=`<div class="up-bk-col" style="width:${COL_W}px;">`;
-  html+=`<div class="up-bk-label">🏆</div>`;
-  html+=`<div style="height:${TOTAL_H}px;display:flex;align-items:center;justify-content:center;padding:12px;box-sizing:border-box;">`;
-  if(champ){
-    html+=`<div style="text-align:center;padding:16px 12px;background:var(--gold-light,rgba(255,193,7,.1));border:2px solid var(--gold);border-radius:12px;width:100%;box-sizing:border-box;">
-      <div style="font-size:32px;">${getFlag(champ)}</div>
-      <div style="font-size:13px;font-weight:700;color:var(--gold);margin-top:8px;">🏆 ${TN(champ)}</div>
-    </div>`;
-  } else {
-    html+=`<div style="text-align:center;color:var(--text3);font-size:11px;line-height:1.8;">🏆<br>${L==='en'?'Pick your<br>champion':L==='pt'?'Escolha seu<br>campeão':'选出你的<br>冠军'}</div>`;
-  }
-  html+=`</div></div></div></div>`;
-  return html;
-}
-
-function highlightBracketPath(teamName){
-  if(!teamName||teamName==='?') return;
-  const el=document.getElementById('bracketContent');
-  if(!el) return;
-  const resetAll=()=>{
-    el.querySelectorAll('.bk-card').forEach(c=>c.classList.remove('bk-hl','bk-opp','bk-faded'));
-    el.querySelectorAll('line[id^="bkl"]').forEach(l=>{l.setAttribute('stroke','var(--border)');l.setAttribute('stroke-width','1.5');});
-  };
-  if(window._bkSelTeam===teamName){window._bkSelTeam=null;resetAll();return;}
-  window._bkSelTeam=teamName;
-  resetAll();
-  el.querySelectorAll('.bk-card').forEach(c=>c.classList.add('bk-faded'));
-
-  const trackMap=el._trackMap||{};
-  const track=trackMap[teamName]||{};
-
-  const cols=[...el.querySelectorAll('.bk-col')];
-  let slotIdx=track[0];
-  if(slotIdx===undefined){
-    // fallback: search DOM
-    const r0=cols[0];
-    if(r0){const cards=[...r0.querySelectorAll('.bk-card')];slotIdx=cards.findIndex(c=>c.dataset.team===teamName);}
-  }
-  if(slotIdx===undefined||slotIdx<0) return;
-
-  cols.forEach((col,ri)=>{
-    const slots=[...col.querySelectorAll('.bk-slot')];
-    // Highlight this team's slot
-    const myCard=slots[slotIdx]?.querySelector('.bk-card');
-    if(myCard){myCard.classList.remove('bk-faded');myCard.classList.add('bk-hl');}
-    // Highlight opponent in same pair (only if not the champion column)
-    if(ri<cols.length-1){
-      const oppIdx=slotIdx%2===0?slotIdx+1:slotIdx-1;
-      const oppCard=slots[oppIdx]?.querySelector('.bk-card');
-      if(oppCard){oppCard.classList.remove('bk-faded');oppCard.classList.add('bk-opp');}
-      // Highlight connector SVG lines for this pair
-      const ci=Math.floor(slotIdx/2);
-      ['a','b','v','o'].forEach(s=>{
-        const line=document.getElementById(`bkl-${ri}-${ci}-${s}`);
-        if(line){line.setAttribute('stroke','var(--accent)');line.setAttribute('stroke-width','2.5');}
-      });
-      slotIdx=Math.floor(slotIdx/2);
-    }
-  });
 }
 
 // ─── TAB: TEAMS (Radar + Editor) ───
@@ -5150,8 +4471,7 @@ function recordMatches() {
     recorded++;
   });
   rebuildEloFromHistory();
-  if(!bracketEditMode) bracketCustomSlots=null;
-  saveData(); updateEntryGroup(); renderMatchEntry(); renderGroups(); renderStandings(); renderPlayers(); renderOdds(); renderELO(); renderScoreAnalysis(); renderBracket();
+  saveData(); updateEntryGroup(); renderMatchEntry(); renderGroups(); renderStandings(); renderPlayers(); renderOdds(); renderELO(); renderScoreAnalysis();
   notify(currentLang==='en'?`Recorded ${recorded} matches, ELO updated`:currentLang==='pt'?`${recorded} jogos registrados, ELO atualizado`:`已录入 ${recorded} 场 · ELO已自动更新`, 'success');
 }
 
@@ -5173,7 +4493,7 @@ function renderMatchEntry() {
     </div>`;
   }).join('');
 }
-function deleteMatch(i){matchResults.splice(i,1);rebuildEloFromHistory();if(!bracketEditMode)bracketCustomSlots=null;saveData();renderMatchEntry();renderGroups();renderStandings();renderELO();renderBracket();}
+function deleteMatch(i){matchResults.splice(i,1);rebuildEloFromHistory();saveData();renderMatchEntry();renderGroups();renderStandings();renderELO();}
 
 function saveKOResult(mid,home,away,date){
   const s1El=document.getElementById('kos1_'+mid);
@@ -5187,9 +4507,8 @@ function saveKOResult(mid,home,away,date){
   }
   mergeScoreResult(home,away,s1,s2,date,pkW);
   rebuildEloFromHistory();
-  if(!bracketEditMode) bracketCustomSlots=null;
   saveData();
-  renderSchedule(); renderMatchEntry(); renderGroups(); renderStandings(); renderELO(); renderBracket();
+  renderSchedule(); renderMatchEntry(); renderGroups(); renderStandings(); renderELO();
   notify((currentLang==='zh'?'已保存KO结果':currentLang==='en'?'Saved KO':'Salvo KO')+': '+home+' '+s1+'-'+s2+' '+away,'success');
 }
 
@@ -5571,7 +4890,6 @@ async function fetchAllTournamentScores() {
   }
   if(btn){btn.disabled=false;btn.textContent=T('fetch_all_btn');}
   if(changed>0 || koFilled>0){
-    if (!bracketEditMode) bracketCustomSlots = null;
     saveData();updateAll();
     const resimmed = triggerAutoResim();
     const _syncOk=currentLang==='en'?`✅ ESPN sync complete · ${total} matches · ${changed} updated`:currentLang==='pt'?`✅ Sincronização ESPN concluída · ${total} jogos · ${changed} atualizados`:`✅ ESPN 全量同步完成·共 ${total} 场·更新 ${changed} 场`;
@@ -5724,7 +5042,6 @@ async function fetchLiveScores() {
   const timeStr = new Date().toLocaleTimeString(_tsLoc, {hour:'2-digit', minute:'2-digit', second:'2-digit'});
   const _srcLbl=currentLang==='en'?'Source':currentLang==='pt'?'Fonte':'来源';
   if (result.changed > 0 || koFilled > 0) {
-    if (!bracketEditMode) bracketCustomSlots = null;
     saveData(); updateAll(); renderScoreAnalysis();
     const resimmed = triggerAutoResim();
     setScoreStatus(`✅ ${_srcLbl}: ${result.source} · ${result.changed} ${currentLang==='en'?'new/updated':currentLang==='pt'?'novos':'新增/更新'} · ${timeStr}`, 'ok');
@@ -5744,7 +5061,6 @@ async function fetchLiveScores() {
 // odds / bracket / score predictions stay in sync without the user clicking "运行模拟".
 // Skipped while a simulation is already running or the user is mid manual bracket edit.
 function triggerAutoResim() {
-  if (bracketEditMode) return false;
   const btn = document.getElementById('runBtn');
   if (btn && btn.disabled) return false;
   runSim();
@@ -7027,7 +6343,6 @@ function init() {
   loadData();
   populateSelects();
   applyLangDOM();
-  initBkPicker();
   updateAll();
   updateOddsStatusBar();
   renderMatchEntry();
@@ -7095,21 +6410,7 @@ window.loadData=loadData;
 window.updateAll=updateAll;
 window.renderChampionship=renderChampionship;
 window.renderGroups=renderGroups;
-window.renderBracket=renderBracket;
-window.toggleBracketEdit=toggleBracketEdit;
-window.resetBracket=resetBracket;
-window.toggleUserPick=toggleUserPick;
-window.setUserPickStep=setUserPickStep;
-window.resetUserPick=resetUserPick;
-window.pickGroupTeam=pickGroupTeam;
-window.pickKOWinner=pickKOWinner;
-window.openBkPicker=openBkPicker;
-window.filterBkPicker=filterBkPicker;
-window.pickTeamForSlot=pickTeamForSlot;
-window.closeBkPicker=closeBkPicker;
-window.initBkPicker=initBkPicker;
 window.renderSchedule=renderSchedule;
-window.highlightBracketPath=highlightBracketPath;
 window.renderScenarioPanel=renderScenarioPanel;
 window.toggleForce=toggleForce;
 window.clearScenario=clearScenario;
